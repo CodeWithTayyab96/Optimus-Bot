@@ -5,7 +5,7 @@ async function dareCommand(sock, chatId, message) {
     try {
         const dare = await chat(
             'You generate Truth or Dare challenges. Generate ONE fun, creative "Dare" challenge for a WhatsApp group chat game. The dare should be doable via chat/phone (not physical stunts). It should be fun and slightly embarrassing but safe. Just output the dare, nothing else.',
-            'Give me a dare challenge'
+            'Give me a random Dare challenge for a WhatsApp group game — pick any style: funny, embarrassing, creative, or social.'
         );
 
         await sock.sendMessage(chatId, {

@@ -22,7 +22,7 @@ async function complimentCommand(sock, chatId, message) {
 
         const compliment = await chat(
             'You are a warm, wholesome friend. Generate ONE unique, heartfelt compliment for someone. Be creative and genuine — avoid generic phrases. Keep it to 1-2 sentences. Just output the compliment, nothing else.',
-            'Give me a compliment for someone special'
+            'Give me a random heartfelt compliment — pick any angle: personality, smile, intelligence, kindness, or energy.'
         );
 
         await sock.sendMessage(chatId, {

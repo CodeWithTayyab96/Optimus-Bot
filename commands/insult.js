@@ -22,7 +22,7 @@ async function insultCommand(sock, chatId, message) {
 
         const insult = await chat(
             'You are a witty roast comedian. Generate ONE playful, funny roast/insult. It should be light-hearted and humorous — mean enough to be funny but NOT truly hurtful or offensive. Think comedy roast style. Keep it to 1-2 sentences. Just output the roast, nothing else.',
-            'Give me a playful roast for someone'
+            'Give me a random playful roast — pick any style: witty, sarcastic, absurd, or self-aware humor.'
         );
 
         await sock.sendMessage(chatId, {

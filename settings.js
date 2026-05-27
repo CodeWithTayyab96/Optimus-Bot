@@ -6,9 +6,9 @@ const settings = {
   ownerNumber: '923701609799', // Set your number here without + symbol (country code + number, no spaces)
   giphyApiKey: 'qnl7ssQChTdPjsKta2Ax2LMaGXz303tq',
   // AI provider API keys
-  groqApiKey: '',
-  geminiApiKey: '',
-  pixazoApiKey: '',
+  groqApiKey: 'YOUR_GROQ_API_KEY',
+  geminiApiKey: 'YOUR_GEMINI_API_KEY',
+  pixazoApiKey: 'YOUR_PIXAZO_API_KEY',
   commandMode: 'public',
   maxStoreMessages: 20,
   storeWriteInterval: 10000,

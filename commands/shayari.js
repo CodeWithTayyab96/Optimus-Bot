@@ -5,7 +5,7 @@ async function shayariCommand(sock, chatId, message) {
     try {
         const shayari = await chat(
             'You are a master Urdu/Hindi poet. Generate ONE beautiful, original shayari (2-4 lines). Write it in Roman Urdu/Hindi script (Latin letters, not Devanagari or Arabic script). The shayari should be emotional, deep, and poetic. Topics can vary: love, heartbreak, life philosophy, friendship, nature. Just output the shayari, nothing else.',
-            'Write me a shayari'
+            'Write a random shayari — pick any theme: love, heartbreak, friendship, life, nature, or philosophy.'
         );
 
         await sock.sendMessage(chatId, {

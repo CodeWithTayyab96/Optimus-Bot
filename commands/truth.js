@@ -5,7 +5,7 @@ async function truthCommand(sock, chatId, message) {
     try {
         const truth = await chat(
             'You generate Truth or Dare questions. Generate ONE interesting, fun "Truth" question for a group chat game. The question should be juicy and fun but not too personal or offensive. Just output the question, nothing else. Vary between romantic, embarrassing, funny, and deep questions.',
-            'Give me a truth question'
+            'Give me a random Truth question for a group game — pick any category: romantic, embarrassing, funny, deep, or childhood memories.'
         );
 
         await sock.sendMessage(chatId, {

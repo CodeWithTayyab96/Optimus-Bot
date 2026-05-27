@@ -52,6 +52,13 @@ const isAdmin = require('./lib/isAdmin');
 const warnCommand = require('./commands/warn');
 const warningsCommand = require('./commands/warnings');
 const ttsCommand = require('./commands/tts');
+const sttCommand = require('./commands/stt');
+const studyCommand = require('./commands/study');
+const adviceCommand = require('./commands/advice');
+const riddleCommand = require('./commands/riddle');
+const { roastCommand } = require('./commands/roast');
+const motivateCommand = require('./commands/motivate');
+const summarizeCommand = require('./commands/summarize');
 const { tictactoeCommand, handleTicTacToeMove } = require('./commands/tictactoe');
 const { incrementMessageCount, topMembers } = require('./commands/topmembers');
 const ownerCommand = require('./commands/owner');
@@ -431,6 +438,13 @@ async function handleMessages(sock, messageUpdate, printLog) {
             case userMessage.startsWith('.tts'):
                 const text = userMessage.slice(4).trim();
                 await ttsCommand(sock, chatId, text, message);
+                break;
+            case userMessage.startsWith('.tovoice'):
+                const voiceText = userMessage.slice(8).trim();
+                await ttsCommand(sock, chatId, voiceText, message, { asVoice: true });
+                break;
+            case userMessage === '.totext' || userMessage === '.stt' || userMessage.startsWith('.totext ') || userMessage.startsWith('.stt '):
+                await sttCommand(sock, chatId, message);
                 break;
             case userMessage.startsWith('.delete') || userMessage.startsWith('.del'):
                 await deleteCommand(sock, chatId, message, senderId);
@@ -966,6 +980,24 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 await rosedayCommand(sock, chatId, message);
                 break;
             case userMessage.startsWith('.imagine'): await imagineCommand(sock, chatId, message);
+                break;
+            case userMessage.startsWith('.study'):
+                await studyCommand(sock, chatId, message);
+                break;
+            case userMessage === '.advice':
+                await adviceCommand(sock, chatId, message);
+                break;
+            case userMessage === '.riddle':
+                await riddleCommand(sock, chatId, message);
+                break;
+            case userMessage.startsWith('.roast'):
+                await roastCommand(sock, chatId, message);
+                break;
+            case userMessage === '.motivate' || userMessage === '.motivation':
+                await motivateCommand(sock, chatId, message);
+                break;
+            case userMessage === '.summarize' || userMessage === '.tldr':
+                await summarizeCommand(sock, chatId, message);
                 break;
             case userMessage === '.jid': await groupJidCommand(sock, chatId, message);
                 break;

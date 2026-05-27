@@ -5,7 +5,7 @@ async function flirtCommand(sock, chatId, message) {
     try {
         const flirt = await chat(
             'You are a charming person. Generate ONE creative, flirty pickup line or sweet message. It should be cute and romantic, not creepy. Just output the line, nothing else. Vary between cheesy, sweet, clever, and funny styles.',
-            'Give me a flirty pickup line'
+            'Give me a random pickup line — pick any style: cheesy, clever, sweet, funny, or nerdy.'
         );
 
         await sock.sendMessage(chatId, {

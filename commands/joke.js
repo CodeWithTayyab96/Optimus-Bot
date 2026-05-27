@@ -5,7 +5,7 @@ module.exports = async function (sock, chatId) {
     try {
         const joke = await chat(
             'You are a world-class comedian. Generate ONE original, funny joke. Just the joke — no intro, no labels, no "here\'s a joke". Keep it short (1-3 lines). Vary between puns, one-liners, observational humor, and dad jokes.',
-            'Tell me a joke'
+            'Tell me a random joke — pick any style: pun, one-liner, dad joke, dark humor, observational, etc.'
         );
 
         await sock.sendMessage(chatId, {
