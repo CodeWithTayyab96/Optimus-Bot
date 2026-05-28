@@ -1,11 +1,14 @@
 const { chat } = require('../lib/ai');
 const { channelInfo } = require('../lib/messageConfig');
 
+const types = ['wordplay', 'logic', 'math', 'lateral thinking', 'what am I', 'science', 'nature', 'tricky', 'classic', 'funny'];
+
 module.exports = async function (sock, chatId, message) {
     try {
+        const type = types[Math.floor(Math.random() * types.length)];
         const result = await chat(
             'You generate riddles. Output ONLY in this exact format:\nRIDDLE: <the riddle question>\nANSWER: <the answer>\n\nMake it clever but solvable. No extra text.',
-            'Give me a random riddle — pick any type: wordplay, logic, math, or lateral thinking.'
+            `Give me a ${type} riddle. (#${Date.now()})`
         );
 
         if (!result) return await sock.sendMessage(chatId, { text: '❌ Could not generate a riddle.', ...channelInfo }, { quoted: message });
@@ -20,7 +23,6 @@ module.exports = async function (sock, chatId, message) {
             ...channelInfo
         }, { quoted: message });
 
-        // Send answer after 30 seconds
         if (answerMatch) {
             setTimeout(async () => {
                 await sock.sendMessage(chatId, {

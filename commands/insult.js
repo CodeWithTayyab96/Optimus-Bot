@@ -1,12 +1,13 @@
 const { chat } = require('../lib/ai');
 const { channelInfo } = require('../lib/messageConfig');
 
+const styles = ['witty', 'sarcastic', 'absurd', 'self-aware', 'backhanded compliment', 'comparison', 'exaggeration', 'deadpan', 'pop culture', 'tech roast'];
+
 async function insultCommand(sock, chatId, message) {
     try {
         if (!message || !chatId) return;
 
         let userToInsult;
-
         if (message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0) {
             userToInsult = message.message.extendedTextMessage.contextInfo.mentionedJid[0];
         } else if (message.message?.extendedTextMessage?.contextInfo?.participant) {
@@ -20,9 +21,10 @@ async function insultCommand(sock, chatId, message) {
             });
         }
 
+        const style = styles[Math.floor(Math.random() * styles.length)];
         const insult = await chat(
             'You are a witty roast comedian. Generate ONE playful, funny roast/insult. It should be light-hearted and humorous — mean enough to be funny but NOT truly hurtful or offensive. Think comedy roast style. Keep it to 1-2 sentences. Just output the roast, nothing else.',
-            'Give me a random playful roast — pick any style: witty, sarcastic, absurd, or self-aware humor.'
+            `Give me a ${style} roast. (#${Date.now()})`
         );
 
         await sock.sendMessage(chatId, {
@@ -31,7 +33,6 @@ async function insultCommand(sock, chatId, message) {
             ...channelInfo
         });
     } catch (error) {
-        console.error('Error in insult command:', error.message);
         await sock.sendMessage(chatId, { text: '❌ An error occurred while sending the insult.', ...channelInfo });
     }
 }
