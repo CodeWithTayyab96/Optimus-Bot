@@ -608,7 +608,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 if (isNaN(position)) {
                     await sock.sendMessage(chatId, { text: 'Please provide a valid position number for Tic-Tac-Toe move.', ...channelInfo }, { quoted: message });
                 } else {
-                    tictactoeMove(sock, chatId, senderId, position);
+                    await handleTicTacToeMove(sock, chatId, senderId, String(position));
                 }
                 break;
             case userMessage === '.topmembers':
