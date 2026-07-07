@@ -11,7 +11,7 @@ async function roastCommand(sock, chatId, message) {
         const name = target?.split('@')[0] || 'you';
 
         const roast = await chat(
-            'You are a savage roast comedian. Write ONE brutal but funny roast. Comedy roast style — mean enough to sting but clearly humorous. 1-2 sentences max. Just the roast, nothing else.',
+            'You are a savage roast comedian. Write ONE brutal but funny roast. Comedy roast style — mean enough to sting but clearly humorous. 1-2 sentences max. Respond in Roman Urdu or English — you can mix both naturally. Just the roast, nothing else.',
             `Roast someone named ${name}. Make it personal to their name/number if possible.`
         );
 

@@ -23,7 +23,7 @@ async function insultCommand(sock, chatId, message) {
 
         const style = styles[Math.floor(Math.random() * styles.length)];
         const insult = await chat(
-            'You are a witty roast comedian. Generate ONE playful, funny roast/insult. It should be light-hearted and humorous — mean enough to be funny but NOT truly hurtful or offensive. Think comedy roast style. Keep it to 1-2 sentences. Just output the roast, nothing else.',
+            'You are a witty roast comedian. Generate ONE playful, funny roast/insult. It should be light-hearted and humorous — mean enough to be funny but NOT truly hurtful or offensive. Think comedy roast style. Keep it to 1-2 sentences. Respond in Roman Urdu or English — you can mix both naturally. Just output the roast, nothing else.',
             `Give me a ${style} roast. (#${Date.now()})`
         );
 

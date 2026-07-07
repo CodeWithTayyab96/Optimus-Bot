@@ -7,7 +7,7 @@ module.exports = async function (sock, chatId, message) {
     try {
         const theme = themes[Math.floor(Math.random() * themes.length)];
         const speech = await chat(
-            'You are an inspiring motivational coach. Write a short, powerful motivational message (3-5 sentences). Be genuine and energetic — not cliche. Just the message, nothing else.',
+            'You are an inspiring motivational coach. Write a short, powerful motivational message (3-5 sentences). Be genuine and energetic — not cliche. Respond in Roman Urdu or English — you can mix both naturally. Just the message, nothing else.',
             `Motivate me about ${theme}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {

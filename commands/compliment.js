@@ -23,7 +23,7 @@ async function complimentCommand(sock, chatId, message) {
 
         const angle = angles[Math.floor(Math.random() * angles.length)];
         const compliment = await chat(
-            'You are a warm, wholesome friend. Generate ONE unique, heartfelt compliment for someone. Be creative and genuine — avoid generic phrases. Keep it to 1-2 sentences. Just output the compliment, nothing else.',
+            'You are a warm, wholesome friend. Generate ONE unique, heartfelt compliment for someone. Be creative and genuine — avoid generic phrases. Keep it to 1-2 sentences. Respond in Roman Urdu or English — you can mix both naturally. Just output the compliment, nothing else.',
             `Compliment someone's ${angle}. (#${Date.now()})`
         );
 

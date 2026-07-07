@@ -5,15 +5,14 @@ const { channelInfo } = require('../lib/messageConfig');
 
 /**
  * Text-to-Speech command with language support
- * Usage: .tts <text>          — English TTS
- *        .tts ur <text>       — Urdu TTS
- *        .tts hi <text>       — Hindi TTS
+ * Usage: .tts <text>          — English / Roman Urdu TTS
+ *        .tts ur <text>       — Urdu script TTS (Arabic script only)
  *        .tovoice <text>      — Alias (sends as voice note)
  */
 
 // Supported language codes
 const LANGUAGES = {
-    en: 'English', ur: 'Urdu', hi: 'Hindi', ar: 'Arabic',
+    en: 'English / Roman Urdu', ur: 'Urdu (Arabic script)', ar: 'Arabic',
     es: 'Spanish', fr: 'French', de: 'German', pt: 'Portuguese',
     ru: 'Russian', ja: 'Japanese', ko: 'Korean', zh: 'Chinese',
     tr: 'Turkish', it: 'Italian', bn: 'Bengali', pa: 'Punjabi',
@@ -25,7 +24,7 @@ async function ttsCommand(sock, chatId, text, message, options = {}) {
             .map(([code, name]) => `  *${code}* — ${name}`)
             .join('\n');
         return await sock.sendMessage(chatId, {
-            text: `🔊 *Text-to-Speech*\n\nUsage: .tts <text>\nWith language: .tts <lang> <text>\n\n*Supported languages:*\n${langList}\n\nExamples:\n• .tts Hello, how are you?\n• .tts ur آپ کیسے ہیں\n• .tts hi नमस्ते दुनिया`,
+            text: `🔊 *Text-to-Speech*\n\nUsage: .tts <text>\nLanguage ke saath: .tts <lang> <text>\n\n*Supported Languages:*\n${langList}\n\nExamples:\n• .tts Hello, how are you?\n• .tts ap kaise hain? (Roman Urdu — no lang code needed)\n• .tts ur آپ کیسے ہیں (Urdu Arabic script)\n\n💡 *Tip:* Roman Urdu likhna ho to sirf .tts likho, koi lang code mat dalo. Urdu script (آپ) ke liye *ur* use karo.`,
             ...channelInfo
         }, { quoted: message });
     }
@@ -40,7 +39,7 @@ async function ttsCommand(sock, chatId, text, message, options = {}) {
 
     if (!text.trim()) {
         return await sock.sendMessage(chatId, {
-            text: '🔊 Please provide text after the language code.',
+            text: '🔊 Language code ke baad text bhi likho. (Please provide text after the language code.)',
             ...channelInfo
         }, { quoted: message });
     }
@@ -76,7 +75,7 @@ async function ttsCommand(sock, chatId, text, message, options = {}) {
     } catch (err) {
         console.error('TTS error:', err.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to generate speech. Please try again.',
+            text: '❌ Speech generate nahi ho saki. Dobara try karo. (Failed to generate speech. Please try again.)',
             ...channelInfo
         }, { quoted: message });
     } finally {

@@ -7,7 +7,7 @@ module.exports = async function quoteCommand(sock, chatId, message) {
     try {
         const theme = themes[Math.floor(Math.random() * themes.length)];
         const quote = await chat(
-            'You are a wise philosopher. Generate ONE original, meaningful, and inspirational quote. Format it as:\n"<quote>" — <Author Name>\n\nThe author can be a real historical figure or a fictional wise persona. Just output the quote, nothing else.',
+            'You are a wise philosopher. Generate ONE original, meaningful, and inspirational quote. Format it as:\n"<quote>" — <Author Name>\n\nThe author can be a real historical figure or a fictional wise persona. Respond in Roman Urdu or English — you can mix both naturally. Just output the quote, nothing else.',
             `Give me a quote about ${theme}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {

@@ -7,7 +7,7 @@ module.exports = async function (sock, chatId, message) {
     try {
         const topic = topics[Math.floor(Math.random() * topics.length)];
         const fact = await chat(
-            'You are a trivia expert. Generate ONE surprising, true, and interesting fact that most people don\'t know. Just state the fact directly — no intro like "Did you know". Keep it to 1-2 sentences. Make sure it is factually accurate.',
+            'You are a trivia expert. Generate ONE surprising, true, and interesting fact that most people don\'t know. Just state the fact directly — no intro like "Did you know". Keep it to 1-2 sentences. Make sure it is factually accurate. Respond in Roman Urdu or English — you can mix both naturally.',
             `Tell me a surprising fact about ${topic}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {

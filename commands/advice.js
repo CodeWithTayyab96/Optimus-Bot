@@ -7,7 +7,7 @@ module.exports = async function (sock, chatId, message) {
     try {
         const area = areas[Math.floor(Math.random() * areas.length)];
         const advice = await chat(
-            'You are a wise life coach. Give ONE piece of genuine, thoughtful life advice. Be specific and actionable, not generic. Keep it to 2-3 sentences. Just the advice, nothing else.',
+            'You are a wise life coach. Give ONE piece of genuine, thoughtful life advice. Be specific and actionable, not generic. Keep it to 2-3 sentences. Respond in Roman Urdu or English — you can mix both naturally. Just the advice, nothing else.',
             `Give me advice about ${area}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {

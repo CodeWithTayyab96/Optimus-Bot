@@ -1,6 +1,19 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-const { speechToText } = require('../lib/ai');
+const { speechToText, chat } = require('../lib/ai');
 const { channelInfo } = require('../lib/messageConfig');
+
+// Returns true if text contains Arabic or Devanagari script characters
+function isNonLatinScript(text) {
+    return /[؀-ۿऀ-ॿ]/.test(text);
+}
+
+async function toRomanUrdu(text) {
+    const result = await chat(
+        'You are a transliterator. Convert the given Urdu or Hindi text into Roman Urdu (Latin script). Output ONLY the Roman Urdu transliteration — no explanations, no original text, nothing else.',
+        text
+    );
+    return result || text;
+}
 
 async function sttCommand(sock, chatId, message) {
     try {
@@ -13,7 +26,7 @@ async function sttCommand(sock, chatId, message) {
 
         if (!audioMsg) {
             return await sock.sendMessage(chatId, {
-                text: '🎙️ Please reply to a *voice message* or *audio* to transcribe it.\nExample: Reply to a voice note with `.totext`',
+                text: '🎙️ Kisi *voice message* ya *audio* ko reply karo transcribe karne ke liye.\nExample: Voice note ko reply karo *.totext* ke saath\n\n💡 Urdu, Hindi, aur English — sab languages support hain!',
                 ...channelInfo
             }, { quoted: message });
         }
@@ -38,7 +51,7 @@ async function sttCommand(sock, chatId, message) {
 
         if (!audioBuffer || audioBuffer.length === 0) {
             return await sock.sendMessage(chatId, {
-                text: '❌ Failed to download the audio. Please try again.',
+                text: '❌ Audio download nahi hui. Dobara try karo. (Failed to download the audio. Please try again.)',
                 ...channelInfo
             }, { quoted: message });
         }
@@ -58,14 +71,19 @@ async function sttCommand(sock, chatId, message) {
 
         if (!transcription) {
             return await sock.sendMessage(chatId, {
-                text: '❌ Could not transcribe the audio. The voice note may be too short or unclear.',
+                text: '❌ Audio transcribe nahi ho saki. Voice note thodi lambi rakho ya saaf bol ke record karo. (Could not transcribe. The voice note may be too short or unclear.)',
                 ...channelInfo
             }, { quoted: message });
         }
 
-        // Send the transcription
+        // If Whisper returned Arabic/Devanagari script, convert to Roman Urdu
+        let finalText = transcription;
+        if (isNonLatinScript(transcription)) {
+            finalText = await toRomanUrdu(transcription);
+        }
+
         await sock.sendMessage(chatId, {
-            text: `🎙️ *Transcription:*\n\n${transcription}`,
+            text: `🎙️ *Transcription:*\n\n${finalText}`,
             ...channelInfo
         }, { quoted: message });
 

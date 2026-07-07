@@ -54,6 +54,9 @@ const warningsCommand = require('./commands/warnings');
 const ttsCommand = require('./commands/tts');
 const sttCommand = require('./commands/stt');
 const studyCommand = require('./commands/study');
+const rewriteCommand = require('./commands/rewrite');
+const replyCommand = require('./commands/reply');
+const voicesummaryCommand = require('./commands/voicesummary');
 const adviceCommand = require('./commands/advice');
 const riddleCommand = require('./commands/riddle');
 const { roastCommand } = require('./commands/roast');
@@ -955,6 +958,15 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 break;
             case userMessage.startsWith('.gpt') || userMessage.startsWith('.gemini'):
                 await aiCommand(sock, chatId, message);
+                break;
+            case userMessage.startsWith('.rewrite'):
+                await rewriteCommand(sock, chatId, message);
+                break;
+            case userMessage.startsWith('.reply'):
+                await replyCommand(sock, chatId, message);
+                break;
+            case userMessage.startsWith('.voicesummary') || userMessage.startsWith('.vsum'):
+                await voicesummaryCommand(sock, chatId, message);
                 break;
             case userMessage.startsWith('.translate') || userMessage.startsWith('.trt'):
                 const commandLength = userMessage.startsWith('.translate') ? 10 : 4;

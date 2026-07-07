@@ -17,7 +17,7 @@ module.exports = async function (sock, chatId, message) {
         }
 
         const summary = await chat(
-            'You are a concise summarizer. Summarize the given text in 1-3 bullet points. Be brief and capture only the key points. Use • for bullets.',
+            'You are a concise summarizer. Summarize the given text in 1-3 bullet points. Be brief and capture only the key points. Use • for bullets. Respond in Roman Urdu or English — match whichever language the text is in, or mix both naturally.',
             textToSummarize
         );
 

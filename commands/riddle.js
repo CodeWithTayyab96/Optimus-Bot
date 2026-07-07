@@ -7,7 +7,7 @@ module.exports = async function (sock, chatId, message) {
     try {
         const type = types[Math.floor(Math.random() * types.length)];
         const result = await chat(
-            'You generate riddles. Output ONLY in this exact format:\nRIDDLE: <the riddle question>\nANSWER: <the answer>\n\nMake it clever but solvable. No extra text.',
+            'You generate riddles. Output ONLY in this exact format:\nRIDDLE: <the riddle question>\nANSWER: <the answer>\n\nMake it clever but solvable. Respond in Roman Urdu or English — you can mix both naturally. No extra text.',
             `Give me a ${type} riddle. (#${Date.now()})`
         );
 
