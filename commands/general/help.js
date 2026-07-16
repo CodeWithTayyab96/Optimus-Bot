@@ -77,11 +77,14 @@ async function helpCommand(sock, chatId, message) {
   ◈ .goodnight • .roseday
   ◈ .ship / .simp / .wasted @user
   ◈ .character / .stupid @user
+  ◈ .gayrate @user
+  ◈ .memesearch <query>
 
 ━━━━〔 🎮 *GAMES* 〕━━━━
   ◈ .tictactoe @user
   ◈ .hangman • .guess <letter>
   ◈ .trivia • .answer <answer>
+  ◈ .bomb
 
 ━━━━〔 🎨 *IMAGE & STICKER* 〕━━━━
   ◈ .sticker / .simage / .crop

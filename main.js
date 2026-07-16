@@ -61,6 +61,7 @@ const { handleMessageRevocation, storeMessage } = safeRequire('./commands/owner/
 const { handleStatusUpdate } = safeRequire('./commands/owner/autostatus');
 const { readState: readPmBlockerState } = safeRequire('./commands/owner/pmblocker');
 const { handleTicTacToeMove } = safeRequire('./commands/fun/tictactoe');
+const bombModule = safeRequire('./commands/fun/bomb');
 const { incrementMessageCount } = safeRequire('./commands/fun/topmembers');
 const { handleTagDetection } = safeRequire('./commands/admin/antitag');
 const { handleMentionDetection } = safeRequire('./commands/admin/mention');
@@ -192,6 +193,15 @@ async function handleMessages(sock, messageUpdate, printLog) {
         }
 
         // First check if it's a game move
+        // Bomb runs per-player, so route its input first when that player has an active game
+        if (bombModule.gameState && bombModule.gameState.has(senderId) &&
+            (/^[1-9]$/.test(userMessage) || ['suren', 'surrender'].includes(userMessage))) {
+            await bombModule.execute(sock, message, [], {
+                chatId, senderId,
+                reply: (text) => sock.sendMessage(chatId, { text }, { quoted: message })
+            });
+            return;
+        }
         if (/^[1-9]$/.test(userMessage) || userMessage.toLowerCase() === 'surrender') {
             if (handleTicTacToeMove) await handleTicTacToeMove(sock, chatId, senderId, userMessage);
             return;
