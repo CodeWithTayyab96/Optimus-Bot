@@ -21,6 +21,8 @@ async function helpCommand(sock, chatId, message) {
   ◈ .trt <text> <lang> • .ss <link>
   ◈ .vv • .jid • .url
   ◈ .getpp @user • .groupstats
+  ◈ .myactivity • .uptime
+  ◈ .calc <expr> • .qr <text>
 
 ━━━━〔 👮 *ADMIN* 〕━━━━
   ◈ .ban / .kick / .warn @user
