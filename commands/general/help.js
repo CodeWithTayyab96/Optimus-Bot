@@ -64,6 +64,8 @@ async function helpCommand(sock, chatId, message) {
   ◈ .gpt <question>
   ◈ .gemini <question>
   ◈ .imagine <prompt>
+  ◈ .magicstudio <prompt>
+  ◈ .gptimage <prompt> _(reply to img)_
   ◈ .study _(reply to doc)_
   ◈ .summarize / .tldr _(reply to msg)_
 
@@ -99,6 +101,8 @@ async function helpCommand(sock, chatId, message) {
   ◈ .video / .ytmp4 <link>
   ◈ .spotify <query>
   ◈ .instagram / .facebook / .tiktok <link>
+  ◈ .twitter / .x <link>
+  ◈ .pinterest / .pin <link>
 
 ━━━━〔 🔤 *TEXTMAKER* 〕━━━━
   ◈ .metallic • .ice • .snow • .neon
