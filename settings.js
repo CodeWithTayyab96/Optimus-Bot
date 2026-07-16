@@ -1,4 +1,5 @@
 const settings = {
+  prefix: '.', // Command prefix — change this and every command responds to the new prefix
   packname: 'Optimus Bot',
   author: 'Tayyab',
   botName: 'Optimus Bot',
