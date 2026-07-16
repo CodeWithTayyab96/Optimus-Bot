@@ -25,7 +25,8 @@ async function helpCommand(sock, chatId, message) {
   ◈ .calc <expr> • .qr <text>
 
 ━━━━〔 👮 *ADMIN* 〕━━━━
-  ◈ .ban / .kick / .warn @user
+  ◈ .ban / .unban @user
+  ◈ .kick / .warn @user
   ◈ .promote / .demote @user
   ◈ .mute <min> • .unmute
   ◈ .delete / .del • .clear
@@ -59,6 +60,8 @@ async function helpCommand(sock, chatId, message) {
   ◈ .setbotname <name>
   ◈ .setmenuimage _(reply to image)_
   ◈ .setnewsletter <jid>
+  ◈ .sudo add/del/list @user
+  ◈ .pair <number>
 
 ━━━━〔 🤖 *AI* 〕━━━━
   ◈ .gpt <question>
@@ -68,6 +71,9 @@ async function helpCommand(sock, chatId, message) {
   ◈ .gptimage <prompt> _(reply to img)_
   ◈ .study _(reply to doc)_
   ◈ .summarize / .tldr _(reply to msg)_
+  ◈ .reply _(reply to msg)_
+  ◈ .rewrite <text>
+  ◈ .voicesummary / .vsum _(reply to VN)_
 
 ━━━━〔 🎯 *FUN ZONE* 〕━━━━
   ◈ .joke • .fact • .quote
@@ -81,6 +87,7 @@ async function helpCommand(sock, chatId, message) {
   ◈ .character / .stupid @user
   ◈ .gayrate @user
   ◈ .memesearch <query>
+  ◈ .gif <search> • .topmembers
 
 ━━━━〔 🎮 *GAMES* 〕━━━━
   ◈ .tictactoe @user
@@ -89,7 +96,7 @@ async function helpCommand(sock, chatId, message) {
   ◈ .bomb
 
 ━━━━〔 🎨 *IMAGE & STICKER* 〕━━━━
-  ◈ .sticker / .simage / .crop
+  ◈ .sticker / .sticker2 / .simage / .crop
   ◈ .blur • .removebg • .remini
   ◈ .meme • .take <packname>
   ◈ .tgsticker <link>
@@ -97,7 +104,7 @@ async function helpCommand(sock, chatId, message) {
   ◈ .igs / .igsc <insta link>
 
 ━━━━〔 📥 *DOWNLOADER* 〕━━━━
-  ◈ .play / .song <name>
+  ◈ .play / .song / .music <name>
   ◈ .video / .ytmp4 <link>
   ◈ .spotify <query>
   ◈ .instagram / .facebook / .tiktok <link>

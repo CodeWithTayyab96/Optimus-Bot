@@ -193,8 +193,9 @@ async function handleMessages(sock, messageUpdate, printLog) {
         }
 
         // First check if it's a game move
-        // Bomb runs per-player, so route its input first when that player has an active game
-        if (bombModule.gameState && bombModule.gameState.has(senderId) &&
+        // Bomb runs per-player-per-chat, so route its input first when that player
+        // has an active game in THIS chat; otherwise digits fall through to tictactoe
+        if (bombModule.hasActiveGame && bombModule.hasActiveGame(senderId, chatId) &&
             (/^[1-9]$/.test(userMessage) || ['suren', 'surrender'].includes(userMessage))) {
             await bombModule.execute(sock, message, [], {
                 chatId, senderId,

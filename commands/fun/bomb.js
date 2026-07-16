@@ -1,8 +1,16 @@
 // Store game state per user
 const gameState = new Map();
 
+// A player's game only consumes input in the chat where it was started,
+// so digits in other chats stay available to tictactoe / normal handling
+function hasActiveGame(senderId, chatId) {
+    const game = gameState.get(senderId);
+    return !!game && game.chatId === chatId;
+}
+
 module.exports = {
     gameState, // Exported so main.js can route game input while a game is active
+    hasActiveGame,
     name: 'bomb',
     aliases: ['bom'],
     category: 'fun',
@@ -23,6 +31,10 @@ module.exports = {
             // Active game: process input (number 1-9 or surrender)
             if (gameState.has(sender)) {
                 const game = gameState.get(sender);
+
+                if (game.chatId !== chatId) {
+                    return extra.reply('❌ You already have an active bomb game in another chat. Finish it or type *suren* there first.');
+                }
 
                 const text = message.message?.conversation ||
                     message.message?.extendedTextMessage?.text ||
@@ -127,6 +139,7 @@ module.exports = {
 
             gameState.set(sender, {
                 msg: gameMsg,
+                chatId: chatId,
                 array: array,
                 timeoutId: timeoutId
             });

@@ -19,10 +19,12 @@ async function gifCommand(sock, chatId, query) {
             }
         });
 
-        const gifUrl = response.data.data[0]?.images?.downsized_medium?.url;
+        // WhatsApp needs MP4 for animated playback — a raw .gif sent as video arrives broken
+        const images = response.data.data[0]?.images || {};
+        const gifUrl = images.original_mp4?.mp4 || images.fixed_height?.mp4 || images.downsized_small?.mp4;
 
         if (gifUrl) {
-            await sock.sendMessage(chatId, { video: { url: gifUrl }, caption: `Here is your GIF for "${query}"` });
+            await sock.sendMessage(chatId, { video: { url: gifUrl }, mimetype: 'video/mp4', gifPlayback: true, caption: `Here is your GIF for "${query}"` });
         } else {
             await sock.sendMessage(chatId, { text: 'No GIFs found for your search term.' });
         }
