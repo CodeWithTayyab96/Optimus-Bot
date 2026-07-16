@@ -20,6 +20,7 @@ async function helpCommand(sock, chatId, message) {
   ◈ .totext _(reply to voice)_
   ◈ .trt <text> <lang> • .ss <link>
   ◈ .vv • .jid • .url
+  ◈ .getpp @user • .groupstats
 
 ━━━━〔 👮 *ADMIN* 〕━━━━
   ◈ .ban / .kick / .warn @user
@@ -32,7 +33,12 @@ async function helpCommand(sock, chatId, message) {
   ◈ .antitag <on/off>
   ◈ .welcome / .goodbye <on/off>
   ◈ .resetlink • .warnings @user
+  ◈ .resetwarn @user
   ◈ .setgname / .setgdesc / .setgpp
+  ◈ .grouplink • .pending
+  ◈ .groupstatus _(reply to media)_
+  ◈ .antisticker / .autosticker
+  ◈ .antigroupstatus / .antigroupmention
 
 ━━━━〔 🔒 *OWNER* 〕━━━━
   ◈ .mode <public/private>

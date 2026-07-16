@@ -35,6 +35,8 @@ const { handleBadwordDetection } = require('./lib/antibadword');
 const { Antilink } = require('./lib/antilink');
 const { addCommandReaction } = require('./lib/reactions');
 const { loadCommands } = require('./lib/commandLoader');
+const { runGroupProtections } = require('./lib/groupProtection');
+const { addMessage: addGroupStatsMessage } = require('./lib/groupstats');
 
 // Load all commands via the loader (fault-isolated: a broken file is skipped, not fatal)
 const commands = loadCommands();
@@ -205,6 +207,21 @@ async function handleMessages(sock, messageUpdate, printLog) {
             }
             // Antilink checks message text internally, so run it even if userMessage is empty
             await Antilink(message, sock);
+
+            // Daily group stats (for .groupstats / .myactivity)
+            if (!message.key.fromMe) {
+                try {
+                    const statsCtx = message.message?.extendedTextMessage?.contextInfo;
+                    addGroupStatsMessage(chatId, senderId, {
+                        mentions: statsCtx?.mentionedJid || [],
+                        sticker: !!message.message?.stickerMessage
+                    });
+                } catch (e) { }
+            }
+
+            // Group protections: antisticker, antigroupstatus, antigroupmention, autosticker
+            const consumed = await runGroupProtections(sock, chatId, message, senderId, userMessage, prefix);
+            if (consumed) return;
         }
 
         // PM blocker: block non-owner DMs when enabled (do not ban)
