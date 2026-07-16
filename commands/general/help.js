@@ -43,7 +43,14 @@ async function helpCommand(sock, chatId, message) {
   ◈ .pmblocker <on/off/status>
   ◈ .mention / .setmention <on/off>
   ◈ .clearsession • .cleartmp
-  ◈ .update • .settings
+  ◈ .update • .settings • .restart
+  ◈ .afk <on/off> [message]
+  ◈ .block / .unblock @user
+  ◈ .broadcast <message>
+  ◈ .setprefix <prefix>
+  ◈ .setbotname <name>
+  ◈ .setmenuimage _(reply to image)_
+  ◈ .setnewsletter <jid>
 
 ━━━━〔 🤖 *AI* 〕━━━━
   ◈ .gpt <question>

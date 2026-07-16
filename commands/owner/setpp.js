@@ -72,7 +72,7 @@ async function setProfilePicture(sock, chatId, msg) {
 
 module.exports = {
     name: 'setpp',
-    aliases: [],
+    aliases: ['setbotpp', 'setppbot'],
     category: 'owner',
     description: 'Set the bot profile picture',
     usage: '.setpp (reply to image)',

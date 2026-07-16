@@ -53,7 +53,8 @@ function safeRequire(modulePath) {
 
 // Secondary (non-dispatch) handlers that live inside command modules
 const { handleAutotypingForMessage, showTypingAfterCommand } = safeRequire('./commands/owner/autotyping');
-const { handleAutoread } = safeRequire('./commands/owner/autoread');
+const { handleAutoread, isBotMentionedInMessage } = safeRequire('./commands/owner/autoread');
+const afk = require('./lib/afk');
 const { handleMessageRevocation, storeMessage } = safeRequire('./commands/owner/antidelete');
 const { handleStatusUpdate } = safeRequire('./commands/owner/autostatus');
 const { readState: readPmBlockerState } = safeRequire('./commands/owner/pmblocker');
@@ -73,18 +74,21 @@ global.author = settings.author;
 global.channelLink = settings.channelLink || "https://whatsapp.com/channel/0029VbCzsfGKmCPSiZlGKC3S";
 global.ytch = settings.botOwner || "Tayyab";
 
-// Add this near the top of main.js with other global configurations
-const channelInfo = {
-    contextInfo: {
-        forwardingScore: 1,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-            newsletterJid: settings.newsletterJid || '120363000000000000@newsletter',
-            newsletterName: settings.newsletterName || 'Optimus Bot',
-            serverMessageId: -1
+// Rebuilt per message so .setnewsletter changes apply without a restart
+function buildChannelInfo() {
+    return {
+        contextInfo: {
+            forwardingScore: 1,
+            isForwarded: true,
+            forwardedNewsletterMessageInfo: {
+                newsletterJid: settings.newsletterJid || '120363000000000000@newsletter',
+                newsletterName: settings.newsletterName || 'Optimus Bot',
+                serverMessageId: -1
+            }
         }
-    }
-};
+    };
+}
+let channelInfo = buildChannelInfo();
 
 function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -100,6 +104,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
         if (!message?.message) return;
 
         const prefix = (settings.prefix || '.');
+        channelInfo = buildChannelInfo();
 
         // Handle autoread functionality
         if (handleAutoread) await handleAutoread(sock, message);
@@ -214,6 +219,31 @@ async function handleMessages(sock, messageUpdate, printLog) {
                     return;
                 }
             } catch (e) { }
+        }
+
+        // AFK — one-time auto-reply while the owner is away
+        if (!message.key.fromMe && !senderIsOwnerOrSudo && afk.isEnabled()) {
+            let shouldHandleAfk = false;
+
+            if (!isGroup) {
+                // DM: any message from a non-owner triggers AFK once
+                shouldHandleAfk = true;
+            } else if (isBotMentionedInMessage) {
+                const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+                const ctx = message.message?.extendedTextMessage?.contextInfo;
+                const isMentioned = isBotMentionedInMessage(message, botNumber);
+                const isReplyToBot = !!ctx?.participant &&
+                    ctx.participant.split('@')[0].split(':')[0] === sock.user.id.split(':')[0].split('@')[0];
+                shouldHandleAfk = (isMentioned || isReplyToBot) && !userMessage.startsWith(prefix);
+            }
+
+            if (shouldHandleAfk) {
+                if (afk.shouldNotify(chatId, senderId)) {
+                    afk.markNotified(chatId, senderId);
+                    await sock.sendMessage(chatId, { text: afk.getMessage() }, { quoted: message });
+                }
+                return;
+            }
         }
 
         // Then check for command prefix
