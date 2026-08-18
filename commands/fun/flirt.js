@@ -11,7 +11,7 @@ async function flirtCommand(sock, chatId, message) {
             `Give me a ${style} pickup line. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: flirt || '❌ Could not generate a flirt message.',
+            text: `💘 FLIRT\n\n${flirt || 'Sorry, I could not come up with a flirt line right now.'}`,
             ...channelInfo
         }, { quoted: message });
     } catch (error) {

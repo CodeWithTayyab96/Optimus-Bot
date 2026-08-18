@@ -16,7 +16,7 @@ async function insultCommand(sock, chatId, message) {
 
         if (!userToInsult) {
             return await sock.sendMessage(chatId, {
-                text: 'Please mention someone or reply to their message to roast them!',
+                text: '⚠️ Please mention someone or reply to their message to roast them.',
                 ...channelInfo
             });
         }
@@ -28,7 +28,7 @@ async function insultCommand(sock, chatId, message) {
         );
 
         await sock.sendMessage(chatId, {
-            text: `Hey @${userToInsult.split('@')[0]}, ${insult || "you're like a software update — whenever I see you, I think 'not now'."}`,
+            text: `😈 INSULT\n\nHey @${userToInsult.split('@')[0]}, ${insult || "you're like a software update — whenever I see you, I think 'not now'."}`,
             mentions: [userToInsult],
             ...channelInfo
         });

@@ -11,7 +11,7 @@ const quoteCommand = async function (sock, chatId, message) {
             `Give me a quote about ${theme}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: quote || '❌ Could not generate a quote.',
+            text: `💭 QUOTE\n\n${quote || 'Sorry, I could not come up with a quote right now.'}`,
             ...channelInfo
         }, { quoted: message });
     } catch (error) {

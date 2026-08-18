@@ -11,7 +11,7 @@ const jokeCommand = async function (sock, chatId) {
             `Tell me a ${style} joke. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: joke || 'Sorry, I could not come up with a joke right now.',
+            text: `😂 JOKE\n\n${joke || 'Sorry, I could not come up with a joke right now.'}`,
             ...channelInfo
         });
     } catch (error) {

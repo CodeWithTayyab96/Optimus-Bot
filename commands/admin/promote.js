@@ -1,4 +1,5 @@
 const { isAdmin } = require('../../lib/isAdmin');
+const style = require('../../lib/messageStyle');
 
 // Function to handle manual promotions via command
 async function promoteCommand(sock, chatId, mentionedJids, message) {
@@ -16,7 +17,7 @@ async function promoteCommand(sock, chatId, mentionedJids, message) {
     // If no user found through either method
     if (userToPromote.length === 0) {
         await sock.sendMessage(chatId, { 
-            text: 'Please mention the user or reply to their message to promote!'
+            text: style.invalidInput('Please mention the user or reply to their message.', '.promote @user', { box: false })
         });
         return;
     }
@@ -44,7 +45,7 @@ async function promoteCommand(sock, chatId, mentionedJids, message) {
         });
     } catch (error) {
         console.error('Error in promote command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to promote user(s)!'});
+        await sock.sendMessage(chatId, { text: style.error('Failed to promote user(s).')});
     }
 }
 

@@ -1,4 +1,5 @@
 const afk = require('../../lib/afk');
+const style = require('../../lib/messageStyle');
 
 module.exports = {
     name: 'afk',
@@ -19,43 +20,46 @@ module.exports = {
             if (!opt) {
                 const on = afk.isEnabled();
                 return extra.reply(
-                    `🔴 *AFK Mode*\n\n` +
-                    `Status: *${on ? 'ON' : 'OFF'}*\n\n` +
-                    `When ON:\n` +
-                    `• *Groups* — one-time reply when someone @tags or replies to the bot\n` +
-                    `• *DMs* — one-time reply to any message\n` +
-                    `Repeated messages from the same person are ignored to avoid spam.\n\n` +
-                    `Usage:\n` +
-                    `  ${extra.prefix}afk on\n` +
-                    `  ${extra.prefix}afk on busy right now\n` +
-                    `  ${extra.prefix}afk off`
+                    style.box('👑 AFK MODE', [
+                        `Status: *${on ? 'ON' : 'OFF'}*`,
+                        '',
+                        'When ON:',
+                        ' • Groups — one-time reply when someone @tags or replies to the bot',
+                        ' • DMs — one-time reply to any message',
+                        'Repeated messages from the same person are ignored to avoid spam.',
+                        '',
+                        'Usage:',
+                        ` ${extra.prefix}afk on`,
+                        ` ${extra.prefix}afk on busy right now`,
+                        ` ${extra.prefix}afk off`
+                    ])
                 );
             }
 
             if (opt === 'on') {
                 if (afk.isEnabled()) {
-                    return extra.reply('*AFK is already ON*');
+                    return extra.reply(style.info('AFK is already ON.'));
                 }
                 const customMsg = args.slice(1).join(' ').trim();
                 const afkMessage = customMsg
                     ? `🔴 *AFK Mode ON*\n\n${customMsg}`
                     : afk.DEFAULT_MESSAGE;
                 afk.setEnabled(true, afkMessage);
-                return extra.reply('*AFK mode enabled.* Bot will notify taggers/repliers once each.');
+                return extra.reply(style.success('AFK mode enabled. The bot will notify taggers/repliers once each.'));
             }
 
             if (opt === 'off') {
                 if (!afk.isEnabled()) {
-                    return extra.reply('*AFK is already OFF*');
+                    return extra.reply(style.info('AFK is already OFF.'));
                 }
                 afk.setEnabled(false);
-                return extra.reply('*AFK mode disabled.* You are back online.');
+                return extra.reply(style.success('AFK mode disabled. You are back online.'));
             }
 
-            return extra.reply(`❌ Invalid option. Use: ${extra.prefix}afk on | ${extra.prefix}afk off`);
+            return extra.reply(style.invalidInput('Invalid option.', `${extra.prefix}afk on | ${extra.prefix}afk off`, { box: false }));
         } catch (err) {
             console.error('[afk cmd] error:', err);
-            return extra.reply('❌ Error updating AFK mode.');
+            return extra.reply(style.error('Failed to update AFK mode.'));
         }
     }
 };

@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 async function resetlinkCommand(sock, chatId, senderId) {
     try {
         // Check if sender is admin
@@ -15,12 +17,12 @@ async function resetlinkCommand(sock, chatId, senderId) {
             .includes(botId);
 
         if (!isAdmin) {
-            await sock.sendMessage(chatId, { text: '❌ Only admins can use this command!' });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('admin', { box: false }) });
             return;
         }
 
         if (!isBotAdmin) {
-            await sock.sendMessage(chatId, { text: '❌ Bot must be admin to reset group link!' });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('botAdmin', { box: false }) });
             return;
         }
 
@@ -29,12 +31,16 @@ async function resetlinkCommand(sock, chatId, senderId) {
         
         // Send the new link
         await sock.sendMessage(chatId, { 
-            text: `✅ Group link has been successfully reset\n\n📌 New link:\nhttps://chat.whatsapp.com/${newCode}`
+            text: style.box('🔗 GROUP LINK', [
+                '✅ Group link reset',
+                '',
+                `New link: https://chat.whatsapp.com/${newCode}`
+            ])
         });
 
     } catch (error) {
         console.error('Error in resetlink command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to reset group link!' });
+        await sock.sendMessage(chatId, { text: style.error('Failed to reset the group link.') });
     }
 }
 

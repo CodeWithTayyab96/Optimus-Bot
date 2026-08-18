@@ -70,12 +70,13 @@ setInterval(() => {
     }
 }, 30_000) // check every 30 seconds
 
-let phoneNumber = "911234567890"
 let owner = JSON.parse(fs.readFileSync('./data/owner.json'))
 
 global.botname = "OPTIMUS BOT"
 global.themeemoji = "•"
-const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code")
+// Default authentication flow is the pairing code (matches the README). Pass
+// --qr to print a QR code instead. --pairing-code is kept for compatibility.
+const pairingCode = !process.argv.includes("--qr") || process.argv.includes("--pairing-code")
 const useMobile = process.argv.includes("--mobile")
 
 // Only create readline interface if we're in an interactive environment
@@ -85,7 +86,7 @@ const question = (text) => {
         return new Promise((resolve) => rl.question(text, resolve))
     } else {
         // In non-interactive environment, use ownerNumber from settings
-        return Promise.resolve(settings.ownerNumber || phoneNumber)
+        return Promise.resolve(settings.ownerNumber || null)
     }
 }
 
@@ -215,11 +216,12 @@ async function startXeonBotInc() {
     if (pairingCode && !XeonBotInc.authState.creds.registered) {
         if (useMobile) throw new Error('Cannot use pairing code with mobile api')
 
-        let phoneNumber
-        if (!!global.phoneNumber) {
-            phoneNumber = global.phoneNumber
-        } else {
-            phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Please type your WhatsApp number 😍\nFormat: 6281376552730 (without + or spaces) : `)))
+        // Number comes from settings.ownerNumber (non-interactive) or is typed
+        // by the user in an interactive terminal.
+        let phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Please type your WhatsApp number 😍\nFormat: 6281376552730 (without + or spaces) : `)))
+        if (!phoneNumber) {
+            console.log(chalk.red('No phone number available. Set ownerNumber in settings.js (or type it when prompted).'));
+            process.exit(1);
         }
 
         // Clean the phone number - remove any non-digit characters
@@ -357,19 +359,13 @@ async function startXeonBotInc() {
         await handleGroupParticipantUpdate(XeonBotInc, update);
     });
 
-    XeonBotInc.ev.on('messages.upsert', async (m) => {
-        if (m.messages[0].key && m.messages[0].key.remoteJid === 'status@broadcast') {
-            await handleStatus(XeonBotInc, m);
-        }
-    });
-
-    XeonBotInc.ev.on('status.update', async (status) => {
-        await handleStatus(XeonBotInc, status);
-    });
-
-    XeonBotInc.ev.on('messages.reaction', async (status) => {
-        await handleStatus(XeonBotInc, status);
-    });
+    // Status handling is done ONCE in the main 'messages.upsert' handler above
+    // (status@broadcast is routed to handleStatus and returns early). These
+    // additional listeners are intentionally NOT registered:
+    //  - Baileys v7 has no 'status.update' event (it was removed upstream), and
+    //  - 'messages.reaction' emits an array of { key, reaction } objects, which
+    //    does not match handleStatus's expected shape, so it could never fire
+    //    and would only risk double-processing statuses.
 
     return XeonBotInc
     } catch (error) {

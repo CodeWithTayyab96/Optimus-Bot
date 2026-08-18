@@ -1,4 +1,6 @@
 const axios = require('axios');
+const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
 
 async function spotifyCommand(sock, chatId, message) {
     try {
@@ -12,7 +14,7 @@ async function spotifyCommand(sock, chatId, message) {
         const query = rawText.slice(used.length).trim();
 
         if (!query) {
-            await sock.sendMessage(chatId, { text: 'Usage: .spotify <song/artist/keywords>\nExample: .spotify con calma' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.invalidInput('Please provide a song, artist or keywords to search for.', '.spotify <song/artist/keywords>') }, { quoted: message });
             return;
         }
 
@@ -26,11 +28,11 @@ async function spotifyCommand(sock, chatId, message) {
         const r = data.result;
         const audioUrl = r.audio;
         if (!audioUrl) {
-            await sock.sendMessage(chatId, { text: 'No downloadable audio found for this query.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.error('No downloadable audio found for that query.') }, { quoted: message });
             return;
         }
 
-        const caption = `🎵 ${r.title || r.name || 'Unknown Title'}\n👤 ${r.artist || ''}\n⏱ ${r.duration || ''}\n🔗 ${r.url || ''}`.trim();
+        const caption = `🎵 ${r.title || r.name || 'Unknown Title'}\n👤 ${r.artist || 'Unknown Artist'}\n⏱️ ${r.duration || ''}\n🔗 ${r.url || ''}\n⚡ ${settings.botName || 'Optimus Bot'}`.trim();
 
          // Send cover and info as a follow-up (optional)
          if (r.thumbnails) {
@@ -48,7 +50,7 @@ async function spotifyCommand(sock, chatId, message) {
 
     } catch (error) {
         console.error('[SPOTIFY] error:', error?.message || error);
-        await sock.sendMessage(chatId, { text: 'Failed to fetch Spotify audio. Try another query later.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to fetch the Spotify audio. Try another query later.') }, { quoted: message });
     }
 }
 

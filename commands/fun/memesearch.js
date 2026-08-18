@@ -2,6 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const style = require('../../lib/messageStyle');
 
 const BASE = 'https://api.shizo.top/tools/meme-search';
 
@@ -22,7 +23,7 @@ module.exports = {
             const query = args.join(' ').trim();
 
             if (!query) {
-                return await extra.reply(`Usage: ${extra.prefix}memesearch <query>\n\nExample: ${extra.prefix}memesearch hello`);
+                return await extra.reply(style.invalidInput('Please provide a search query.', `${extra.prefix}memesearch <query>`));
             }
 
             const url = `${BASE}?apikey=shizo&query=${encodeURIComponent(query)}`;
@@ -118,7 +119,8 @@ module.exports = {
                 }, { quoted: message });
             }
         } catch (error) {
-            await extra.reply(`❌ Failed to fetch meme: ${error.message}`);
+            console.error('Error in memesearch command:', error);
+            await extra.reply('❌ Failed to fetch the meme. Please try again later.');
         }
     }
 };

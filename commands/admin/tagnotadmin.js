@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 async function tagNotAdminCommand(sock, chatId, senderId, message) {
     try {
         const groupMetadata = await sock.groupMetadata(chatId);
@@ -5,7 +7,7 @@ async function tagNotAdminCommand(sock, chatId, senderId, message) {
 
         const nonAdmins = participants.filter(p => !p.admin).map(p => p.id);
         if (nonAdmins.length === 0) {
-            await sock.sendMessage(chatId, { text: 'No non-admin members to tag.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.info('No non-admin members to tag.') }, { quoted: message });
             return;
         }
 
@@ -17,7 +19,7 @@ async function tagNotAdminCommand(sock, chatId, senderId, message) {
         await sock.sendMessage(chatId, { text, mentions: nonAdmins }, { quoted: message });
     } catch (error) {
         console.error('Error in tagnotadmin command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to tag non-admin members.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to tag non-admin members.') }, { quoted: message });
     }
 }
 

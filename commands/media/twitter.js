@@ -1,5 +1,6 @@
 const axios = require('axios');
 const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
 
 const TWITTER_PATTERNS = [
     /https?:\/\/(?:www\.)?(?:twitter|x)\.com\//i,
@@ -171,11 +172,11 @@ module.exports = {
             const url = args.join(' ').trim();
 
             if (!url) {
-                return extra.reply(`Please provide a Twitter / X link.\n\nUsage: ${extra.prefix}twitter <url>`);
+                return extra.reply(style.invalidInput('Please provide a Twitter / X link.', `${extra.prefix}twitter <url>`));
             }
 
             if (!isValidTwitterUrl(url)) {
-                return extra.reply('❌ Invalid link. Use a valid `x.com` or `twitter.com` post URL.');
+                return extra.reply(style.invalidInput('Invalid link. Use a valid x.com or twitter.com post URL.', `${extra.prefix}twitter <url>`, { box: false }));
             }
 
             await sock.sendMessage(extra.chatId, { react: { text: '🔄', key: message.key } });
@@ -198,10 +199,10 @@ module.exports = {
                 return;
             }
 
-            return extra.reply('❌ No downloadable media found for this post.');
+            return extra.reply(style.error('No downloadable media found for this post.'));
         } catch (error) {
             console.error('[twitter]', error.message);
-            await extra.reply('❌ Failed to download from Twitter / X. Try another link or try again later.');
+            await extra.reply(style.error('Failed to download from Twitter / X. Try another link or try again later.'));
         }
     },
 };

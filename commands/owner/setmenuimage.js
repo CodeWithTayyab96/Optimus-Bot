@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const style = require('../../lib/messageStyle');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 
 module.exports = {
@@ -18,14 +19,14 @@ module.exports = {
         try {
             const ctx = message.message?.extendedTextMessage?.contextInfo;
             if (!ctx?.quotedMessage) {
-                return extra.reply('📷 Please reply to an *image* or *sticker* to set it as the menu image.');
+                return extra.reply(style.invalidInput('Reply to an image or sticker to set it as the menu image.', '.setmenuimage (reply to image or sticker)', { box: false }));
             }
 
             const quotedMsg = ctx.quotedMessage;
             const imageMsg = quotedMsg.imageMessage || quotedMsg.stickerMessage;
 
             if (!imageMsg) {
-                return extra.reply('❌ The replied message must be an *image* or *sticker*.');
+                return extra.reply(style.invalidInput('The replied message must be an image or sticker.', '.setmenuimage (reply to image or sticker)', { box: false }));
             }
 
             const targetMessage = {
@@ -45,7 +46,7 @@ module.exports = {
             );
 
             if (!mediaBuffer) {
-                return extra.reply('❌ Failed to download the image. Please try again.');
+                return extra.reply(style.error('Failed to download the image. Please try again.'));
             }
 
             // Convert stickers (webp) and non-JPEG formats to JPEG using jimp
@@ -69,10 +70,10 @@ module.exports = {
 
             fs.writeFileSync(imagePath, finalBuffer);
 
-            await extra.reply('✅ Menu image has been updated successfully!');
+            await extra.reply(style.success('Menu image has been updated successfully!'));
         } catch (error) {
             console.error('SetMenuImage command error:', error);
-            await extra.reply(`❌ Failed to set menu image: ${error.message}`);
+            await extra.reply(style.error('Failed to set the menu image.'));
         }
     }
 };

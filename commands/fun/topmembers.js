@@ -1,34 +1,9 @@
-const fs = require('fs');
-const path = require('path');
+const { getGroupStats, increment } = require('../../lib/messageStats');
 
-const dataFilePath = path.join(__dirname, '..', '..', 'data', 'messageCount.json');
-
-function loadMessageCounts() {
-    if (fs.existsSync(dataFilePath)) {
-        const data = fs.readFileSync(dataFilePath);
-        return JSON.parse(data);
-    }
-    return {};
-}
-
-function saveMessageCounts(messageCounts) {
-    fs.writeFileSync(dataFilePath, JSON.stringify(messageCounts, null, 2));
-}
-
+// Compatibility wrapper kept so main.js can keep calling incrementMessageCount.
+// The heavy lifting lives in lib/messageStats (in-memory + periodic flush).
 function incrementMessageCount(groupId, userId) {
-    const messageCounts = loadMessageCounts();
-
-    if (!messageCounts[groupId]) {
-        messageCounts[groupId] = {};
-    }
-
-    if (!messageCounts[groupId][userId]) {
-        messageCounts[groupId][userId] = 0;
-    }
-
-    messageCounts[groupId][userId] += 1;
-
-    saveMessageCounts(messageCounts);
+    increment(groupId, userId);
 }
 
 function topMembers(sock, chatId, isGroup) {
@@ -37,8 +12,7 @@ function topMembers(sock, chatId, isGroup) {
         return;
     }
 
-    const messageCounts = loadMessageCounts();
-    const groupCounts = messageCounts[chatId] || {};
+    const groupCounts = getGroupStats(chatId);
 
     const sortedMembers = Object.entries(groupCounts)
         .sort(([, a], [, b]) => b - a)

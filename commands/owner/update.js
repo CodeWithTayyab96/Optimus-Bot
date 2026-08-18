@@ -4,6 +4,7 @@ const path = require('path');
 const https = require('https');
 const settings = require('../../settings');
 const isOwnerOrSudo = require('../../lib/isOwner');
+const style = require('../../lib/messageStyle');
 
 function run(cmd) {
     return new Promise((resolve, reject) => {
@@ -25,16 +26,60 @@ async function hasGitRepo() {
     }
 }
 
+// Runtime state that must survive an update. `data/` is fully runtime state
+// (mode, warnings, bans, stats, AFK...) even though some files are committed
+// as defaults; `git reset --hard` + `git clean -fd` would otherwise revert or
+// delete them. settings.js is user configuration. baileys_store.json is the
+// lightweight message store.
+const RUNTIME_BACKUP_PATHS = ['data', 'baileys_store.json', 'settings.js'];
+
+function backupRuntimeState() {
+    const backupDir = path.join(process.cwd(), 'tmp', `update-backup-${Date.now()}`);
+    for (const rel of RUNTIME_BACKUP_PATHS) {
+        const src = path.join(process.cwd(), rel);
+        if (!fs.existsSync(src)) continue;
+        const dest = path.join(backupDir, rel);
+        if (fs.statSync(src).isDirectory()) {
+            copyRecursive(src, dest, [], '', []);
+        } else {
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.copyFileSync(src, dest);
+        }
+    }
+    return backupDir;
+}
+
+function restoreRuntimeState(backupDir) {
+    for (const rel of RUNTIME_BACKUP_PATHS) {
+        const src = path.join(backupDir, rel);
+        if (!fs.existsSync(src)) continue;
+        const dest = path.join(process.cwd(), rel);
+        fs.rmSync(dest, { recursive: true, force: true });
+        if (fs.statSync(src).isDirectory()) {
+            copyRecursive(src, dest, [], '', []);
+        } else {
+            fs.mkdirSync(path.dirname(dest), { recursive: true });
+            fs.copyFileSync(src, dest);
+        }
+    }
+}
+
 async function updateViaGit() {
-    const oldRev = (await run('git rev-parse HEAD').catch(() => 'unknown')).trim();
-    await run('git fetch https://github.com/CodeWithTayyab96/Optimus-Bot.git main');
-    const newRev = (await run('git rev-parse FETCH_HEAD')).trim();
-    const alreadyUpToDate = oldRev === newRev;
-    const commits = alreadyUpToDate ? '' : await run(`git log --pretty=format:"%h %s (%an)" ${oldRev}..${newRev}`).catch(() => '');
-    const files = alreadyUpToDate ? '' : await run(`git diff --name-status ${oldRev} ${newRev}`).catch(() => '');
-    await run(`git reset --hard ${newRev}`);
-    await run('git clean -fd');
-    return { oldRev, newRev, alreadyUpToDate, commits, files };
+    const backupDir = backupRuntimeState();
+    try {
+        const oldRev = (await run('git rev-parse HEAD').catch(() => 'unknown')).trim();
+        await run('git fetch https://github.com/CodeWithTayyab96/Optimus-Bot.git main');
+        const newRev = (await run('git rev-parse FETCH_HEAD')).trim();
+        const alreadyUpToDate = oldRev === newRev;
+        const commits = alreadyUpToDate ? '' : await run(`git log --pretty=format:"%h %s (%an)" ${oldRev}..${newRev}`).catch(() => '');
+        const files = alreadyUpToDate ? '' : await run(`git diff --name-status ${oldRev} ${newRev}`).catch(() => '');
+        await run(`git reset --hard ${newRev}`);
+        await run('git clean -fd');
+        restoreRuntimeState(backupDir);
+        return { oldRev, newRev, alreadyUpToDate, commits, files };
+    } finally {
+        try { fs.rmSync(backupDir, { recursive: true, force: true }); } catch { }
+    }
 }
 
 function downloadFile(url, dest, visited = new Set()) {
@@ -195,12 +240,12 @@ async function updateCommand(sock, chatId, message, zipOverride) {
     const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
     
     if (!message.key.fromMe && !isOwner) {
-        await sock.sendMessage(chatId, { text: 'Only bot owner or sudo can use .update' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.permissionDenied('ownerOrSudo', { box: false }) }, { quoted: message });
         return;
     }
     try {
         // Minimal UX
-        await sock.sendMessage(chatId, { text: '🔄 Updating the bot, please wait…' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.processing('Updating the bot') }, { quoted: message });
         if (await hasGitRepo()) {
             // silent
             const { oldRev, newRev, alreadyUpToDate, commits, files } = await updateViaGit();
@@ -215,14 +260,14 @@ async function updateCommand(sock, chatId, message, zipOverride) {
         }
         try {
             const v = require('../../settings').version || '';
-            await sock.sendMessage(chatId, { text: `✅ Update done. Restarting…` }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.success('Update done. Restarting…') }, { quoted: message });
         } catch {
-            await sock.sendMessage(chatId, { text: '✅ Restared Successfully\n Type .ping to check latest version.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.success('Restarted successfully. Type .ping to check the latest version.') }, { quoted: message });
         }
         await restartProcess(sock, chatId, message);
     } catch (err) {
         console.error('Update failed:', err);
-        await sock.sendMessage(chatId, { text: `❌ Update failed:\n${String(err.message || err)}` }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Update failed. Check the bot logs for details.') }, { quoted: message });
     }
 }
 
@@ -242,7 +287,10 @@ module.exports = {
         const zipArg = args[0] && args[0].startsWith('http') ? args[0] : '';
         await updateCommand(sock, extra.chatId, message, zipArg);
     },
-
+    // Exported for testing the runtime-state backup/restore.
+    backupRuntimeState,
+    restoreRuntimeState,
+    RUNTIME_BACKUP_PATHS,
 };
 
 

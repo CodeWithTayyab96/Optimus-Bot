@@ -1,4 +1,5 @@
 const { getGroupSettings, updateGroupSettings } = require('../../lib/groupSettings');
+const style = require('../../lib/messageStyle');
 
 module.exports = {
     name: 'autosticker',
@@ -18,12 +19,15 @@ module.exports = {
                 const settings = getGroupSettings(extra.chatId);
                 const status = settings.autosticker ? 'ON' : 'OFF';
                 return extra.reply(
-                    `📌 *AutoSticker Status*\n\n` +
-                    `Status: *${status}*\n\n` +
-                    `When enabled, all images and videos sent in this group will automatically be converted to stickers.\n\n` +
-                    `Usage:\n` +
-                    `  ${extra.prefix}autosticker on\n` +
-                    `  ${extra.prefix}autosticker off`
+                    style.box('🛡️ AUTOSTICKER', [
+                        `Status: *${status}*`,
+                        '',
+                        'When enabled, all images and videos sent in this group will automatically be converted to stickers.',
+                        '',
+                        'Usage:',
+                        ` ${extra.prefix}autosticker on`,
+                        ` ${extra.prefix}autosticker off`
+                    ])
                 );
             }
 
@@ -31,24 +35,24 @@ module.exports = {
 
             if (opt === 'on') {
                 if (getGroupSettings(extra.chatId).autosticker) {
-                    return extra.reply('*AutoSticker is already ON*');
+                    return extra.reply(style.info('AutoSticker is already ON.'));
                 }
                 updateGroupSettings(extra.chatId, { autosticker: true });
-                return extra.reply('✅ *AutoSticker has been turned ON*\n\nAll images and videos will now automatically be converted to stickers!');
+                return extra.reply(style.success('AutoSticker has been turned ON. All images and videos will now automatically be converted to stickers.'));
             }
 
             if (opt === 'off') {
                 if (!getGroupSettings(extra.chatId).autosticker) {
-                    return extra.reply('*AutoSticker is already OFF*');
+                    return extra.reply(style.info('AutoSticker is already OFF.'));
                 }
                 updateGroupSettings(extra.chatId, { autosticker: false });
-                return extra.reply('❌ *AutoSticker has been turned OFF*');
+                return extra.reply(style.success('AutoSticker has been turned OFF.'));
             }
 
-            return extra.reply(`❌ Invalid option!\nUsage: ${extra.prefix}autosticker <on/off>`);
+            return extra.reply(style.invalidInput('Invalid option. Choose on or off.', `${extra.prefix}autosticker <on/off>`, { box: false }));
         } catch (error) {
             console.error('[AutoSticker Command Error]:', error);
-            return extra.reply('❌ Error updating autosticker setting.');
+            return extra.reply(style.error('Failed to update autosticker setting.'));
         }
     }
 };

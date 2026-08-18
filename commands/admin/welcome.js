@@ -1,12 +1,14 @@
 const { handleWelcome } = require('../../lib/welcome');
 const { isWelcomeOn, getWelcome } = require('../../lib/index');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
+const settings = require('../../settings');
 const fetch = require('node-fetch');
 
 async function welcomeCommand(sock, chatId, message, match) {
     // Check if it's a group
     if (!chatId.endsWith('@g.us')) {
-        await sock.sendMessage(chatId, { text: 'This command can only be used in groups.' });
+        await sock.sendMessage(chatId, { text: style.permissionDenied('group', { box: false }) });
         return;
     }
 
@@ -76,7 +78,7 @@ async function handleJoinEvent(sock, id, participants) {
                     hour12: true
                 });
                 
-                finalMessage = `╭╼━≪•𝙽𝙴𝚆 𝙼𝙴𝙼𝙱𝙴𝚁•≫━╾╮\n┃𝚆𝙴𝙻𝙲𝙾𝙼𝙴: @${displayName} 👋\n┃Member count: #${groupMetadata.participants.length}\n┃𝚃𝙸𝙼𝙴: ${timeString}⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@${displayName}* Welcome to *${groupName}*! 🎉\n*Group 𝙳𝙴𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽*\n${groupDesc}\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ Optimus Bot*`;
+                finalMessage = `╭╼━≪•𝙽𝙴𝚆 𝙼𝙴𝙼𝙱𝙴𝚁•≫━╾╮\n┃𝚆𝙴𝙻𝙲𝙾𝙼𝙴: @${displayName} 👋\n┃Member count: #${groupMetadata.participants.length}\n┃𝚃𝙸𝙼𝙴: ${timeString}⏰\n╰━━━━━━━━━━━━━━━╯\n\n*@${displayName}* Welcome to *${groupName}*! 🎉\n*Group 𝙳𝙴𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽*\n${groupDesc}\n\n> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ ${settings.botName || 'Optimus Bot'}*`;
             }
             
             // Try to send with image first (always try images)

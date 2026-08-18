@@ -39,7 +39,7 @@ module.exports = {
                 await extra.reply('❌ Invalid mathematical expression!');
             }
         } catch (error) {
-            await extra.reply(`❌ Error: ${error.message}`);
+            await extra.reply('❌ Something went wrong. Please try again.');
         }
     }
 };

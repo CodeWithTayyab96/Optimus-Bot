@@ -33,7 +33,7 @@ module.exports = {
                 const game = gameState.get(sender);
 
                 if (game.chatId !== chatId) {
-                    return extra.reply('❌ You already have an active bomb game in another chat. Finish it or type *suren* there first.');
+                    return extra.reply('⚠️ You already have an active bomb game in another chat. Finish it or type *suren* there first.');
                 }
 
                 const text = message.message?.conversation ||
@@ -93,7 +93,7 @@ module.exports = {
                     return;
                 }
 
-                let teks = `乂  *B O M B*\n\n`;
+                let teks = `💣  *B O M B*\n\n`;
                 teks += `Box number ${selectedBox.number} opened: ${selectedBox.emot}\n\n`;
                 teks += `Send number *1* - *9* to open a box:\n\n`;
                 for (let i = 0; i < game.array.length; i += 3) {
@@ -116,7 +116,7 @@ module.exports = {
                 state: false
             }));
 
-            let teks = `乂  *B O M B*\n\n`;
+            let teks = `💣  *B O M B*\n\n`;
             teks += `Send number *1* - *9* to open the *9* boxes below:\n\n`;
             for (let i = 0; i < array.length; i += 3) {
                 teks += array.slice(i, i + 3).map(v => v.state ? v.emot : v.number).join('') + '\n';
@@ -152,7 +152,7 @@ module.exports = {
             }, timeout + 60000);
         } catch (error) {
             console.error('Error in bomb command:', error);
-            return extra.reply('❌ Error: ' + (error.message || 'Unknown error occurred'));
+            return extra.reply('❌ Something went wrong. Please try again.');
         }
     }
 };

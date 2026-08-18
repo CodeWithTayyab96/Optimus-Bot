@@ -11,7 +11,7 @@ async function shayariCommand(sock, chatId, message) {
             `Write a shayari about ${theme}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: shayari || '❌ Could not generate shayari.',
+            text: `📜 SHAYARI\n\n${shayari || 'Sorry, I could not come up with shayari right now.'}`,
             ...channelInfo
         }, { quoted: message });
     } catch (error) {

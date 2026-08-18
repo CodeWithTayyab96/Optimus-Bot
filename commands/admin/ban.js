@@ -1,7 +1,8 @@
-const fs = require('fs');
 const { channelInfo } = require('../../lib/messageConfig');
 const isAdmin = require('../../lib/isAdmin');
 const { isSudo } = require('../../lib/index');
+const { isBanned, banUser } = require('../../lib/isBanned');
+const style = require('../../lib/messageStyle');
 
 async function banCommand(sock, chatId, message) {
     // Restrict in groups to admins; in private to owner/sudo
@@ -38,7 +39,7 @@ async function banCommand(sock, chatId, message) {
     
     if (!userToBan) {
         await sock.sendMessage(chatId, { 
-            text: 'Please mention the user or reply to their message to ban!', 
+            text: style.invalidInput('Please mention the user or reply to their message.', '.ban @user'), 
             ...channelInfo 
         });
         return;
@@ -48,33 +49,30 @@ async function banCommand(sock, chatId, message) {
     try {
         const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         if (userToBan === botId || userToBan === botId.replace('@s.whatsapp.net', '@lid')) {
-            await sock.sendMessage(chatId, { text: 'You cannot ban the bot account.', ...channelInfo }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.warning('You cannot ban the bot account.'), ...channelInfo }, { quoted: message });
             return;
         }
     } catch {}
 
     try {
-        // Add user to banned list
-        const bannedUsers = JSON.parse(fs.readFileSync('./data/banned.json'));
-        if (!bannedUsers.includes(userToBan)) {
-            bannedUsers.push(userToBan);
-            fs.writeFileSync('./data/banned.json', JSON.stringify(bannedUsers, null, 2));
+        if (!isBanned(userToBan)) {
+            banUser(userToBan);
             
             await sock.sendMessage(chatId, { 
-                text: `Successfully banned @${userToBan.split('@')[0]}!`,
+                text: style.success(`Successfully banned @${userToBan.split('@')[0]}!`),
                 mentions: [userToBan],
                 ...channelInfo 
             });
         } else {
             await sock.sendMessage(chatId, { 
-                text: `${userToBan.split('@')[0]} is already banned!`,
+                text: style.info(`@${userToBan.split('@')[0]} is already banned.`),
                 mentions: [userToBan],
                 ...channelInfo 
             });
         }
     } catch (error) {
         console.error('Error in ban command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to ban user!', ...channelInfo });
+        await sock.sendMessage(chatId, { text: style.error('Failed to ban user.'), ...channelInfo });
     }
 }
 

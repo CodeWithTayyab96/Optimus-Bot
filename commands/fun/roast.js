@@ -16,7 +16,7 @@ async function roastCommand(sock, chatId, message) {
         );
 
         await sock.sendMessage(chatId, {
-            text: `🔥 @${name}\n\n${roast || "You're so average, even your WiFi signal has more personality."}`,
+            text: `🔥 ROAST\n\n@${name}\n\n${roast || "You're so average, even your WiFi signal has more personality."}`,
             mentions: [target],
             ...channelInfo
         }, { quoted: message });

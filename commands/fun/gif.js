@@ -1,11 +1,12 @@
 const axios = require('axios');
 const settings = require('../../settings'); // Assuming the API key is stored here
+const style = require('../../lib/messageStyle');
 
 async function gifCommand(sock, chatId, query) {
     const apiKey = settings.giphyApiKey; // Replace with your Giphy API Key
 
     if (!query) {
-        await sock.sendMessage(chatId, { text: 'Please provide a search term for the GIF.' });
+        await sock.sendMessage(chatId, { text: style.invalidInput('Please provide a search term for the GIF.', '.gif <search term>') });
         return;
     }
 

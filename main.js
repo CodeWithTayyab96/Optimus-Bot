@@ -37,6 +37,8 @@ const { addCommandReaction } = require('./lib/reactions');
 const { loadCommands } = require('./lib/commandLoader');
 const { runGroupProtections } = require('./lib/groupProtection');
 const { addMessage: addGroupStatsMessage } = require('./lib/groupstats');
+const { readMode } = require('./lib/mode');
+const style = require('./lib/messageStyle');
 
 // Load all commands via the loader (fault-isolated: a broken file is skipped, not fatal)
 const commands = loadCommands();
@@ -171,21 +173,14 @@ async function handleMessages(sock, messageUpdate, printLog) {
             console.log(`📝 Command used in ${isGroup ? 'group' : 'private'}: ${userMessage}`);
         }
         // Read bot mode once; don't early-return so moderation can still run in private mode
-        let isPublic = true;
-        try {
-            const data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
-            if (typeof data.isPublic === 'boolean') isPublic = data.isPublic;
-        } catch (error) {
-            console.error('Error checking access mode:', error);
-            // default isPublic=true on error
-        }
+        const isPublic = readMode();
         const isOwnerOrSudoCheck = message.key.fromMe || senderIsOwnerOrSudo;
         // Check if user is banned (skip ban check for unban command)
         if (isBanned(senderId) && !userMessage.startsWith(`${prefix}unban`)) {
             // Only respond occasionally to avoid spam
             if (Math.random() < 0.1) {
                 await sock.sendMessage(chatId, {
-                    text: '❌ You are banned from using the bot. Contact an admin to get unbanned.',
+                    text: style.error('You are banned from using the bot. Contact an admin to get unbanned.'),
                     ...channelInfo
                 });
             }
@@ -321,17 +316,17 @@ async function handleMessages(sock, messageUpdate, printLog) {
 
         // ---- Generic permission checks (declared by each command) ----
         if (command.ownerOnly && !isOwnerOrSudoCheck) {
-            await sock.sendMessage(chatId, { text: '❌ This command is only available for the owner or sudo!' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('ownerOrSudo') }, { quoted: message });
             return;
         }
 
         if (command.groupOnly && !isGroup) {
-            await sock.sendMessage(chatId, { text: 'This command can only be used in groups.', ...channelInfo }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('group') }, { quoted: message });
             return;
         }
 
         if (command.privateOnly && isGroup) {
-            await sock.sendMessage(chatId, { text: 'This command can only be used in private chat.', ...channelInfo }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('private') }, { quoted: message });
             return;
         }
 
@@ -344,13 +339,13 @@ async function handleMessages(sock, messageUpdate, printLog) {
             isBotAdmin = adminStatus.isBotAdmin;
 
             if (command.botAdminNeeded && !isBotAdmin) {
-                await sock.sendMessage(chatId, { text: 'Please make the bot an admin to use admin commands.', ...channelInfo }, { quoted: message });
+                await sock.sendMessage(chatId, { text: style.permissionDenied('botAdmin') }, { quoted: message });
                 return;
             }
 
             if (command.adminOnly && !isSenderAdmin && !message.key.fromMe) {
                 await sock.sendMessage(chatId, {
-                    text: 'Sorry, only group admins can use this command.',
+                    text: style.permissionDenied('admin'),
                     ...channelInfo
                 }, { quoted: message });
                 return;
@@ -384,7 +379,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
         } catch (error) {
             console.error(`❌ Error executing ${prefix}${commandName}:`, error.message);
             await sock.sendMessage(chatId, {
-                text: '❌ Failed to process command!',
+                text: style.error('Failed to process command.'),
                 ...channelInfo
             });
         }
@@ -399,7 +394,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
         // Only try to send error message if we have a valid chatId
         if (chatId) {
             await sock.sendMessage(chatId, {
-                text: '❌ Failed to process command!',
+                text: style.error('Failed to process command.'),
                 ...channelInfo
             });
         }
@@ -414,13 +409,7 @@ async function handleGroupParticipantUpdate(sock, update) {
         if (!id.endsWith('@g.us')) return;
 
         // Respect bot mode: only announce promote/demote in public mode
-        let isPublic = true;
-        try {
-            const modeData = JSON.parse(fs.readFileSync('./data/messageCount.json'));
-            if (typeof modeData.isPublic === 'boolean') isPublic = modeData.isPublic;
-        } catch (e) {
-            // If reading fails, default to public behavior
-        }
+        const isPublic = readMode();
 
         // Handle promotion events
         if (action === 'promote') {

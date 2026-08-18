@@ -1,5 +1,7 @@
 const axios = require('axios');
 const yts = require('yt-search');
+const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
 
 const AXIOS_DEFAULTS = {
     timeout: 60000,
@@ -67,7 +69,7 @@ async function videoCommand(sock, chatId, message) {
         
         
         if (!searchQuery) {
-            await sock.sendMessage(chatId, { text: 'What video do you want to download?' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.invalidInput('Please tell me what video to download.', '.video <name or url>') }, { quoted: message });
             return;
         }
 
@@ -81,7 +83,7 @@ async function videoCommand(sock, chatId, message) {
             // Search YouTube for the video
             const { videos } = await yts(searchQuery);
             if (!videos || videos.length === 0) {
-                await sock.sendMessage(chatId, { text: 'No videos found!' }, { quoted: message });
+                await sock.sendMessage(chatId, { text: style.error('No videos found for your search.') }, { quoted: message });
                 return;
             }
             videoUrl = videos[0].url;
@@ -97,7 +99,7 @@ async function videoCommand(sock, chatId, message) {
             if (thumb) {
                 await sock.sendMessage(chatId, {
                     image: { url: thumb },
-                    caption: `*${captionTitle}*\nDownloading...`
+                    caption: `🎬 ${captionTitle}\n⏳ Downloading...`
                 }, { quoted: message });
             }
         } catch (e) { console.error('[VIDEO] thumb error:', e?.message || e); }
@@ -106,7 +108,7 @@ async function videoCommand(sock, chatId, message) {
         // Validate YouTube URL
         let urls = videoUrl.match(/(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch\?v=|v\/|embed\/|shorts\/|playlist\?list=)?)([a-zA-Z0-9_-]{11})/gi);
         if (!urls) {
-            await sock.sendMessage(chatId, { text: 'This is not a valid YouTube link!' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.invalidInput('This is not a valid YouTube link.', '.video <name or url>', { box: false }) }, { quoted: message });
             return;
         }
 
@@ -151,7 +153,7 @@ async function videoCommand(sock, chatId, message) {
             video: { url: videoData.download || videoData.dl || videoData.url },
             mimetype: 'video/mp4',
             fileName: `${(videoData.title || videoTitle || 'video').replace(/[^\w\s-]/g, '')}.mp4`,
-            caption: `*${videoData.title || videoTitle || 'Video'}*\n\n> *_Downloaded by Optimus Bot_*`
+            caption: `🎬 ${videoData.title || videoTitle || 'Video'}\n⚡ ${settings.botName || 'Optimus Bot'}`
         }, { quoted: message });
 
 
@@ -159,19 +161,17 @@ async function videoCommand(sock, chatId, message) {
         console.error('[VIDEO] Command Error:', error?.message || error);
         
         // Provide more specific error messages
-        let errorMessage = '❌ Failed to download video.';
+        let errorMessage = 'Failed to download the video. Please try again later.';
         if (error.message && error.message.includes('blocked')) {
-            errorMessage = '❌ Download blocked. The content may be unavailable in your region or due to legal restrictions.';
+            errorMessage = 'Download blocked. The content may be unavailable in your region or due to legal restrictions.';
         } else if (error.response?.status === 451 || error.status === 451) {
-            errorMessage = '❌ Content unavailable (451). This may be due to legal restrictions or regional blocking.';
+            errorMessage = 'Content unavailable. This may be due to legal restrictions or regional blocking.';
         } else if (error.message && error.message.includes('All download sources failed')) {
-            errorMessage = '❌ All download sources failed. The content may be unavailable or blocked.';
-        } else if (error.message) {
-            errorMessage = '❌ Download failed: ' + error.message;
+            errorMessage = 'All download sources failed. The content may be unavailable or blocked.';
         }
         
         await sock.sendMessage(chatId, { 
-            text: errorMessage 
+            text: style.error(errorMessage)
         }, { quoted: message });
     }
 }

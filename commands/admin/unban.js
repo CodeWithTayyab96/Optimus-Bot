@@ -1,8 +1,8 @@
-const fs = require('fs');
-const path = require('path');
 const { channelInfo } = require('../../lib/messageConfig');
 const isAdmin = require('../../lib/isAdmin');
 const { isSudo } = require('../../lib/index');
+const { isBanned, unbanUser } = require('../../lib/isBanned');
+const style = require('../../lib/messageStyle');
 
 async function unbanCommand(sock, chatId, message) {
     // Restrict in groups to admins; in private to owner/sudo
@@ -11,18 +11,18 @@ async function unbanCommand(sock, chatId, message) {
         const senderId = message.key.participant || message.key.remoteJid;
         const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
         if (!isBotAdmin) {
-            await sock.sendMessage(chatId, { text: 'Please make the bot an admin to use .unban', ...channelInfo }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('botAdmin', { box: false }), ...channelInfo }, { quoted: message });
             return;
         }
         if (!isSenderAdmin && !message.key.fromMe) {
-            await sock.sendMessage(chatId, { text: 'Only group admins can use .unban', ...channelInfo }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('admin', { box: false }), ...channelInfo }, { quoted: message });
             return;
         }
     } else {
         const senderId = message.key.participant || message.key.remoteJid;
         const senderIsSudo = await isSudo(senderId);
         if (!message.key.fromMe && !senderIsSudo) {
-            await sock.sendMessage(chatId, { text: 'Only owner/sudo can use .unban in private chat', ...channelInfo }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('ownerOrSudo', { box: false }), ...channelInfo }, { quoted: message });
             return;
         }
     }
@@ -39,34 +39,31 @@ async function unbanCommand(sock, chatId, message) {
     
     if (!userToUnban) {
         await sock.sendMessage(chatId, { 
-            text: 'Please mention the user or reply to their message to unban!', 
+            text: style.invalidInput('Please mention the user or reply to their message.', '.unban @user', { box: false }), 
             ...channelInfo 
         }, { quoted: message });
         return;
     }
 
     try {
-        const bannedUsers = JSON.parse(fs.readFileSync('./data/banned.json'));
-        const index = bannedUsers.indexOf(userToUnban);
-        if (index > -1) {
-            bannedUsers.splice(index, 1);
-            fs.writeFileSync('./data/banned.json', JSON.stringify(bannedUsers, null, 2));
+        if (isBanned(userToUnban)) {
+            unbanUser(userToUnban);
             
             await sock.sendMessage(chatId, { 
-                text: `Successfully unbanned ${userToUnban.split('@')[0]}!`,
+                text: style.success(`Successfully unbanned @${userToUnban.split('@')[0]}!`),
                 mentions: [userToUnban],
                 ...channelInfo 
             });
         } else {
             await sock.sendMessage(chatId, { 
-                text: `${userToUnban.split('@')[0]} is not banned!`,
+                text: style.info(`@${userToUnban.split('@')[0]} is not banned.`),
                 mentions: [userToUnban],
                 ...channelInfo 
             });
         }
     } catch (error) {
         console.error('Error in unban command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to unban user!', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to unban user.'), ...channelInfo }, { quoted: message });
     }
 }
 
@@ -84,7 +81,7 @@ module.exports = {
     botAdminNeeded: true,
     async execute(sock, message, args, extra) {
         if (!extra.isGroup && !message.key.fromMe && !extra.senderIsSudo) {
-            await sock.sendMessage(extra.chatId, { text: 'Only owner/sudo can use ' + extra.prefix + 'unban in private chat.' }, { quoted: message });
+            await sock.sendMessage(extra.chatId, { text: style.permissionDenied('ownerOrSudo', { box: false }) }, { quoted: message });
             return;
         }
         await unbanCommand(sock, extra.chatId, message);

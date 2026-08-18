@@ -1,4 +1,5 @@
 const { getGroupSettings, updateGroupSettings } = require('../../lib/groupSettings');
+const style = require('../../lib/messageStyle');
 
 module.exports = {
     name: 'antigroupmention',
@@ -20,14 +21,16 @@ module.exports = {
                 const status = settings.antigroupmention ? 'ON' : 'OFF';
                 const action = settings.antigroupmentionAction || 'delete';
                 return extra.reply(
-                    `📌 *Antigroupmention Status*\n\n` +
-                    `Status: *${status}*\n` +
-                    `Action: *${action}*\n\n` +
-                    `Usage:\n` +
-                    `  ${p}antigroupmention on\n` +
-                    `  ${p}antigroupmention off\n` +
-                    `  ${p}antigroupmention set delete | kick\n` +
-                    `  ${p}antigroupmention get`
+                    style.box('🛡️ ANTIGROUPMENTION', [
+                        `Status: *${status}*`,
+                        `Action: *${action}*`,
+                        '',
+                        'Usage:',
+                        ` ${p}antigroupmention on`,
+                        ` ${p}antigroupmention off`,
+                        ` ${p}antigroupmention set delete | kick`,
+                        ` ${p}antigroupmention get`
+                    ])
                 );
             }
 
@@ -35,37 +38,41 @@ module.exports = {
 
             if (opt === 'on') {
                 if (getGroupSettings(extra.chatId).antigroupmention) {
-                    return extra.reply('*Antigroupmention is already on*');
+                    return extra.reply(style.info('Antigroupmention is already on.'));
                 }
                 updateGroupSettings(extra.chatId, { antigroupmention: true });
-                return extra.reply('*Antigroupmention has been turned ON*');
+                return extra.reply(style.success('Antigroupmention has been turned ON.'));
             }
 
             if (opt === 'off') {
                 updateGroupSettings(extra.chatId, { antigroupmention: false });
-                return extra.reply('*Antigroupmention has been turned OFF*');
+                return extra.reply(style.success('Antigroupmention has been turned OFF.'));
             }
 
             if (opt === 'set') {
                 if (args.length < 2) {
-                    return extra.reply(`*Please specify an action: ${p}antigroupmention set delete | kick*`);
+                    return extra.reply(style.invalidInput('Please specify an action.', `${p}antigroupmention set delete | kick`, { box: false }));
                 }
                 const setAction = args[1].toLowerCase();
                 if (!['delete', 'kick'].includes(setAction)) {
-                    return extra.reply('*Invalid action. Choose delete or kick.*');
+                    return extra.reply(style.invalidInput('Invalid action. Choose delete or kick.', `${p}antigroupmention set <action>`, { box: false }));
                 }
                 updateGroupSettings(extra.chatId, { antigroupmentionAction: setAction, antigroupmention: true });
-                return extra.reply(`*Antigroupmention action set to ${setAction}*`);
+                return extra.reply(style.success(`Antigroupmention action set to ${setAction}.`));
             }
 
             if (opt === 'get') {
                 const settings = getGroupSettings(extra.chatId);
-                return extra.reply(`*Antigroupmention Configuration:*\nStatus: ${settings.antigroupmention ? 'ON' : 'OFF'}\nAction: ${settings.antigroupmentionAction || 'delete'}`);
+                return extra.reply(style.box('🛡️ ANTIGROUPMENTION', [
+                    `Status: ${settings.antigroupmention ? 'ON' : 'OFF'}`,
+                    `Action: ${settings.antigroupmentionAction || 'delete'}`
+                ]));
             }
 
-            return extra.reply(`*Use ${p}antigroupmention for usage.*`);
+            return extra.reply(style.info(`Use ${p}antigroupmention for usage.`));
         } catch (error) {
-            await extra.reply(`❌ Error: ${error.message}`);
+            console.error('Antigroupmention command error:', error);
+            await extra.reply(style.error('Failed to update antigroupmention settings.'));
         }
     }
 };

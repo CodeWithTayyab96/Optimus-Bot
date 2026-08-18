@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 module.exports = {
     name: 'block',
     aliases: [],
@@ -24,17 +26,18 @@ module.exports = {
             } else if (!extra.isGroup && !message.key.fromMe) {
                 target = extra.chatId;
             } else {
-                return extra.reply('❌ Please mention or reply to a user to block!');
+                return extra.reply(style.invalidInput('Mention or reply to a user to block.', '.block @user (or reply)', { box: false }));
             }
 
             await sock.updateBlockStatus(target, 'block');
 
             await sock.sendMessage(extra.chatId, {
-                text: `✅ @${target.split('@')[0]} has been blocked!`,
+                text: style.success(`@${target.split('@')[0]} has been blocked!`),
                 mentions: [target]
             }, { quoted: message });
         } catch (error) {
-            await extra.reply(`❌ Error: ${error.message}`);
+            console.error('Block command error:', error);
+            await extra.reply(style.error('Failed to block the user.'));
         }
     }
 };

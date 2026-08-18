@@ -1,4 +1,5 @@
 const { exec } = require('child_process');
+const style = require('../../lib/messageStyle');
 
 module.exports = {
     name: 'restart',
@@ -14,7 +15,7 @@ module.exports = {
     botAdminNeeded: false,
     async execute(sock, message, args, extra) {
         try {
-            await extra.reply('🔁 Restarting bot...');
+            await extra.reply(style.processing('Restarting the bot'));
 
             const run = (cmd) =>
                 new Promise((resolve, reject) => {
@@ -38,7 +39,7 @@ module.exports = {
             }, 500);
         } catch (error) {
             console.error('Restart error:', error);
-            await extra.reply(`❌ Error restarting bot: ${error.message}`);
+            await extra.reply(style.error('Failed to restart the bot. Check the logs.'));
         }
     }
 };

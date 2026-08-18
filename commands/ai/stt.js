@@ -1,6 +1,7 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { speechToText, chat } = require('../../lib/ai');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
 
 // Returns true if text contains Arabic or Devanagari script characters
 function isNonLatinScript(text) {
@@ -26,7 +27,7 @@ async function sttCommand(sock, chatId, message) {
 
         if (!audioMsg) {
             return await sock.sendMessage(chatId, {
-                text: '🎙️ Kisi *voice message* ya *audio* ko reply karo transcribe karne ke liye.\nExample: Voice note ko reply karo *.totext* ke saath\n\n💡 Urdu, Hindi, aur English — sab languages support hain!',
+                text: style.invalidInput('Kisi voice message ya audio ko reply karo transcribe karne ke liye.\n\nExample: Voice note ko reply karo .totext ke saath\n\n💡 Urdu, Hindi, aur English — sab languages support hain!', '.stt (reply to a voice note)'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -51,7 +52,7 @@ async function sttCommand(sock, chatId, message) {
 
         if (!audioBuffer || audioBuffer.length === 0) {
             return await sock.sendMessage(chatId, {
-                text: '❌ Audio download nahi hui. Dobara try karo. (Failed to download the audio. Please try again.)',
+                text: style.error('Audio download nahi hui. Dobara try karo. (Failed to download the audio. Please try again.)'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -71,7 +72,7 @@ async function sttCommand(sock, chatId, message) {
 
         if (!transcription) {
             return await sock.sendMessage(chatId, {
-                text: '❌ Audio transcribe nahi ho saki. Voice note thodi lambi rakho ya saaf bol ke record karo. (Could not transcribe. The voice note may be too short or unclear.)',
+                text: style.error('Audio transcribe nahi ho saki. Voice note thodi lambi rakho ya saaf bol ke record karo. (Could not transcribe. The voice note may be too short or unclear.)'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -90,7 +91,7 @@ async function sttCommand(sock, chatId, message) {
     } catch (error) {
         console.error('Error in STT command:', error.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to transcribe audio. Please try again later.',
+            text: style.error("I couldn't transcribe the audio right now. Please try again."),
             ...channelInfo
         }, { quoted: message });
     }

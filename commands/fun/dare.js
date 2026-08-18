@@ -11,7 +11,7 @@ async function dareCommand(sock, chatId, message) {
             `Give me a ${style} dare challenge. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: `🔥 *Dare:*\n\n${dare || 'Send a voice note singing your favorite song!'}`,
+            text: `🎯 DARE\n\n${dare || 'Send a voice note singing your favorite song!'}`,
             ...channelInfo
         }, { quoted: message });
     } catch (error) {

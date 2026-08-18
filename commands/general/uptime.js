@@ -1,4 +1,5 @@
 const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
 
 function formatUptime(seconds) {
     if (seconds <= 0) {
@@ -36,11 +37,11 @@ module.exports = {
         try {
             const uptime = formatUptime(process.uptime());
 
-            let text = `╭━━『 *Bot Uptime* 』━━╮\n\n`;
-            text += `🤖 *Bot Name:* ${settings.botName || 'Optimus Bot'}\n`;
-            text += `🧬 *Bot Version:* v${settings.version || '1.0.0'}\n`;
-            text += `⏱️ *Uptime:* ${uptime}\n`;
-            text += `\n╰━━━━━━━━━━━━━━━╯`;
+            const text = style.box('⏱️ BOT UPTIME', [
+                `🤖 Name: ${settings.botName || 'Optimus Bot'}`,
+                `🧬 Version: v${settings.version || '1.0.0'}`,
+                `⏱️ Uptime: ${uptime}`
+            ]);
 
             await extra.reply(text);
         } catch (error) {

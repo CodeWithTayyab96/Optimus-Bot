@@ -1,6 +1,8 @@
 const axios = require('axios');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { uploadImage } = require('../../lib/uploadImage');
+const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
 
 async function getQuotedOrOwnImageUrl(sock, message) {
     // 1) Quoted image (highest priority)
@@ -36,7 +38,7 @@ async function reminiCommand(sock, chatId, message, args) {
                 imageUrl = url;
             } else {
                 return sock.sendMessage(chatId, { 
-                    text: '❌ Invalid URL provided.\n\nUsage: `.remini https://example.com/image.jpg`' 
+                    text: style.invalidInput('Invalid image URL provided.', '.remini <image_url>') 
                 }, { quoted: message });
             }
         } else {
@@ -45,7 +47,15 @@ async function reminiCommand(sock, chatId, message, args) {
             
             if (!imageUrl) {
                 return sock.sendMessage(chatId, { 
-                    text: '📸 *Remini AI Enhancement Command*\n\nUsage:\n• `.remini <image_url>`\n• Reply to an image with `.remini`\n• Send image with `.remini`\n\nExample: `.remini https://example.com/image.jpg`' 
+                    text: style.box('🖼️ REMINI', [
+                        'Usage:',
+                        '• .remini <image_url>',
+                        '• Reply to an image with .remini',
+                        '• Send an image with .remini',
+                        '',
+                        'Example:',
+                        '.remini https://example.com/image.jpg'
+                    ]) 
                 }, { quoted: message });
             }
         }
@@ -75,7 +85,7 @@ async function reminiCommand(sock, chatId, message, args) {
                     // Send the enhanced image
                     await sock.sendMessage(chatId, {
                         image: imageResponse.data,
-                        caption: '✨ *Image enhanced successfully!*\n\n𝗘𝗡𝗛𝗔𝗡𝗖𝗘𝗗 𝗕𝗬 𝗞𝗡𝗜𝗚𝗛𝗧-𝗕𝗢𝗧'
+                        caption: `✨ Image enhanced successfully!\n⚡ ${settings.botName || 'Optimus Bot'}`
                     }, { quoted: message });
                 } else {
                     throw new Error('Failed to download enhanced image');
@@ -90,24 +100,24 @@ async function reminiCommand(sock, chatId, message, args) {
     } catch (error) {
         console.error('Remini Error:', error.message);
         
-        let errorMessage = '❌ Failed to enhance image.';
+        let errorMessage = 'Failed to enhance the image. Please try again later.';
         
         if (error.response?.status === 429) {
-            errorMessage = '⏰ Rate limit exceeded. Please try again later.';
+            errorMessage = 'Rate limit exceeded. Please try again later.';
         } else if (error.response?.status === 400) {
-            errorMessage = '❌ Invalid image URL or format.';
+            errorMessage = 'Invalid image URL or format.';
         } else if (error.response?.status === 500) {
-            errorMessage = '🔧 Server error. Please try again later.';
+            errorMessage = 'Server error. Please try again later.';
         } else if (error.code === 'ECONNABORTED') {
-            errorMessage = '⏰ Request timeout. Please try again.';
+            errorMessage = 'Request timed out. Please try again.';
         } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-            errorMessage = '🌐 Network error. Please check your connection.';
+            errorMessage = 'Network error. Please check your connection.';
         } else if (error.message.includes('Error processing image')) {
-            errorMessage = '❌ Image processing failed. Please try with a different image.';
+            errorMessage = 'Image processing failed. Please try with a different image.';
         }
         
         await sock.sendMessage(chatId, { 
-            text: errorMessage 
+            text: style.error(errorMessage) 
         }, { quoted: message });
     }
 }

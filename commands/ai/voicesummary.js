@@ -1,6 +1,7 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { speechToText, chat } = require('../../lib/ai');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
 
 function extractAudioMessage(message) {
     const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -18,7 +19,7 @@ async function voicesummaryCommand(sock, chatId, message) {
 
         if (!audioMsg) {
             return await sock.sendMessage(chatId, {
-                text: '🎙️ Reply to a voice note or audio with `.voicesummary` to get transcription + summary.',
+                text: style.invalidInput('Reply to a voice note or audio with .voicesummary to get transcription + summary.', '.voicesummary (reply to a voice note)', { box: false }),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -30,7 +31,7 @@ async function voicesummaryCommand(sock, chatId, message) {
         const audioBuffer = await downloadMediaMessage(msgToDownload, 'buffer', {}, {});
         if (!audioBuffer || !audioBuffer.length) {
             return await sock.sendMessage(chatId, {
-                text: '❌ Failed to download audio. Please try again.',
+                text: style.error('Failed to download the audio. Please try again.'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -48,7 +49,7 @@ async function voicesummaryCommand(sock, chatId, message) {
 
         if (!transcription) {
             return await sock.sendMessage(chatId, {
-                text: '❌ Could not transcribe this voice note. Try a clearer or slightly longer audio.',
+                text: style.error('Could not transcribe this voice note. Try a clearer or slightly longer audio.'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -66,7 +67,7 @@ async function voicesummaryCommand(sock, chatId, message) {
     } catch (error) {
         console.error('Voice summary command error:', error.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to summarize voice note. Please try again later.',
+            text: style.error("I couldn't summarize the voice note right now. Please try again."),
             ...channelInfo
         }, { quoted: message });
     }

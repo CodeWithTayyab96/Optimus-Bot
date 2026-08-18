@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const isOwnerOrSudo = require('../../lib/isOwner');
+const style = require('../../lib/messageStyle');
 
 // Function to clear a single directory
 function clearDirectory(dirPath) {
@@ -54,7 +55,7 @@ async function clearTmpCommand(sock, chatId, msg) {
         
         if (!msg.key.fromMe && !isOwner) {
             await sock.sendMessage(chatId, { 
-                text: '❌ This command is only available for the owner!' 
+                text: style.permissionDenied('owner', { box: false }) 
             });
             return;
         }
@@ -63,18 +64,18 @@ async function clearTmpCommand(sock, chatId, msg) {
         
         if (result.success) {
             await sock.sendMessage(chatId, { 
-                text: `✅ ${result.message}` 
+                text: style.success(`${result.message.replace(/^Cleared/, 'cleared')}.`) 
             });
         } else {
             await sock.sendMessage(chatId, { 
-                text: `❌ ${result.message}` 
+                text: style.error('Failed to clear temporary files.') 
             });
         }
 
     } catch (error) {
         console.error('Error in cleartmp command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Failed to clear temporary files!' 
+            text: style.error('Failed to clear temporary files!') 
         });
     }
 }

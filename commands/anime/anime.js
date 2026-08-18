@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const webp = require('node-webpmux');
 const crypto = require('crypto');
+const style = require('../../lib/messageStyle');
 
 const ANIMU_BASE = 'https://api.some-random-api.com/animu';
 
@@ -110,7 +111,7 @@ async function sendAnimu(sock, chatId, message, type) {
 
     await sock.sendMessage(
         chatId,
-        { text: '❌ Failed to fetch animu.' },
+        { text: "❌ I couldn't fetch the anime content right now. Please try again." },
         { quoted: message }
     );
 }
@@ -126,18 +127,19 @@ async function animeCommand(sock, chatId, message, args) {
     try {
         if (!sub) {
             // Fetch supported types from API for dynamic help
+            const usageBox = (types) => style.box('⚠️ INVALID INPUT', ['Usage:', ' .animu <type>', '', `Types: ${types}`]);
             try {
                 const res = await axios.get(ANIMU_BASE);
                 const apiTypes = res.data && res.data.types ? res.data.types.map(s => s.replace('/animu/', '')).join(', ') : supported.join(', ');
-                await sock.sendMessage(chatId, { text: `Usage: .animu <type>\nTypes: ${apiTypes}` }, { quoted: message });
+                await sock.sendMessage(chatId, { text: usageBox(apiTypes) }, { quoted: message });
             } catch {
-                await sock.sendMessage(chatId, { text: `Usage: .animu <type>\nTypes: ${supported.join(', ')}` }, { quoted: message });
+                await sock.sendMessage(chatId, { text: usageBox(supported.join(', ')) }, { quoted: message });
             }
             return;
         }
 
         if (!supported.includes(sub)) {
-            await sock.sendMessage(chatId, { text: `❌ Unsupported type: ${sub}. Try one of: ${supported.join(', ')}` }, { quoted: message });
+            await sock.sendMessage(chatId, { text: `⚠️ Unsupported anime type: ${sub}. Try one of: ${supported.join(', ')}` }, { quoted: message });
             return;
         }
 

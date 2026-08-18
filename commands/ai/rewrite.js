@@ -1,5 +1,6 @@
 const { chat } = require('../../lib/ai');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
 
 const MODES = {
     formal: 'Rewrite the text in a formal and polished tone.',
@@ -45,7 +46,7 @@ async function rewriteCommand(sock, chatId, message) {
 
         if (!sourceText) {
             return await sock.sendMessage(chatId, {
-                text: '✍️ Reply to text with `.rewrite <mode>` or use `.rewrite <mode> your text`\n\nModes: formal, friendly, short, professional, savage, romantic, fixgrammar',
+                text: style.invalidInput('Reply to text with .rewrite <mode> or use .rewrite <mode> your text.\n\nModes: formal, friendly, short, professional, savage, romantic, fixgrammar', '.rewrite <text>'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -61,13 +62,13 @@ async function rewriteCommand(sock, chatId, message) {
         );
 
         await sock.sendMessage(chatId, {
-            text: rewritten || '❌ Could not rewrite that text.',
+            text: rewritten || style.error("I couldn't rewrite that text right now. Please try again."),
             ...channelInfo
         }, { quoted: message });
     } catch (error) {
         console.error('Rewrite command error:', error.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to rewrite text. Please try again later.',
+            text: style.error("I couldn't rewrite that text right now. Please try again."),
             ...channelInfo
         }, { quoted: message });
     }

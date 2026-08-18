@@ -31,7 +31,8 @@ module.exports = {
                 caption: `✅ QR Code Generated!\n\n📝 Text: ${text}`
             }, { quoted: message });
         } catch (error) {
-            await extra.reply(`❌ Error: ${error.message}`);
+            console.error('Error in qr command:', error);
+            await extra.reply('❌ Failed to generate the QR code. Please try again.');
         }
     }
 };

@@ -6,6 +6,8 @@
 const fs = require('fs');
 const path = require('path');
 const isOwnerOrSudo = require('../../lib/isOwner');
+const style = require('../../lib/messageStyle');
+const { channelInfo } = require('../../lib/messageConfig');
 
 // Path to store the configuration
 const configPath = path.join(__dirname, '..', '..', 'data', 'autoread.json');
@@ -26,16 +28,8 @@ async function autoreadCommand(sock, chatId, message) {
         
         if (!message.key.fromMe && !isOwner) {
             await sock.sendMessage(chatId, {
-                text: '❌ This command is only available for the owner!',
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363000000000000@newsletter',
-                        newsletterName: 'Optimus Bot',
-                        serverMessageId: -1
-                    }
-                }
+                text: style.permissionDenied('owner', { box: false }),
+                ...channelInfo
             });
             return;
         }
@@ -57,16 +51,8 @@ async function autoreadCommand(sock, chatId, message) {
                 config.enabled = false;
             } else {
                 await sock.sendMessage(chatId, {
-                    text: '❌ Invalid option! Use: .autoread on/off',
-                    contextInfo: {
-                        forwardingScore: 1,
-                        isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: '120363000000000000@newsletter',
-                            newsletterName: 'Optimus Bot',
-                            serverMessageId: -1
-                        }
-                    }
+                    text: style.invalidInput('Invalid option.', '.autoread on/off', { box: false }),
+                    ...channelInfo
                 });
                 return;
             }
@@ -80,31 +66,15 @@ async function autoreadCommand(sock, chatId, message) {
         
         // Send confirmation message
         await sock.sendMessage(chatId, {
-            text: `✅ Auto-read has been ${config.enabled ? 'enabled' : 'disabled'}!`,
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363000000000000@newsletter',
-                    newsletterName: 'Optimus Bot',
-                    serverMessageId: -1
-                }
-            }
+            text: style.success(`Auto-read has been ${config.enabled ? 'enabled' : 'disabled'}!`),
+            ...channelInfo
         });
         
     } catch (error) {
         console.error('Error in autoread command:', error);
         await sock.sendMessage(chatId, {
-            text: '❌ Error processing command!',
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363000000000000@newsletter',
-                    newsletterName: 'Optimus Bot',
-                    serverMessageId: -1
-                }
-            }
+            text: style.error('Failed to process the autoread command.'),
+            ...channelInfo
         });
     }
 }

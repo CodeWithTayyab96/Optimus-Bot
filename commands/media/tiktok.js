@@ -1,5 +1,6 @@
 const { ttdl } = require("ruhend-scraper");
 const axios = require('axios');
+const style = require('../../lib/messageStyle');
 
 // Store processed message IDs to prevent duplicates
 const processedMessages = new Set();
@@ -23,7 +24,7 @@ async function tiktokCommand(sock, chatId, message) {
         
         if (!text) {
             return await sock.sendMessage(chatId, { 
-                text: "Please provide a TikTok link for the video."
+                text: style.invalidInput('Please provide a TikTok link for the video.', '.tiktok <url>')
             });
         }
 
@@ -32,7 +33,7 @@ async function tiktokCommand(sock, chatId, message) {
         
         if (!url) {
             return await sock.sendMessage(chatId, { 
-                text: "Please provide a TikTok link for the video."
+                text: style.invalidInput('Please provide a TikTok link for the video.', '.tiktok <url>')
             });
         }
 
@@ -49,7 +50,7 @@ async function tiktokCommand(sock, chatId, message) {
         
         if (!isValidUrl) {
             return await sock.sendMessage(chatId, { 
-                text: "That is not a valid TikTok link. Please provide a valid TikTok video link."
+                text: style.invalidInput('That is not a valid TikTok link. Please provide a valid TikTok video link.', '.tiktok <url>')
             });
         }
 
@@ -232,18 +233,18 @@ async function tiktokCommand(sock, chatId, message) {
 
             // If we reach here, no method worked
             return await sock.sendMessage(chatId, { 
-                text: "❌ Failed to download TikTok video. All download methods failed. Please try again with a different link or check if the video is available."
+                text: style.error('Failed to download the TikTok video. All download methods failed. Please try a different link or check if the video is available.')
             },{ quoted: message });
         } catch (error) {
             console.error('Error in TikTok download:', error);
             await sock.sendMessage(chatId, { 
-                text: "Failed to download the TikTok video. Please try again with a different link."
+                text: style.error('Failed to download the TikTok video. Please try a different link.')
             },{ quoted: message });
         }
     } catch (error) {
         console.error('Error in TikTok command:', error);
         await sock.sendMessage(chatId, { 
-            text: "An error occurred while processing the request. Please try again later."
+            text: style.error('An error occurred while processing the request. Please try again later.')
         },{ quoted: message });
     }
 }

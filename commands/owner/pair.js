@@ -1,20 +1,21 @@
 const axios = require('axios');
 const { sleep } = require('../../lib/myfunc');
 const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
 const { channelInfo } = require('../../lib/messageConfig');
 
 async function pairCommand(sock, chatId, message, q) {
     try {
         if (!settings.pairCodeService) {
             return await sock.sendMessage(chatId, {
-                text: "⚠️ The .pair command is disabled.\n\nTo enable it, set `pairCodeService` in settings.js to the URL of an external pairing-code service that accepts `?number=` as a query parameter and returns JSON `{ code: '...' }`.",
+                text: style.warning("The .pair command is disabled. Set `pairCodeService` in settings.js to the URL of an external pairing-code service that accepts `?number=` and returns JSON `{ code: '...' }`."),
                 ...channelInfo
             });
         }
 
         if (!q) {
             return await sock.sendMessage(chatId, {
-                text: "Please provide valid WhatsApp number\nExample: .pair 91702395XXXX",
+                text: style.invalidInput('Provide a valid WhatsApp number.', '.pair 91702395XXXX', { box: false }),
                 ...channelInfo
             });
         }
@@ -25,7 +26,7 @@ async function pairCommand(sock, chatId, message, q) {
 
         if (numbers.length === 0) {
             return await sock.sendMessage(chatId, {
-                text: "Invalid number❌️ Please use the correct format!",
+                text: style.invalidInput('Invalid number. Please use the correct format.', '.pair 91702395XXXX', { box: false }),
                 ...channelInfo
             });
         }
@@ -36,13 +37,13 @@ async function pairCommand(sock, chatId, message, q) {
 
             if (!result[0]?.exists) {
                 return await sock.sendMessage(chatId, {
-                    text: `That number is not registered on WhatsApp❗️`,
+                    text: style.error('That number is not registered on WhatsApp.'),
                     ...channelInfo
                 });
             }
 
             await sock.sendMessage(chatId, {
-                text: "Wait a moment for the code",
+                text: style.processing('Fetching your pairing code'),
                 ...channelInfo
             });
 
@@ -67,8 +68,8 @@ async function pairCommand(sock, chatId, message, q) {
             } catch (apiError) {
                 console.error('API Error:', apiError);
                 const errorMessage = apiError.message === 'Service Unavailable'
-                    ? "Service is currently unavailable. Please try again later."
-                    : "Failed to generate pairing code. Please try again later.";
+                    ? style.error('The pairing service is currently unavailable. Please try again later.')
+                    : style.error('Failed to generate the pairing code. Please try again later.');
 
                 await sock.sendMessage(chatId, {
                     text: errorMessage,
@@ -79,7 +80,7 @@ async function pairCommand(sock, chatId, message, q) {
     } catch (error) {
         console.error(error);
         await sock.sendMessage(chatId, {
-            text: "An error occurred. Please try again later.",
+            text: style.error('An error occurred. Please try again later.'),
             ...channelInfo
         });
     }

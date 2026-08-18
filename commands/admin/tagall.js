@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 async function tagAllCommand(sock, chatId, senderId, message) {
     try {
         // Get group metadata
@@ -5,7 +7,7 @@ async function tagAllCommand(sock, chatId, senderId, message) {
         const participants = groupMetadata.participants;
 
         if (!participants || participants.length === 0) {
-            await sock.sendMessage(chatId, { text: 'No participants found in the group.' });
+            await sock.sendMessage(chatId, { text: style.info('No participants found in the group.') });
             return;
         }
 
@@ -23,7 +25,7 @@ async function tagAllCommand(sock, chatId, senderId, message) {
 
     } catch (error) {
         console.error('Error in tagall command:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to tag all members.' });
+        await sock.sendMessage(chatId, { text: style.error('Failed to tag all members.') });
     }
 }
 
