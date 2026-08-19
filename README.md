@@ -1,175 +1,262 @@
+<div align="center">
+
+<img src="docs/assets/optimus-cover.png" alt="Optimus Bot" width="400" />
+
 # 🤖 Optimus Bot
 
-A WhatsApp bot built using the Baileys library for group management, including features like tagging all members, muting/unmuting, and many more. Designed to help admins efficiently manage WhatsApp groups.
+**A full-featured WhatsApp bot for group management, AI chat, media tools, and fun — built on [Baileys](https://github.com/WhiskeySockets/Baileys).**
 
-<div align="center">
-  <a href="https://git.io/typing-svg">
-    <img src="https://readme-typing-svg.demolab.com?font=Ribeye&size=50&pause=1000&color=33ff00&center=true&width=910&height=100&lines=Optimus+Bot;Multi+Device+Whatsapp+Bot;by+Tayyab" alt="Typing SVG" />
-  </a>
-</div>
+[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)](https://github.com/CodeWithTayyab96/Optimus-Bot)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green?style=flat-square&logo=node.js)](https://nodejs.org)
+[![License: ISC](https://img.shields.io/badge/license-ISC-blue?style=flat-square)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-24%2F24%20passing-brightgreen?style=flat-square)](#testing)
 
-<div align="center">
-  <a href="https://youtube.com/@techhub-c6s">
-    <img src="assets/bot_image.jpg" alt="Optimus Bot" height="300">
-  </a>
-</div>
-
-<div align="center">
-  <img src="https://img.shields.io/github/followers/CodeWithTayyab96?style=for-the-badge&label=Followers" alt="Followers"/>
-  <img src="https://img.shields.io/github/stars/CodeWithTayyab96/Optimus-Bot?style=for-the-badge&label=Stars" alt="Stars"/>
-  <img src="https://img.shields.io/github/forks/CodeWithTayyab96/Optimus-Bot?style=for-the-badge&label=Forks" alt="Forks"/>
-  <img src="https://img.shields.io/github/watchers/CodeWithTayyab96/Optimus-Bot?style=for-the-badge&label=Watchers" alt="Watchers"/>
 </div>
 
 ---
 
-## 🚀 Steps to Deploy Bot
+## ✨ Features at a Glance
 
-### Step 1: Fork the Repository
-
-Click the button below to fork the Optimus Bot repository to your GitHub account:
-
-<div align="center">
-  <a href="https://github.com/CodeWithTayyab96/Optimus-Bot/fork">
-    <img src="https://img.shields.io/badge/Fork-Repository-blue?style=for-the-badge" alt="Fork the repository"/>
-  </a>
-</div>
-
----
-
-### Step 2: Get Session
-
-Use the pairing code method in `index.js` to link your WhatsApp account. Set your phone number in `settings.js` and run the bot — it will print a pairing code to enter in WhatsApp > Linked Devices.
-
-After getting `creds.json`, upload it to the `session` folder.
+| Category | Highlights |
+|----------|-----------|
+| 🧠 **AI Chat** | GPT / Gemini chat with auto-fallback, text rewriting, reply drafting, document analysis, voice summary |
+| 🎨 **Image Generation** | Pixazo (primary) + Gemini fallback — text-to-image and AI image editing |
+| 🗣️ **Speech-to-Text** | Groq Whisper — transcribe voice notes, auto-convert Urdu/Hindi to Roman script |
+| 📥 **Media & Downloads** | YouTube, Spotify, Instagram, TikTok, Twitter, Facebook, Pinterest — audio, video, and more |
+| 🎮 **Games** | Tic-Tac-Toe, Hangman, Bomb, Trivia |
+| 😄 **Fun** | Jokes, quotes, roasts, compliments, shayari, memes, 8-ball, dare/truth, and more |
+| 🛡️ **Group Management** | Anti-link, anti-badword, anti-sticker, warnings, bans, mute, kick, promote, demote |
+| 👑 **Owner Controls** | Mode switching, broadcast, sudo, auto-read/typing, anti-call, anti-delete |
+| 📊 **Utilities** | Calculator, weather, news, QR codes, screenshots, URL shortener, GitHub lookup |
+| 🎌 **Anime & Textmaker** | Anime image fetcher, styled text generator with 19+ font styles |
+| 🖼️ **Stickers** | Image/video-to-sticker with crop, custom pack names, animated sticker support |
 
 ---
 
-### Step 3: Deploy Now
+## 🏗️ Architecture
 
-For further customization and setup guidance:
+```
+Optimus Bot
+├── index.js              # Entry point — pairing / session bootstrap
+├── main.js               # Message handler, dispatch, group protections
+├── settings.js           # Bot configuration (prefix, branding, API keys)
+├── lib/
+│   ├── aiConfig.js       # AI model IDs — single source of truth
+│   ├── ai.js             # Centralized AI client (Groq + Gemini + Pixazo)
+│   ├── messageStyle.js   # Unified visual formatting system
+│   ├── messageConfig.js  # Shared contextInfo / newsletter config
+│   ├── commandLoader.js  # Dynamic command registration
+│   ├── mode.js           # Public/Private mode with caching
+│   ├── isBanned.js       # Ban system with in-memory cache
+│   ├── afk.js            # AFK system with in-memory cache
+│   ├── index.js          # userGroupData CRUD with shared cache
+│   ├── antibadword.js    # Bad-word detection
+│   ├── antilink.js       # Link detection
+│   ├── groupstats.js     # Group message statistics
+│   ├── messageStats.js   # Message count with caching
+│   └── ...               # Additional helpers
+├── commands/
+│   ├── admin/            # 33 group-management commands
+│   ├── ai/               # 10 AI-powered commands
+│   ├── anime/            # Anime image fetcher
+│   ├── fun/              # 23 fun/entertainment commands
+│   ├── general/          # 26 general utility commands
+│   ├── media/            # 14 media/download commands
+│   ├── owner/            # 21 owner-only control commands
+│   ├── textmaker/        # Styled text generator
+│   └── utility/          # Calculator, QR, weather
+├── scripts/              # Test suite (24 smoke tests)
+├── data/                 # Runtime state (gitignored)
+└── session/              # WhatsApp session (gitignored)
+```
 
-<div align="center">
-  <a href="https://bot-hosting.net/?aff=1068419752923508776">
-    <img src="https://img.shields.io/badge/Deploy on Panel-28a745?style=for-the-badge" alt="Deploy on Panel"/>
-  </a>
-</div>
-
-### Join Us
-
-<div align="center">
-  <a href="https://whatsapp.com/channel/0029VbCzsfGKmCPSiZlGKC3S">
-    <img src="https://img.shields.io/badge/Join%20WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="Join WhatsApp"/>
-  </a>
-  <a href="https://youtube.com/@techhub-c6s">
-    <img src="https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="YouTube"/>
-  </a>
-</div>
-
----
-
-## ⚙️ Features
-
-- **Tag all group members** with the `.tagall` command
-- **Admin restricted usage** (Only group admins can use certain commands)
-- **Games** like Tic-Tac-Toe for interactive group engagement
-- **Text-to-Speech** with `.tts`
-- **Sticker creation** with `.sticker`
-- **Anti-link detection** for group safety
-- **Warn and manage group members** with admin control
-
----
-
-## 📖 About
-
-Optimus Bot assists group admins by providing tools to efficiently manage large WhatsApp groups. The bot uses the Baileys library to interact with the WhatsApp Web API and supports multi-device features.
-
-It is lightweight and can be easily customized to add more commands as per your requirements. The bot runs in a Node.js environment and provides pairing-code-based authentication to link your WhatsApp account.
+**Tech Stack:** Node.js ≥ 18 · Baileys (WhatsApp Web API) · Axios · Sharp · FFmpeg · Groq API · Google Gemini API · Pixazo API
 
 ---
 
-## 🛠️ Setup & Installation
+## 🧠 AI Configuration
+
+Optimus uses three AI providers with automatic fallback. Model IDs are centralized in **`lib/aiConfig.js`** — the single source of truth.
+
+| Provider | Purpose | Default Model |
+|----------|---------|---------------|
+| **Groq** | Primary text chat | `openai/gpt-oss-120b` |
+| **Groq** | Speech-to-text | `whisper-large-v3-turbo` |
+| **Gemini** | Fallback text chat | `gemini-2.5-flash` |
+| **Gemini** | Fallback image generation | `gemini-3.1-flash-image` |
+| **Pixazo** | Primary image generation | `flux-1-schnell` |
+
+**Fallback chain:**
+- **Text:** Groq → Gemini
+- **Images:** Pixazo → Gemini
+
+To change a model, edit `lib/aiConfig.js` directly. Run `.aistatus` as the bot owner to view the currently configured models.
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js (>= 18.0.0) installed on your system
-- Git installed (for cloning the repository)
+- **Node.js** ≥ 18.0.0
+- **FFmpeg** installed and available in PATH
+- A WhatsApp account for pairing
 
-### Step-by-Step Setup
+### Installation
 
-1. **Clone the repository:**
+```bash
+git clone https://github.com/CodeWithTayyab96/Optimus-Bot.git
+cd Optimus-Bot
+npm install
+```
 
-    ```bash
-    git clone https://github.com/CodeWithTayyab96/Optimus-Bot.git
-    cd Optimus-Bot
-    ```
+### Configuration
 
-2. **Install the dependencies:**
+1. **Edit `settings.js`** — this is the bot's configuration file. Open it and fill in your own values:
 
-    ```bash
-    npm install
-    ```
+```js
+const settings = {
+  prefix: '.',              // Command prefix
+  botName: 'Optimus Bot',   // Display name
+  botOwner: 'Your Name',    // Owner name
+  ownerNumber: '1234567890', // Your WhatsApp number (no + or spaces)
+  groqApiKey: 'YOUR_GROQ_API_KEY',      // Get from console.groq.com
+  geminiApiKey: 'YOUR_GEMINI_API_KEY',  // Get from aistudio.google.com
+  pixazoApiKey: 'YOUR_PIXAZO_API_KEY',  // Get from pixazo.ai
+  // ... other settings
+};
+```
 
-3. **Run the bot:**
+2. **Save the file.** All credentials stay in `settings.js` — no `.env` file needed.
 
-    ```bash
-    node index.js
-    ```
+### Running
 
-4. **Enter the pairing code:**
+```bash
+node index.js
+```
 
-    Once the bot starts, a pairing code will appear in the terminal. Enter this code in WhatsApp > Settings > Linked Devices > Link a Device.
+A pairing code will appear in the terminal. Enter it in **WhatsApp → Settings → Linked Devices → Link a Device**.
+
+After the first pairing, the session is saved to `session/` and subsequent restarts connect automatically.
+
+---
+
+## 🧪 Testing
+
+```bash
+npm test
+```
+
+Runs **24 smoke-test suites** covering:
+
+| Test | What it verifies |
+|------|-----------------|
+| `check-help` | All 144 commands appear in dynamic Help |
+| `smoke-dispatch` | Command routing and prefix handling |
+| `smoke-games` | Tic-Tac-Toe, Bomb game logic |
+| `smoke-ai` | AI command metadata and error handling |
+| `smoke-ai-config` | Centralized config structure and consumption |
+| `smoke-cache` | isBanned / AFK / userGroupData caching |
+| `smoke-models` | No dead/deprecated AI model IDs |
+| `smoke-migration` | All legacy commands still registered |
+| `smoke-*` | Category-specific UI, permissions, and behavior |
+
+---
+
+## 📋 Command Overview
+
+**144 commands** across 9 categories:
+
+<details>
+<summary><b>🛡️ Admin (33 commands)</b></summary>
+
+`antibadword` · `antigroupmention` · `antigroupstatus` · `antilink` · `antisticker` · `antitag` · `autosticker` · `ban` · `chatbot` · `clear` · `delete` · `demote` · `goodbye` · `grouplink` · `groupmanage` · `groupstatus` · `hidetag` · `kick` · `mention` · `mute` · `pending` · `promote` · `resetlink` · `resetwarn` · `tag` · `tagall` · `tagnotadmin` · `unban` · `unmute` · `warn` · `warnings` · `welcome` · `setgdesc` / `setgname` / `setgpp`
+
+</details>
+
+<details>
+<summary><b>🧠 AI (10 commands)</b></summary>
+
+`gpt` (`gemini`) · `gptimage` (`gptimg`, `editimage`, `aiimage`, `gi`) · `imagine` · `magicstudio` (`magic`, `magicai`, `generate`) · `reply` · `rewrite` · `stt` (`totext`) · `study` · `summarize` (`tldr`) · `voicesummary` (`vsum`)
+
+</details>
+
+<details>
+<summary><b>🎮 Fun & Games (23 commands)</b></summary>
+
+`advice` · `bomb` · `character` · `compliment` · `dare` · `8ball` · `fact` · `flirt` · `gayrate` · `gif` · `goodnight` · `hangman` · `insult` · `joke` · `meme` · `memesearch` · `motivate` · `pies` · `quote` · `riddle` · `roast` · `roseday` · `shayari` · `simp` · `tictactoe` (`ttt`) · `topmembers` · `trivia` · `truth` · `wasted`
+
+</details>
+
+<details>
+<summary><b>📦 General (26 commands)</b></summary>
+
+`alive` · `attp` · `emojimix` · `getpp` · `github` · `groupinfo` · `groupstats` · `help` · `myactivity` · `news` · `owner` · `ping` · `settings` · `simage` · `ss` · `staff` · `sticker` · `sticker-alt` · `stickercrop` · `stickertelegram` · `take` · `tts` · `translate` · `uptime` · `url`
+
+</details>
+
+<details>
+<summary><b>📥 Media (14 commands)</b></summary>
+
+`facebook` · `igs` · `img-blur` · `instagram` · `lyrics` · `pinterest` · `play` · `remini` · `removebg` · `song` · `spotify` · `tiktok` · `twitter` · `video`
+
+</details>
+
+<details>
+<summary><b>👑 Owner (21 commands)</b></summary>
+
+`aistatus` (`aistat`) · `afk` · `anticall` · `antidelete` · `areact` · `autoread` · `autostatus` · `autotyping` · `block` · `broadcast` · `clearsession` · `cleartmp` · `jid` · `mode` · `pair` · `pmblocker` · `restart` · `setbotname` · `setmenuimage` · `setnewsletter` · `setprefix` · `sudo` · `unblock` · `update`
+
+</details>
+
+<details>
+<summary><b>🎌 Anime & Textmaker</b></summary>
+
+`animu` (anime image fetcher) · `textmaker` (19 font styles)
+
+</details>
+
+<details>
+<summary><b>🔧 Utility (3 commands)</b></summary>
+
+`calc` · `qr` · `weather`
+
+</details>
+
+---
+
+## 🔒 Security
+
+- **Session credentials** (`session/`) are gitignored — never commit them
+- **API keys** are configured in `settings.js` — never commit real keys to version control
+- The `.aistatus` command shows only model IDs, never API keys or tokens
+- Owner-only commands are enforced at the loader level
+- See [SECURITY.md](SECURITY.md) for responsible-disclosure guidelines
+
+---
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, project conventions, and how to add new commands.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+This project is licensed under the [ISC License](LICENSE).
 
 ---
 
-## 🙌 Contributions
+## 🙏 Credits
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/CodeWithTayyab96/Optimus-Bot/issues).
-
----
-
-## 🌟 Show your support
-
-If you like this project, please give it a [star on GitHub](https://github.com/CodeWithTayyab96/Optimus-Bot)!
-
-## Credits
-
-- [Tayyab](https://github.com/CodeWithTayyab96)
-- [Baileys](https://github.com/WhiskeySockets/Baileys)
-- [TechGod143](https://github.com/TechGod143) for pair code
-- [Dgxeon](https://github.com/Dgxeon) for pair code
+- [Tayyab](https://github.com/CodeWithTayyab96) — Creator & maintainer
+- [Baileys](https://github.com/WhiskeySockets/Baileys) — WhatsApp Web API library
+- [Groq](https://groq.com) — Fast AI inference
+- [Google Gemini](https://ai.google.dev) — AI fallback
+- [Pixazo](https://pixazo.ai) — Image generation
 
 ---
 
-## ⚠️ Important Warning
+## ⚠️ Disclaimer
 
-**Note:** This bot is created for educational purposes only. This is NOT an official WhatsApp bot. Using this bot may lead to your WhatsApp account being banned. Use it at your own risk. The developers will not be responsible for any consequences or account bans that may occur while using this bot.
-
-## 📝 Legal
-
-- This project is not affiliated with, authorized, maintained, sponsored or endorsed by WhatsApp or any of its affiliates or subsidiaries.
-- This is an independent and unofficial software. Use at your own risk.
-- Do not spam people with this bot.
-- Do not use this bot to send bulk messages or for illegal purposes.
-- The developers assume no liability and are not responsible for any misuse or damage caused by this program.
-
-### License
-This project is licensed under the MIT License. However, you must:
-- Use this software in compliance with all applicable laws and regulations
-- Include original license and copyright notices
-- Credit original authors
-- Not use for spam or malicious purposes
-
-## 📜 Copyright Notice
-
-Copyright (c) 2026 Tayyab. All rights reserved.
-
-This project contains code from various open source projects:
-- Baileys (MIT License)
-- Other libraries as listed in package.json
+This bot is provided for **educational purposes only**. It is not affiliated with, authorized, or endorsed by WhatsApp. Using automated tools with WhatsApp may result in account restrictions. Use at your own risk.

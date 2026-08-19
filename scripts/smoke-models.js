@@ -89,9 +89,9 @@ check('No hardcoded gemini-3.1-flash-image in ai.js', !aiSrc.includes("'gemini-3
 
 // ── Test 6: Version sanity ───────────────────────────────────────────
 check('Gemini chat model is 2.5+ or 3.x', /^gemini-(2\.[5-9]|3\.)/.test(
-    configSrc.match(/gemini:\s*\{[^}]*chatModel:\s*[^|]*\|\|\s*'([^']+)'/)?.[1] || ''));
+    configSrc.match(/gemini:\s*\{[^}]*chatModel:\s*'([^']+)'/)?.[1] || ''));
 check('Gemini image model is 2.5+ or 3.x', /^gemini-(2\.[5-9]|3\.)/.test(
-    configSrc.match(/gemini:\s*\{[^}]*imageModel:\s*[^|]*\|\|\s*'([^']+)'/)?.[1] || ''));
+    configSrc.match(/gemini:\s*\{[^}]*imageModel:\s*'([^']+)'/)?.[1] || ''));
 
 // ── Summary ──────────────────────────────────────────────────────────
 console.log(`\n── Model Availability: ${pass}/${pass + fail} checks passed ──`);
