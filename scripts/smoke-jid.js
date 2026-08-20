@@ -93,7 +93,7 @@ function baseMessage(chatId, senderJid) {
         }
     };
     const q = cmd.extractQuoted(quotedMsg);
-    check('quoted sender extracted', q && q.senderJid === '100000000002@s.whatsapp.net' && q.text.includes('chat.whatsapp.com'));
+    check('quoted sender extracted', q && q.senderJid === '100000000002@s.whatsapp.net' && q.text.includes('CodeXYZ'));
     const mentions = cmd.extractMentions(quotedMsg);
     check('mention extracted', mentions.length === 1 && mentions[0] === '100000000003@s.whatsapp.net');
     const collected = cmd.collectIdentifiers(quotedMsg, ['923701609799']);
