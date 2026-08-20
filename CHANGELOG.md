@@ -2,6 +2,34 @@
 
 All notable changes to Optimus Bot are documented here.
 
+## [Unreleased] — AI Provider Routing + Multi-Provider Image Generation
+
+### Added
+- **`lib/imageGeneration.js`** — Image generation service with Gemini → Cloudflare → Pollinations fallback chain
+- **Cloudflare Workers AI** as image fallback provider (`@cf/black-forest-labs/flux-1-schnell`)
+- **Pollinations** as final image fallback provider (`flux`)
+- **`settings.js`** fields: `cloudflareAccountId`, `cloudflareApiToken`
+- **`__tests__/ai.test.js`** — 76 smoke tests covering config, image generation fallback chain, text providers, STT, aistatus command, malformed responses, HTTP errors, and provider isolation
+
+### Changed
+- **`lib/ai.js`** — Image generation delegated to `imageGeneration.js` service (Gemini → Cloudflare → Pollinations)
+- **`lib/aiConfig.js`** — Restructured to capability-based layout (`text`, `speech`, `image`, `isProviderReady()`, `timeouts`)
+- **`commands/owner/aistatus.js`** — Shows all 4 providers with readiness indicators and masked credentials
+- Gemini image uses Interactions API (`/v1beta/interactions`) instead of legacy `generateContent`
+- Image generation chain: Gemini → Cloudflare → Pollinations (was: Pixazo → Gemini)
+
+### Preserved
+- All existing AI commands, aliases, permissions, prompts, and branding unchanged
+- `generateImagePixazo()` retained for backward compatibility (no longer in primary chain)
+
+### Architecture
+- **Provider specialization**: Each AI capability uses its optimal provider
+- **Timeout safety**: Gemini 60s, Cloudflare 60s, Pollinations 45s
+- **Graceful degradation**: Missing Cloudflare config falls through to Pollinations
+- **No secret leakage**: `.aistatus` masks API keys, tests mock all providers
+
+---
+
 ## [v1.0.0-ui-stable] — 2026-08-18
 
 ### 🎨 Unified UI / Message Styling
