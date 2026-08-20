@@ -6,10 +6,10 @@
 
 **A full-featured WhatsApp bot for group management, AI chat, media tools, and fun — built on [Baileys](https://github.com/WhiskeySockets/Baileys).**
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)](https://github.com/CodeWithTayyab96/Optimus-Bot)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue?style=flat-square)](https://github.com/CodeWithTayyab96/Optimus-Bot)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green?style=flat-square&logo=node.js)](https://nodejs.org)
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue?style=flat-square)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-24%2F24%20passing-brightgreen?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-112%2F112%20passing-brightgreen?style=flat-square)](#testing)
 
 </div>
 
@@ -19,8 +19,8 @@
 
 | Category | Highlights |
 |----------|-----------|
-| 🧠 **AI Chat** | GPT / Gemini chat with auto-fallback, text rewriting, reply drafting, document analysis, voice summary |
-| 🎨 **Image Generation** | Pixazo (primary) + Gemini fallback — text-to-image and AI image editing |
+| 🧠 **AI Chat** | Groq (primary) + Gemini fallback — text rewriting, reply drafting, document analysis, voice summary |
+| 🎨 **Image Generation** | Gemini → Cloudflare → Pollinations — text-to-image with automatic multi-provider fallback |
 | 🗣️ **Speech-to-Text** | Groq Whisper — transcribe voice notes, auto-convert Urdu/Hindi to Roman script |
 | 📥 **Media & Downloads** | YouTube, Spotify, Instagram, TikTok, Twitter, Facebook, Pinterest — audio, video, and more |
 | 🎮 **Games** | Tic-Tac-Toe, Hangman, Bomb, Trivia |
@@ -42,7 +42,8 @@ Optimus Bot
 ├── settings.js           # Bot configuration (prefix, branding, API keys)
 ├── lib/
 │   ├── aiConfig.js       # AI model IDs — single source of truth
-│   ├── ai.js             # Centralized AI client (Groq + Gemini + Pixazo)
+│   ├── ai.js             # Centralized AI client (Groq + Gemini)
+│   ├── imageGeneration.js # Image provider fallback chain (Gemini → CF → Pollinations)
 │   ├── messageStyle.js   # Unified visual formatting system
 │   ├── messageConfig.js  # Shared contextInfo / newsletter config
 │   ├── commandLoader.js  # Dynamic command registration
@@ -70,27 +71,29 @@ Optimus Bot
 └── session/              # WhatsApp session (gitignored)
 ```
 
-**Tech Stack:** Node.js ≥ 18 · Baileys (WhatsApp Web API) · Axios · Sharp · FFmpeg · Groq API · Google Gemini API · Pixazo API
+**Tech Stack:** Node.js ≥ 18 · Baileys (WhatsApp Web API) · Axios · Sharp · FFmpeg · Groq API · Google Gemini API · Cloudflare Workers AI · Pollinations
 
 ---
 
 ## 🧠 AI Configuration
 
-Optimus uses three AI providers with automatic fallback. Model IDs are centralized in **`lib/aiConfig.js`** — the single source of truth.
+Optimus uses multiple AI providers with automatic fallback. Model IDs are centralized in **`lib/aiConfig.js`** — the single source of truth.
 
 | Provider | Purpose | Default Model |
 |----------|---------|---------------|
 | **Groq** | Primary text chat | `openai/gpt-oss-120b` |
 | **Groq** | Speech-to-text | `whisper-large-v3-turbo` |
 | **Gemini** | Fallback text chat | `gemini-2.5-flash` |
-| **Gemini** | Fallback image generation | `gemini-3.1-flash-image` |
-| **Pixazo** | Primary image generation | `flux-1-schnell` |
+| **Gemini** | Primary image generation | `gemini-3.1-flash-image` |
+| **Cloudflare** | Image fallback #1 | `@cf/black-forest-labs/flux-1-schnell` |
+| **Pollinations** | Image fallback #2 | `flux` (no API key required) |
 
-**Fallback chain:**
+**Fallback chains:**
 - **Text:** Groq → Gemini
-- **Images:** Pixazo → Gemini
+- **Speech-to-Text:** Groq Whisper
+- **Image:** Gemini → Cloudflare → Pollinations
 
-To change a model, edit `lib/aiConfig.js` directly. Run `.aistatus` as the bot owner to view the currently configured models.
+To change a model, edit `lib/aiConfig.js` directly. Run `.aistatus` as the bot owner to view the currently configured providers and models.
 
 ---
 
@@ -120,9 +123,10 @@ const settings = {
   botName: 'Optimus Bot',   // Display name
   botOwner: 'Your Name',    // Owner name
   ownerNumber: '1234567890', // Your WhatsApp number (no + or spaces)
-  groqApiKey: 'YOUR_GROQ_API_KEY',      // Get from console.groq.com
-  geminiApiKey: 'YOUR_GEMINI_API_KEY',  // Get from aistudio.google.com
-  pixazoApiKey: 'YOUR_PIXAZO_API_KEY',  // Get from pixazo.ai
+  groqApiKey: 'YOUR_GROQ_API_KEY',           // Get from console.groq.com
+  geminiApiKey: 'YOUR_GEMINI_API_KEY',       // Get from aistudio.google.com
+  cloudflareAccountId: 'YOUR_CLOUDFLARE_ACCOUNT_ID', // From dash.cloudflare.com
+  cloudflareApiToken: 'YOUR_CLOUDFLARE_API_TOKEN',   // Workers AI REST API token
   // ... other settings
 };
 ```
@@ -252,8 +256,9 @@ This project is licensed under the [ISC License](LICENSE).
 - [Tayyab](https://github.com/CodeWithTayyab96) — Creator & maintainer
 - [Baileys](https://github.com/WhiskeySockets/Baileys) — WhatsApp Web API library
 - [Groq](https://groq.com) — Fast AI inference
-- [Google Gemini](https://ai.google.dev) — AI fallback
-- [Pixazo](https://pixazo.ai) — Image generation
+- [Google Gemini](https://ai.google.dev) — AI chat and image generation
+- [Cloudflare Workers AI](https://workers.cloudflare.com) — Image generation fallback
+- [Pollinations](https://pollinations.ai) — Free image generation fallback
 
 ---
 
