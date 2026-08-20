@@ -12,7 +12,7 @@
     "start:fresh": "npm run reset-session && npm start",
     "install:panel": "npm install --legacy-peer-deps",
     "install:force": "npm install --force",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --verbose",
     "docker:build": "docker build -t docker run -e SESSION_ID=$SESSION_ID optimusbot"
   },
   "keywords": [
@@ -22,10 +22,10 @@
   "license": "ISC",
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",
+    "@distube/ytdl-core": "^4.14.4",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@hapi/boom": "^10.0.1",
     "@types/node": "^18.0.6",
-    "@distube/ytdl-core": "^4.14.4",
     "@whiskeysockets/baileys": "^v7.0.0-rc.9",
     "awesome-phonenumber": "^5.9.0",
     "axios": "^1.8.4",
@@ -80,5 +80,8 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2"
   }
 }

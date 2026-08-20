@@ -77,6 +77,47 @@ For further customization and setup guidance:
 - **Sticker creation** with `.sticker`
 - **Anti-link detection** for group safety
 - **Warn and manage group members** with admin control
+- **AI-powered commands** with multi-provider routing (see below)
+
+## 🤖 AI Provider Architecture
+
+Optimus Bot uses specialized AI providers for each capability:
+
+```
+💬 TEXT / CHAT
+├─ Primary:   Groq → openai/gpt-oss-120b
+└─ Fallback:  Gemini → gemini-2.5-flash
+
+🎙️ SPEECH-TO-TEXT
+└─ Groq → whisper-large-v3-turbo
+
+🎨 IMAGE GENERATION
+├─ 1. Gemini  → gemini-3.1-flash-image (primary)
+├─ 2. Cloudflare Workers AI → flux-1-schnell (fallback)
+└─ 3. Pollinations → flux (final fallback)
+```
+
+**Commands:** `.gpt`, `.gemini`, `.imagine`, `.stt`, `.reply`, `.rewrite`, `.summarize`, `.study`, `.voicesummary`, `.magicstudio`, `.gptimage`
+
+### AI Credentials
+
+Configure API keys in `settings.js`:
+
+```js
+// settings.js
+module.exports = {
+  groqApiKey: 'YOUR_GROQ_API_KEY',
+  geminiApiKey: 'YOUR_GEMINI_API_KEY',
+  pixazoApiKey: 'YOUR_PIXAZO_API_KEY',
+  // Cloudflare Workers AI (image fallback)
+  cloudflareAccountId: 'YOUR_CLOUDFLARE_ACCOUNT_ID',
+  cloudflareApiToken: 'YOUR_CLOUDFLARE_API_TOKEN',
+};
+```
+
+> **Note:** Pollinations does not require an API key. All credentials stay in `settings.js` — no `.env` file needed.
+
+Use `.aistatus` (owner-only) to check provider configuration status.
 
 ---
 
