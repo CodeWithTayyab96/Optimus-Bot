@@ -1,15 +1,19 @@
 const settings = {
   prefix: '.', // Command prefix — change this and every command responds to the new prefix
   packname: 'Optimus Bot',
-  author: 'Tayyab',
+  author: 'Muhammad Tayyab Imran',
   botName: 'Optimus Bot',
-  botOwner: 'Tayyab', // Your name
+  botOwner: 'Muhammad Tayyab Imran', // Your name
   ownerNumber: '923701609799', // Set your number here without + symbol (country code + number, no spaces)
   giphyApiKey: 'qnl7ssQChTdPjsKta2Ax2LMaGXz303tq',
   // AI provider API keys
   groqApiKey: 'YOUR_GROQ_API_KEY',
   geminiApiKey: 'YOUR_GEMINI_API_KEY',
   pixazoApiKey: 'YOUR_PIXAZO_API_KEY',
+  // Cloudflare Workers AI (image fallback #1)
+  // Get credentials from: https://dash.cloudflare.com → Workers AI → Use REST API
+  cloudflareAccountId: 'YOUR_CLOUDFLARE_ACCOUNT_ID',
+  cloudflareApiToken: 'YOUR_CLOUDFLARE_API_TOKEN',
   commandMode: 'public',
   maxStoreMessages: 20,
   storeWriteInterval: 10000,
@@ -22,7 +26,7 @@ const settings = {
   // Newsletter context shown when the bot quotes/forwards messages.
   // Replace newsletterJid with your own channel's JID (format: 120363XXXXXXXXX@newsletter)
   // if you want messages to link back to your channel.
-  newsletterJid: '120363000000000000@newsletter',
+  newsletterJid: '120363424568988623@newsletter',
   newsletterName: 'Optimus Bot',
   updateZipUrl: 'https://github.com/CodeWithTayyab96/Optimus-Bot/archive/refs/heads/main.zip',
   // Optional external pairing-code service endpoint used by the .pair command.

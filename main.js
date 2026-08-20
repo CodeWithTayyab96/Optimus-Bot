@@ -84,7 +84,7 @@ function buildChannelInfo() {
             forwardingScore: 1,
             isForwarded: true,
             forwardedNewsletterMessageInfo: {
-                newsletterJid: settings.newsletterJid || '120363000000000000@newsletter',
+                newsletterJid: settings.newsletterJid || '120363424568988623@newsletter',
                 newsletterName: settings.newsletterName || 'Optimus Bot',
                 serverMessageId: -1
             }

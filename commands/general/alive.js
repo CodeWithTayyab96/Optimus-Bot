@@ -18,7 +18,7 @@ async function aliveCommand(sock, chatId, message) {
                 forwardingScore: 999,
                 isForwarded: true,
                 forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363000000000000@newsletter',
+                    newsletterJid: '120363424568988623@newsletter',
                     newsletterName: 'Optimus Bot',
                     serverMessageId: -1
                 }
