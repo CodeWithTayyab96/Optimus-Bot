@@ -58,6 +58,20 @@ async function viewonceCommand(sock, chatId, message) {
     // Try quoted message first
     const quotedInfo = message.message?.extendedTextMessage?.contextInfo;
     const quotedMsg = quotedInfo?.quotedMessage;
+    const quotedImage =
+        quotedMsg?.imageMessage ||
+        quotedMsg?.viewOnceMessageV2?.message?.imageMessage ||
+        quotedMsg?.viewOnceMessageV2Extension?.message?.imageMessage ||
+        quotedMsg?.viewOnceMessage?.message?.imageMessage ||
+        quotedMsg?.ephemeralMessage?.message?.imageMessage ||
+        {};
+    const quotedVideo =
+        quotedMsg?.videoMessage ||
+        quotedMsg?.viewOnceMessageV2?.message?.videoMessage ||
+        quotedMsg?.viewOnceMessageV2Extension?.message?.videoMessage ||
+        quotedMsg?.viewOnceMessage?.message?.videoMessage ||
+        quotedMsg?.ephemeralMessage?.message?.videoMessage ||
+        {};
 
     // Try direct media (image/video/audio sent with .vv as caption)
     const directImage = message.message?.imageMessage || null;
@@ -100,7 +114,7 @@ async function viewonceCommand(sock, chatId, message) {
             '\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557\n' +
             '\u2551  \u274c *No supported media found*\n' +
             '\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d\n\n' +
-            '\ud83d\udccb *Usage:* Reply to a media message with `.vv`,\n' +
+            '\ud83d\udccb *Usage:* Reply to a view-once image or video with `.vv`,\n' +
             'or send media with `.vv` as the caption.\n\n' +
             '*Supported media:*\n' +
             '  \ud83d\uddbc\ufe0f  Image (sent as View-Once image)\n' +
@@ -127,9 +141,9 @@ async function viewonceCommand(sock, chatId, message) {
 
     // 4. Download the media
 
-    let mediaBuffer;
+    let buffer;
     try {
-        mediaBuffer = await downloadMediaMessage(
+        buffer = await downloadMediaMessage(
             source.targetMessage,
             'buffer',
             {},
@@ -147,7 +161,7 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    if (!mediaBuffer || mediaBuffer.length === 0) {
+    if (!buffer || buffer.length === 0) {
         await sock.sendMessage(chatId, {
             text: '\u274c Downloaded media is empty. Please try again.',
             ...channelInfo,
@@ -159,25 +173,43 @@ async function viewonceCommand(sock, chatId, message) {
 
     try {
         if (source.type === 'image') {
-            await sock.sendMessage(chatId, {
-                image: mediaBuffer,
-                caption: source.caption,
-                viewOnce: true,
-                ...channelInfo,
-            }, { quoted: message });
+            if (source.isDirect) {
+                await sock.sendMessage(chatId, {
+                    image: buffer,
+                    caption: source.caption || '',
+                    viewOnce: true,
+                    ...channelInfo,
+                }, { quoted: message });
+            } else {
+                await sock.sendMessage(chatId, {
+                    image: buffer,
+                    caption: quotedImage.caption || '',
+                    viewOnce: true,
+                    ...channelInfo,
+                }, { quoted: message });
+            }
         } else if (source.type === 'video') {
-            await sock.sendMessage(chatId, {
-                video: mediaBuffer,
-                caption: source.caption,
-                viewOnce: true,
-                ...channelInfo,
-            }, { quoted: message });
+            if (source.isDirect) {
+                await sock.sendMessage(chatId, {
+                    video: buffer,
+                    caption: source.caption || '',
+                    viewOnce: true,
+                    ...channelInfo,
+                }, { quoted: message });
+            } else {
+                await sock.sendMessage(chatId, {
+                    video: buffer,
+                    caption: quotedVideo.caption || '',
+                    viewOnce: true,
+                    ...channelInfo,
+                }, { quoted: message });
+            }
         } else if (source.type === 'audio') {
             // WhatsApp / Baileys does NOT support view-once for audio.
             // Send as a PTT (voice note) which is the closest behaviour.
             const mimetype = source.media.mimetype || 'audio/ogg; codecs=opus';
             await sock.sendMessage(chatId, {
-                audio: mediaBuffer,
+                audio: buffer,
                 mimetype,
                 ptt: true,
                 ...channelInfo,
