@@ -1,7 +1,8 @@
 const settings = require("../../settings");
+const { channelInfo } = require('../../lib/messageConfig');
 async function aliveCommand(sock, chatId, message) {
     try {
-        const message1 = `*🤖 Optimus Bot is Active!*\n\n` +
+        const message1 = `*🤖 ${settings.botName || 'Optimus Bot'} is Active!*\n\n` +
                        `*Version:* ${settings.version}\n` +
                        `*Status:* Online\n` +
                        `*Mode:* Public\n\n` +
@@ -14,15 +15,7 @@ async function aliveCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             text: message1,
-            contextInfo: {
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363424568988623@newsletter',
-                    newsletterName: 'Optimus Bot',
-                    serverMessageId: -1
-                }
-            }
+            contextInfo: { ...channelInfo.contextInfo, forwardingScore: 999 }
         }, { quoted: message });
     } catch (error) {
         console.error('Error in alive command:', error);

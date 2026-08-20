@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 async function muteCommand(sock, chatId, senderId, message, durationInMinutes) {
 
     try {
@@ -6,23 +8,23 @@ async function muteCommand(sock, chatId, senderId, message, durationInMinutes) {
         
         if (durationInMinutes !== undefined && durationInMinutes > 0) {
             const durationInMilliseconds = durationInMinutes * 60 * 1000;
-            await sock.sendMessage(chatId, { text: `The group has been muted for ${durationInMinutes} minutes.` }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.success(`The group has been muted for ${durationInMinutes} minutes.`) }, { quoted: message });
             
             // Set timeout to unmute after duration
             setTimeout(async () => {
                 try {
                     await sock.groupSettingUpdate(chatId, 'not_announcement');
-                    await sock.sendMessage(chatId, { text: 'The group has been unmuted.' });
+                    await sock.sendMessage(chatId, { text: style.success('The group has been unmuted.') });
                 } catch (unmuteError) {
                     console.error('Error unmuting group:', unmuteError);
                 }
             }, durationInMilliseconds);
         } else {
-            await sock.sendMessage(chatId, { text: 'The group has been muted.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.success('The group has been muted.') }, { quoted: message });
         }
     } catch (error) {
         console.error('Error muting/unmuting the group:', error);
-        await sock.sendMessage(chatId, { text: 'An error occurred while muting/unmuting the group. Please try again.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('An error occurred while muting/unmuting the group. Please try again.') }, { quoted: message });
     }
 }
 
@@ -42,7 +44,7 @@ module.exports = {
         const muteArg = args[0];
         const muteDuration = muteArg !== undefined ? parseInt(muteArg, 10) : undefined;
         if (muteArg !== undefined && (isNaN(muteDuration) || muteDuration <= 0)) {
-            await sock.sendMessage(extra.chatId, { text: 'Please provide a valid number of minutes or use ' + extra.prefix + 'mute with no number to mute immediately.', ...extra.channelInfo }, { quoted: message });
+            await sock.sendMessage(extra.chatId, { text: style.invalidInput('Please provide a valid number of minutes (or use .mute with no number to mute immediately).', extra.prefix + 'mute [minutes]', { box: false }), ...extra.channelInfo }, { quoted: message });
             return;
         }
         await muteCommand(sock, extra.chatId, extra.senderId, message, muteDuration);

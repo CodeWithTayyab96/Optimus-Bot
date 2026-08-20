@@ -1,9 +1,10 @@
 const fetch = require('node-fetch');
+const style = require('../../lib/messageStyle');
 
 async function lyricsCommand(sock, chatId, songTitle, message) {
     if (!songTitle) {
         await sock.sendMessage(chatId, { 
-            text: '🔍 Please enter the song name to get the lyrics! Usage: *lyrics <song name>*'
+            text: style.invalidInput('Please enter the song name to get the lyrics.', '.lyrics <song title>')
         },{ quoted: message });
         return;
     }
@@ -23,7 +24,7 @@ async function lyricsCommand(sock, chatId, songTitle, message) {
         const lyrics = data && data.result && data.result.lyrics ? data.result.lyrics : null;
         if (!lyrics) {
             await sock.sendMessage(chatId, {
-                text: `❌ Sorry, I couldn't find any lyrics for "${songTitle}".`
+                text: style.error(`Sorry, I couldn't find any lyrics for "${songTitle}".`)
             },{ quoted: message });
             return;
         }
@@ -35,7 +36,7 @@ async function lyricsCommand(sock, chatId, songTitle, message) {
     } catch (error) {
         console.error('Error in lyrics command:', error);
         await sock.sendMessage(chatId, { 
-            text: `❌ An error occurred while fetching the lyrics for "${songTitle}".`
+            text: style.error(`An error occurred while fetching the lyrics for "${songTitle}".`)
         },{ quoted: message });
     }
 }

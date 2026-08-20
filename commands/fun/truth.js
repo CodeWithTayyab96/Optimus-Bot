@@ -11,7 +11,7 @@ async function truthCommand(sock, chatId, message) {
             `Give me a truth question about ${cat}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: `🤔 *Truth:*\n\n${truth || 'What is the most embarrassing thing you have done?'}`,
+            text: `🤔 TRUTH\n\n${truth || 'What is the most embarrassing thing you have done?'}`,
             ...channelInfo
         }, { quoted: message });
     } catch (error) {

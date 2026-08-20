@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const style = require('../../lib/messageStyle');
 
 const warningsPath = path.join(process.cwd(), 'data', 'warnings.json');
 
@@ -26,7 +27,7 @@ module.exports = {
             } else if (ctx?.participant && ctx.stanzaId && ctx.quotedMessage) {
                 target = ctx.participant;
             } else {
-                return extra.reply(`❌ Please mention or reply to the user to reset warnings!\n\nExample: ${extra.prefix}resetwarn @user`);
+                return extra.reply(style.invalidInput('Please mention or reply to the user to reset warnings.', `${extra.prefix}resetwarn @user`, { box: false }));
             }
 
             // Warnings live in data/warnings.json as { [chatId]: { [userId]: count } }
@@ -41,7 +42,7 @@ module.exports = {
 
             if (currentCount === 0) {
                 return sock.sendMessage(extra.chatId, {
-                    text: `✅ @${target.split('@')[0]} has no warnings to reset.`,
+                    text: style.info(`@${target.split('@')[0]} has no warnings to reset.`),
                     mentions: [target]
                 }, { quoted: message });
             }
@@ -50,12 +51,19 @@ module.exports = {
             fs.writeFileSync(warningsPath, JSON.stringify(warnings, null, 2));
 
             await sock.sendMessage(extra.chatId, {
-                text: `✅ *Warnings Reset*\n\n👤 User: @${target.split('@')[0]}\n⚠️ Previous warnings: ${currentCount}\n\nAll warnings have been cleared.`,
+                text: style.box('🛡️ MODERATION', [
+                    '✅ Warnings Reset',
+                    '',
+                    `👤 User: @${target.split('@')[0]}`,
+                    `⚠️ Previous warnings: ${currentCount}`,
+                    '',
+                    'All warnings have been cleared.'
+                ]),
                 mentions: [target]
             }, { quoted: message });
         } catch (error) {
             console.error('ResetWarn command error:', error);
-            await extra.reply(`❌ Error: ${error.message}`);
+            await extra.reply(style.error('Failed to reset warnings.'));
         }
     }
 };

@@ -1,5 +1,6 @@
 const { chat, chatGemini } = require('../../lib/ai');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
 
 function wantsDetailedAnswer(query) {
     return /(detailed|detail me|explain in detail|step by step|full|complete|long|deep|elaborate|essay|full guide|full explanation)/i.test(query);
@@ -44,7 +45,7 @@ async function aiCommand(sock, chatId, message, commandName) {
 
         if (!text) {
             return await sock.sendMessage(chatId, {
-                text: "Please provide a question after .gpt or .gemini\n\nExample: .gpt write a basic html code",
+                text: style.invalidInput('Please provide a question after .gpt or .gemini.\n\nExample: .gpt write a basic html code', '.gpt <question> | .gemini <question>'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -55,7 +56,7 @@ async function aiCommand(sock, chatId, message, commandName) {
 
         if (!query) {
             return await sock.sendMessage(chatId, {
-                text: "Please provide a question after .gpt or .gemini",
+                text: style.invalidInput('Please provide a question after .gpt or .gemini.', '.gpt <question> | .gemini <question>'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -106,7 +107,7 @@ async function aiCommand(sock, chatId, message, commandName) {
     } catch (error) {
         console.error('AI Command Error:', error.message);
         await sock.sendMessage(chatId, {
-            text: "❌ Failed to get a response. Please try again later.",
+            text: style.error("I couldn't generate a response right now. Please try again."),
             ...channelInfo
         }, { quoted: message });
     }

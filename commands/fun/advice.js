@@ -11,7 +11,7 @@ const adviceCommand = async function (sock, chatId, message) {
             `Give me advice about ${area}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: `💡 *Advice*\n\n${advice || '❌ Could not generate advice.'}`,
+            text: `💡 ADVICE\n\n${advice || 'Sorry, I could not come up with advice right now.'}`,
             ...channelInfo
         }, { quoted: message });
     } catch (e) {

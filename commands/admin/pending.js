@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 function isPnJid(jid) {
     return jid && (jid.endsWith('@s.whatsapp.net') || jid.endsWith('@c.us'));
 }
@@ -25,17 +27,20 @@ module.exports = {
             } catch (error) {
                 console.error('Pending requests error:', error);
                 if (error.message && (error.message.includes('403') || error.message.includes('forbidden'))) {
-                    return extra.reply('❌ Bot does not have permission to view join requests. Ensure join approval is enabled for the group.');
+                    return extra.reply(style.error('The bot does not have permission to view join requests. Ensure join approval is enabled for the group.'));
                 }
-                return extra.reply('❌ Failed to fetch pending requests. ' + (error.message || 'Try again later.'));
+                return extra.reply(style.error('Failed to fetch pending requests. Please try again later.'));
             }
 
             if (!list || list.length === 0) {
-                return extra.reply('✅ *No pending join requests.*\n\nThere are no members waiting for approval.');
+                return extra.reply(style.success('No pending join requests. There are no members waiting for approval.'));
             }
 
-            let text = `📋 *Pending Join Requests* (${list.length})\n\n`;
-            text += `The following ${list.length} request(s) are waiting for approval:\n\n`;
+            let text = style.box('📋 PENDING REQUESTS', [
+                `${list.length} request(s) waiting for approval:`,
+                ''
+            ]);
+            text += '\n';
 
             const mentionJids = [];
 
@@ -71,7 +76,7 @@ module.exports = {
             await sock.sendMessage(extra.chatId, { text, mentions: mentionJids }, { quoted: message });
         } catch (error) {
             console.error('Pending command error:', error);
-            return extra.reply('❌ Error: ' + (error.message || 'Unknown error occurred'));
+            return extra.reply(style.error('Failed to list pending requests.'));
         }
     }
 };

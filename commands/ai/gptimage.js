@@ -2,6 +2,7 @@ const axios = require('axios');
 const sharp = require('sharp');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { uploadImage } = require('../../lib/uploadImage');
+const style = require('../../lib/messageStyle');
 
 const EDITIMG_API = 'https://restapis.xrizaldev.my.id/api/ai2/editimg';
 
@@ -22,20 +23,22 @@ module.exports = {
             const ctxInfo = message.message?.extendedTextMessage?.contextInfo;
             if (!ctxInfo?.quotedMessage) {
                 return await extra.reply(
-                    '📷 *AI Image Editor*\n\n' +
-                    'Reply to an *image* or *sticker* with a prompt to edit it.\n\n' +
-                    `Usage: ${extra.prefix}gptimage <your prompt>\n\n` +
-                    'Example: Reply to an image with:\n' +
-                    `${extra.prefix}gptimage change the background to a beach`
+                    style.box('🎨 AI IMAGE', [
+                        'Reply to an image or sticker with a prompt to edit it.',
+                        '',
+                        'Usage:',
+                        ` ${extra.prefix}gptimage <your prompt>`,
+                        '',
+                        'Example: Reply to an image with:',
+                        ` ${extra.prefix}gptimage change the background to a beach`
+                    ])
                 );
             }
 
             const prompt = args.join(' ').trim();
             if (!prompt) {
                 return await extra.reply(
-                    '❌ Please provide a prompt!\n\n' +
-                    `Usage: ${extra.prefix}gptimage <your prompt>\n\n` +
-                    'Example: change the background to a beach'
+                    style.invalidInput('Please provide a prompt for editing the image.', `${extra.prefix}gptimage <your prompt> (reply to image/sticker)`)
                 );
             }
 
@@ -44,14 +47,14 @@ module.exports = {
             const isSticker = !!quotedMsg.stickerMessage;
 
             if (!isImage && !isSticker) {
-                return await extra.reply('❌ Please reply to an *image* or *sticker*!');
+                return await extra.reply(style.error('Please reply to an image or sticker.'));
             }
 
             if (isSticker) {
                 const stickerMessage = quotedMsg.stickerMessage;
                 const isAnimated = stickerMessage.isAnimated || stickerMessage.mimetype?.includes('animated');
                 if (isAnimated) {
-                    return await extra.reply('❌ Animated stickers are not supported. Please use a static image or sticker.');
+                    return await extra.reply(style.error('Animated stickers are not supported. Please use a static image or sticker.'));
                 }
             }
 
@@ -72,7 +75,7 @@ module.exports = {
             );
 
             if (!mediaBuffer) {
-                return await extra.reply('❌ Failed to download image. Please try again.');
+                return await extra.reply(style.error('Failed to download the image. Please try again.'));
             }
 
             // Normalize to JPEG (also converts webp stickers — sharp reads webp natively)
@@ -87,7 +90,7 @@ module.exports = {
             } catch (error) {
                 console.error('[gptimage] sharp processing error:', error.message);
                 if (isSticker) {
-                    return await extra.reply('❌ Failed to convert sticker to image. Please try with a regular image.');
+                    return await extra.reply(style.error('Failed to convert the sticker to an image. Please try with a regular image.'));
                 }
             }
 
@@ -97,7 +100,7 @@ module.exports = {
                 imageUrl = await uploadImage(finalImageBuffer);
             } catch (uploadErr) {
                 console.error('[gptimage] upload error:', uploadErr.message);
-                return await extra.reply('❌ Failed to upload image. Please try again.');
+                return await extra.reply(style.error('Failed to upload the image. Please try again.'));
             }
 
             const apiUrl = `${EDITIMG_API}?image_url=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(prompt)}`;
@@ -109,13 +112,13 @@ module.exports = {
             });
 
             if (response.data?.status === false) {
-                return await extra.reply('❌ API returned an error. Please try another image or prompt.');
+                return await extra.reply(style.error('The image service returned an error. Please try another image or prompt.'));
             }
             const result = response.data?.result || response.data;
             const outputImageUrl = result?.output_image;
 
             if (!outputImageUrl) {
-                return await extra.reply('❌ No image URL in API response. Please try again.');
+                return await extra.reply(style.error('No image was returned. Please try again.'));
             }
 
             const imageResponse = await axios.get(outputImageUrl, {
@@ -126,19 +129,19 @@ module.exports = {
             const resultImageBuffer = Buffer.from(imageResponse.data);
 
             if (!resultImageBuffer || resultImageBuffer.length === 0) {
-                return await extra.reply('❌ Empty image received from API. Please try again.');
+                return await extra.reply(style.error('The image service returned an empty result. Please try again.'));
             }
 
             const maxImageSize = 5 * 1024 * 1024;
             if (resultImageBuffer.length > maxImageSize) {
                 return await extra.reply(
-                    `❌ Image too large: ${(resultImageBuffer.length / 1024 / 1024).toFixed(2)}MB (max 5MB)`
+                    style.error(`Image too large: ${(resultImageBuffer.length / 1024 / 1024).toFixed(2)}MB (max 5MB)`)
                 );
             }
 
             await sock.sendMessage(extra.chatId, {
                 image: resultImageBuffer,
-                caption: `✨ *AI Image Editor*\n\n📝 Prompt: ${prompt}`,
+                caption: `🎨 AI Image Editor\n📝 ${prompt}`,
             }, { quoted: message });
         } catch (error) {
             console.error('Error in gptimage command:', error);
@@ -146,19 +149,19 @@ module.exports = {
             if (error.response) {
                 const status = error.response.status;
                 if (status === 400) {
-                    return await extra.reply('❌ Bad Request: Invalid parameters. Please check your prompt and image.');
+                    return await extra.reply(style.error('Bad request: invalid parameters. Please check your prompt and image.'));
                 } else if (status === 429) {
-                    return await extra.reply('❌ Rate limit exceeded. Please try again later.');
+                    return await extra.reply(style.error('Rate limit exceeded. Please try again later.'));
                 } else if (status === 500) {
-                    return await extra.reply('❌ Server error. Please try again later.');
+                    return await extra.reply(style.error('Server error. Please try again later.'));
                 }
             }
 
             if (error.code === 'ECONNABORTED') {
-                return await extra.reply('❌ Request timeout. The image processing took too long. Please try again.');
+                return await extra.reply(style.error('Request timed out. The image processing took too long. Please try again.'));
             }
 
-            return await extra.reply(`❌ Error: ${error.message || 'Unknown error occurred'}`);
+            return await extra.reply(style.error("I couldn't edit the image right now. Please try again."));
         }
     },
 };

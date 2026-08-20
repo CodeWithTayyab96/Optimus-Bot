@@ -11,7 +11,7 @@ const motivateCommand = async function (sock, chatId, message) {
             `Motivate me about ${theme}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: `🔥 *Motivation*\n\n${speech || '❌ Could not generate motivation.'}`,
+            text: `🔥 MOTIVATION\n\n${speech || 'Sorry, I could not come up with motivation right now.'}`,
             ...channelInfo
         }, { quoted: message });
     } catch (e) {

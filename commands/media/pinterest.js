@@ -1,5 +1,6 @@
 const axios = require('axios');
 const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
 
 const processedMessages = new Set();
 
@@ -25,11 +26,15 @@ module.exports = {
 
             if (!text) {
                 return await extra.reply(
-                    '📌 *Pinterest Downloader*\n\n' +
-                    'Download images or videos from Pinterest.\n\n' +
-                    `Usage: ${extra.prefix}pinterest <Pinterest URL>\n\n` +
-                    'Example:\n' +
-                    `${extra.prefix}pinterest https://in.pinterest.com/pin/1109363320773690068/`
+                    style.box('📌 PINTEREST', [
+                        'Download images or videos from Pinterest.',
+                        '',
+                        'Usage:',
+                        ` ${extra.prefix}pinterest <Pinterest URL>`,
+                        '',
+                        'Example:',
+                        ` ${extra.prefix}pinterest https://in.pinterest.com/pin/1109363320773690068/`
+                    ])
                 );
             }
 
@@ -39,7 +44,7 @@ module.exports = {
             if (!urlMatch) urlMatch = text.match(/pin\.it\/[^\s]+/i);
 
             if (!urlMatch) {
-                return await extra.reply('❌ Please provide a valid Pinterest pin URL!\n\nExamples:\n• https://in.pinterest.com/pin/1109363320773690068/\n• https://pin.it/dddddd');
+                return await extra.reply(style.invalidInput('Please provide a valid Pinterest pin URL.', `${extra.prefix}pinterest <Pinterest URL>`));
             }
 
             const pinterestUrl = urlMatch[0];
@@ -63,18 +68,18 @@ module.exports = {
                 if (error.response) {
                     const status = error.response.status;
                     if (status === 400) {
-                        return await extra.reply('❌ Bad Request: Invalid Pinterest URL. Please check the link.');
+                        return await extra.reply(style.error('Bad request: invalid Pinterest URL. Please check the link.'));
                     } else if (status === 429) {
-                        return await extra.reply('❌ Rate limit exceeded. Please try again later.');
+                        return await extra.reply(style.error('Rate limit exceeded. Please try again later.'));
                     } else if (status === 500) {
-                        return await extra.reply('❌ Server error. Please try again later.');
+                        return await extra.reply(style.error('Server error. Please try again later.'));
                     }
                 }
-                return await extra.reply('❌ Failed to fetch Pinterest content. Please try again.');
+                return await extra.reply(style.error('Failed to fetch Pinterest content. Please try again.'));
             }
 
             if (!response.data || !response.data.status || !response.data.result) {
-                return await extra.reply('❌ Invalid response from API. The pin might not exist or be private.');
+                return await extra.reply(style.error('Invalid response from the API. The pin might not exist or be private.'));
             }
 
             const pinData = response.data.result;
@@ -86,7 +91,7 @@ module.exports = {
             const author = pinData.author || 'Unknown';
 
             if (!mediaUrl) {
-                return await extra.reply('❌ No media URL found in API response. The pin might have an unsupported format.');
+                return await extra.reply(style.error('No media URL found in the API response. The pin might have an unsupported format.'));
             }
 
             let caption = `📌 *${title}*\n\n`;
@@ -121,7 +126,7 @@ module.exports = {
                     }, { quoted: message });
                 } catch (videoError) {
                     console.error('[pinterest] video download/send error:', videoError.message);
-                    return await extra.reply('❌ Failed to download or send video. The video might be expired or require authentication.');
+                    return await extra.reply(style.error('Failed to download or send the video. It might be expired or require authentication.'));
                 }
             } else {
                 await sock.sendMessage(extra.chatId, {
@@ -131,7 +136,7 @@ module.exports = {
             }
         } catch (error) {
             console.error('Error in pinterest command:', error);
-            return await extra.reply(`❌ Error: ${error.message || 'Unknown error occurred'}`);
+            return await extra.reply(style.error('Failed to download the Pinterest content. Please try again.'));
         }
     },
 };

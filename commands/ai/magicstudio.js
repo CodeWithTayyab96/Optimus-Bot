@@ -1,4 +1,5 @@
 const axios = require('axios');
+const style = require('../../lib/messageStyle');
 
 const API_BASE = 'https://api.princetechn.com/api/ai/fluximg';
 const API_KEY = 'prince';
@@ -22,7 +23,7 @@ module.exports = {
 
             if (!prompt) {
                 return await extra.reply(
-                    `Usage: ${extra.prefix}magicstudio <prompt>\n\nExample: ${extra.prefix}magicstudio a handsome gentle man`
+                    style.invalidInput('Please provide a prompt for image generation.\n\nExample:\n' + extra.prefix + 'magicstudio a handsome gentle man', `${extra.prefix}magicstudio <prompt>`)
                 );
             }
 
@@ -67,15 +68,15 @@ module.exports = {
             console.error('Error in magicstudio command:', error);
 
             if (error.response?.status === 429) {
-                await extra.reply('❌ Rate limit exceeded. Please try again later.');
+                await extra.reply(style.error('Rate limit exceeded. Please try again later.'));
             } else if (error.response?.status === 400) {
-                await extra.reply('❌ Invalid prompt. Please try a different prompt.');
+                await extra.reply(style.error('Invalid prompt. Please try a different prompt.'));
             } else if (error.response?.status === 500) {
-                await extra.reply('❌ Server error. Please try again later.');
+                await extra.reply(style.error('Server error. Please try again later.'));
             } else if (error.code === 'ECONNABORTED' || (error.message || '').includes('timeout')) {
-                await extra.reply('❌ Request timed out. Image generation is taking too long. Please try again.');
+                await extra.reply(style.error('Request timed out. Image generation is taking too long. Please try again.'));
             } else {
-                await extra.reply(`❌ Failed to generate image: ${error.message}`);
+                await extra.reply(style.error("I couldn't generate the image right now. Please try again."));
             }
         }
     },

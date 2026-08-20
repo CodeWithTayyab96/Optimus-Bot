@@ -11,7 +11,7 @@ const factCommand = async function (sock, chatId, message) {
             `Tell me a surprising fact about ${topic}. (#${Date.now()})`
         );
         await sock.sendMessage(chatId, {
-            text: fact || '❌ Could not generate a fact.',
+            text: `🧠 FACT\n\n${fact || 'Sorry, I could not come up with a fact right now.'}`,
             ...channelInfo
         }, { quoted: message });
     } catch (error) {

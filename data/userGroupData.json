@@ -2,7 +2,12 @@
   "users": [],
   "groups": [],
   "antilink": {},
-  "antibadword": {},
+  "antibadword": {
+    "ab-test@g.us": {
+      "enabled": true,
+      "action": "warn"
+    }
+  },
   "warnings": {},
   "sudo": [],
   "welcome": {},

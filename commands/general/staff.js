@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 async function staffCommand(sock, chatId, msg) {
     try {
         // Get group metadata
@@ -14,19 +16,16 @@ async function staffCommand(sock, chatId, msg) {
         // Get admins from participants
         const participants = groupMetadata.participants;
         const groupAdmins = participants.filter(p => p.admin);
-        const listAdmin = groupAdmins.map((v, i) => `${i + 1}. @${v.id.split('@')[0]}`).join('\n▢ ');
         
         // Get group owner
         const owner = groupMetadata.owner || groupAdmins.find(p => p.admin === 'superadmin')?.id || chatId.split('-')[0] + '@s.whatsapp.net';
 
         // Create staff text
-        const text = `
-≡ *GROUP ADMINS* _${groupMetadata.subject}_
-
-┌─⊷ *ADMINS*
-▢ ${listAdmin}
-└───────────
-`.trim();
+        const text = style.box('🛡️ GROUP ADMINS', [
+            `📌 Group: ${groupMetadata.subject}`,
+            '',
+            ...groupAdmins.map((v, i) => `${i + 1}. @${v.id.split('@')[0]}`)
+        ]);
 
         // Send the message with image and mentions
         await sock.sendMessage(chatId, {

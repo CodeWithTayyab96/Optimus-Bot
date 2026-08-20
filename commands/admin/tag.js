@@ -1,4 +1,5 @@
 const isAdmin = require('../../lib/isAdmin');
+const style = require('../../lib/messageStyle');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
@@ -18,7 +19,7 @@ async function tagCommand(sock, chatId, senderId, messageText, replyMessage, mes
     const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
 
     if (!isBotAdmin) {
-        await sock.sendMessage(chatId, { text: 'Please make the bot an admin first.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.permissionDenied('botAdmin', { box: false }) }, { quoted: message });
         return;
     }
 

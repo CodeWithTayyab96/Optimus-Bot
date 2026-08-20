@@ -1,5 +1,6 @@
 const { chat } = require('../../lib/ai');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
 
 const summarizeCommand = async function (sock, chatId, message) {
     try {
@@ -11,7 +12,7 @@ const summarizeCommand = async function (sock, chatId, message) {
 
         if (!textToSummarize) {
             return await sock.sendMessage(chatId, {
-                text: '📝 Reply to any message with *.summarize* to get a TL;DR.',
+                text: style.invalidInput('Reply to any message with .summarize to get a TL;DR.', '.summarize (reply to a message)', { box: false }),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -22,11 +23,12 @@ const summarizeCommand = async function (sock, chatId, message) {
         );
 
         await sock.sendMessage(chatId, {
-            text: `📝 *TL;DR*\n\n${summary || '❌ Could not summarize.'}`,
+            text: `📝 *TL;DR*\n\n${summary || style.error("I couldn't summarize that right now. Please try again.")}`,
             ...channelInfo
         }, { quoted: message });
     } catch (e) {
-        await sock.sendMessage(chatId, { text: '❌ Failed to summarize. Try again!', ...channelInfo }, { quoted: message });
+        console.error('Summarize command error:', e?.message || e);
+        await sock.sendMessage(chatId, { text: style.error("I couldn't summarize that right now. Please try again."), ...channelInfo }, { quoted: message });
     }
 };
 

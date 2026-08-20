@@ -1,22 +1,20 @@
-const fs = require('fs');
+const { readMode, setMode } = require('../../lib/mode');
+const style = require('../../lib/messageStyle');
 
 async function modeCommand(sock, chatId, message, args, channelInfo) {
-    // Read current data first
-    let data;
-    try {
-        data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
-    } catch (error) {
-        console.error('Error reading access mode:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to read bot mode status', ...channelInfo });
-        return;
-    }
-
     const action = args[0]?.toLowerCase();
+
     // If no argument provided, show current status
     if (!action) {
-        const currentMode = data.isPublic ? 'public' : 'private';
+        const currentMode = readMode() ? 'public' : 'private';
         await sock.sendMessage(chatId, {
-            text: `Current bot mode: *${currentMode}*\n\nUsage: .mode public/private\n\nExample:\n.mode public - Allow everyone to use bot\n.mode private - Restrict to owner only`,
+            text: style.box('⚙️ MODE', [
+                `Current mode: *${currentMode}*`,
+                '',
+                'Usage:',
+                ' .mode public - Allow everyone to use the bot',
+                ' .mode private - Restrict to the owner only'
+            ]),
             ...channelInfo
         }, { quoted: message });
         return;
@@ -24,7 +22,7 @@ async function modeCommand(sock, chatId, message, args, channelInfo) {
 
     if (action !== 'public' && action !== 'private') {
         await sock.sendMessage(chatId, {
-            text: 'Usage: .mode public/private\n\nExample:\n.mode public - Allow everyone to use bot\n.mode private - Restrict to owner only',
+            text: style.invalidInput('Invalid mode. Use public or private.', '.mode public/private'),
             ...channelInfo
         }, { quoted: message });
         return;
@@ -32,15 +30,12 @@ async function modeCommand(sock, chatId, message, args, channelInfo) {
 
     try {
         // Update access mode
-        data.isPublic = action === 'public';
+        setMode(action === 'public');
 
-        // Save updated data
-        fs.writeFileSync('./data/messageCount.json', JSON.stringify(data, null, 2));
-
-        await sock.sendMessage(chatId, { text: `Bot is now in *${action}* mode`, ...channelInfo });
+        await sock.sendMessage(chatId, { text: style.success(`Bot is now in *${action}* mode`), ...channelInfo });
     } catch (error) {
         console.error('Error updating access mode:', error);
-        await sock.sendMessage(chatId, { text: 'Failed to update bot access mode', ...channelInfo });
+        await sock.sendMessage(chatId, { text: style.error('Failed to update bot access mode.'), ...channelInfo });
     }
 }
 

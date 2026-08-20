@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const style = require('../../lib/messageStyle');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const isOwnerOrSudo = require('../../lib/isOwner');
 
@@ -10,7 +11,7 @@ async function setProfilePicture(sock, chatId, msg) {
         
         if (!msg.key.fromMe && !isOwner) {
             await sock.sendMessage(chatId, { 
-                text: '❌ This command is only available for the owner!' 
+                text: style.permissionDenied('owner', { box: false }) 
             });
             return;
         }
@@ -19,7 +20,7 @@ async function setProfilePicture(sock, chatId, msg) {
         const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (!quotedMessage) {
             await sock.sendMessage(chatId, { 
-                text: '⚠️ Please reply to an image with the .setpp command!' 
+                text: style.invalidInput('Reply to an image with the .setpp command.', '.setpp (reply to image)', { box: false }) 
             });
             return;
         }
@@ -28,7 +29,7 @@ async function setProfilePicture(sock, chatId, msg) {
         const imageMessage = quotedMessage.imageMessage || quotedMessage.stickerMessage;
         if (!imageMessage) {
             await sock.sendMessage(chatId, { 
-                text: '❌ The replied message must contain an image!' 
+                text: style.invalidInput('The replied message must contain an image.', '.setpp (reply to image)', { box: false }) 
             });
             return;
         }
@@ -59,13 +60,13 @@ async function setProfilePicture(sock, chatId, msg) {
         fs.unlinkSync(imagePath);
 
         await sock.sendMessage(chatId, { 
-            text: '✅ Successfully updated bot profile picture!' 
+            text: style.success('Successfully updated the bot profile picture!') 
         });
 
     } catch (error) {
         console.error('Error in setpp command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Failed to update profile picture!' 
+            text: style.error('Failed to update the profile picture.') 
         });
     }
 }

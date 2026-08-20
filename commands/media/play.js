@@ -1,5 +1,6 @@
 const yts = require('yt-search');
 const axios = require('axios');
+const style = require('../../lib/messageStyle');
 
 async function playCommand(sock, chatId, message) {
     try {
@@ -8,7 +9,7 @@ async function playCommand(sock, chatId, message) {
         
         if (!searchQuery) {
             return await sock.sendMessage(chatId, { 
-                text: "What song do you want to download?"
+                text: style.invalidInput('Please tell me what song to download.', '.music <song name>')
             });
         }
 
@@ -16,13 +17,13 @@ async function playCommand(sock, chatId, message) {
         const { videos } = await yts(searchQuery);
         if (!videos || videos.length === 0) {
             return await sock.sendMessage(chatId, { 
-                text: "No songs found!"
+                text: style.error('No songs found for your search.')
             });
         }
 
         // Send loading message
         await sock.sendMessage(chatId, {
-            text: "_Please wait your download is in progress_"
+            text: style.processing('Fetching your audio...')
         });
 
         // Get the first video result
@@ -35,7 +36,7 @@ async function playCommand(sock, chatId, message) {
 
         if (!data || !data.status || !data.result || !data.result.downloadUrl) {
             return await sock.sendMessage(chatId, { 
-                text: "Failed to fetch audio from the API. Please try again later."
+                text: style.error('Failed to fetch the audio. Please try again later.')
             });
         }
 
@@ -52,7 +53,7 @@ async function playCommand(sock, chatId, message) {
     } catch (error) {
         console.error('Error in song2 command:', error);
         await sock.sendMessage(chatId, { 
-            text: "Download failed. Please try again later."
+            text: style.error('Download failed. Please try again later.')
         });
     }
 }

@@ -1,5 +1,5 @@
-const os = require('os');
 const settings = require('../../settings.js');
+const style = require('../../lib/messageStyle');
 
 function formatTime(seconds) {
     const days = Math.floor(seconds / (24 * 60 * 60));
@@ -28,12 +28,11 @@ async function pingCommand(sock, chatId, message) {
         const uptimeInSeconds = process.uptime();
         const uptimeFormatted = formatTime(uptimeInSeconds);
 
-        const botInfo = `
-┏━━〔 🤖 𝐎𝐩𝐭𝐢𝐦𝐮𝐬 𝐁𝐨𝐭 〕━━┓
-┃ 🚀 Ping     : ${ping} ms
-┃ ⏱️ Uptime   : ${uptimeFormatted}
-┃ 🔖 Version  : v${settings.version}
-┗━━━━━━━━━━━━━━━━━━━┛`.trim();
+        const botInfo = style.box('⚡ PING', [
+            `🚀 Latency: ${ping} ms`,
+            `⏱️ Uptime: ${uptimeFormatted}`,
+            `🔖 Version: v${settings.version}`
+        ]);
 
         // Reply to the original message with the bot info
         await sock.sendMessage(chatId, { text: botInfo},{ quoted: message });

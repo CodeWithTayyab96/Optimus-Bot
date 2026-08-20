@@ -1,4 +1,5 @@
 const { getGroupSettings, updateGroupSettings } = require('../../lib/groupSettings');
+const style = require('../../lib/messageStyle');
 
 module.exports = {
     name: 'antigroupstatus',
@@ -20,15 +21,18 @@ module.exports = {
                 const status = settings.antigroupstatus ? 'ON' : 'OFF';
                 const action = settings.antigroupstatusAction || 'delete';
                 return extra.reply(
-                    `📵 *Anti Group Status*\n\n` +
-                    `Status: *${status}*\n` +
-                    `Action: *${action}*\n\n` +
-                    `Blocks members from posting WhatsApp group statuses.\n\n` +
-                    `Usage:\n` +
-                    `  ${p}antigroupstatus on\n` +
-                    `  ${p}antigroupstatus off\n` +
-                    `  ${p}antigroupstatus set delete | kick\n` +
-                    `  ${p}antigroupstatus get`
+                    style.box('🛡️ ANTIGROUPSTATUS', [
+                        `Status: *${status}*`,
+                        `Action: *${action}*`,
+                        '',
+                        'Blocks members from posting WhatsApp group statuses.',
+                        '',
+                        'Usage:',
+                        ` ${p}antigroupstatus on`,
+                        ` ${p}antigroupstatus off`,
+                        ` ${p}antigroupstatus set delete | kick`,
+                        ` ${p}antigroupstatus get`
+                    ])
                 );
             }
 
@@ -36,37 +40,41 @@ module.exports = {
 
             if (opt === 'on') {
                 if (getGroupSettings(extra.chatId).antigroupstatus) {
-                    return extra.reply('*Anti group status is already on*');
+                    return extra.reply(style.info('Anti group status is already on.'));
                 }
                 updateGroupSettings(extra.chatId, { antigroupstatus: true });
-                return extra.reply('*Anti group status has been turned ON*');
+                return extra.reply(style.success('Anti group status has been turned ON.'));
             }
 
             if (opt === 'off') {
                 updateGroupSettings(extra.chatId, { antigroupstatus: false });
-                return extra.reply('*Anti group status has been turned OFF*');
+                return extra.reply(style.success('Anti group status has been turned OFF.'));
             }
 
             if (opt === 'set') {
                 if (args.length < 2) {
-                    return extra.reply(`*Usage: ${p}antigroupstatus set delete | kick*`);
+                    return extra.reply(style.invalidInput('Please specify an action.', `${p}antigroupstatus set delete | kick`, { box: false }));
                 }
                 const setAction = args[1].toLowerCase();
                 if (!['delete', 'kick'].includes(setAction)) {
-                    return extra.reply('*Invalid action. Choose delete or kick.*');
+                    return extra.reply(style.invalidInput('Invalid action. Choose delete or kick.', `${p}antigroupstatus set <action>`, { box: false }));
                 }
                 updateGroupSettings(extra.chatId, { antigroupstatusAction: setAction, antigroupstatus: true });
-                return extra.reply(`*Anti group status action set to ${setAction}*`);
+                return extra.reply(style.success(`Anti group status action set to ${setAction}.`));
             }
 
             if (opt === 'get') {
                 const settings = getGroupSettings(extra.chatId);
-                return extra.reply(`*Anti Group Status Config:*\nStatus: ${settings.antigroupstatus ? 'ON' : 'OFF'}\nAction: ${settings.antigroupstatusAction || 'delete'}`);
+                return extra.reply(style.box('🛡️ ANTIGROUPSTATUS', [
+                    `Status: ${settings.antigroupstatus ? 'ON' : 'OFF'}`,
+                    `Action: ${settings.antigroupstatusAction || 'delete'}`
+                ]));
             }
 
-            return extra.reply(`*Use ${p}antigroupstatus for usage.*`);
+            return extra.reply(style.info(`Use ${p}antigroupstatus for usage.`));
         } catch (error) {
-            await extra.reply(`❌ Error: ${error.message}`);
+            console.error('Antigroupstatus command error:', error);
+            await extra.reply(style.error('Failed to update antigroupstatus settings.'));
         }
     }
 };

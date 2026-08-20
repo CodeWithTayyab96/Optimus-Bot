@@ -1,9 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const isAdmin = require('../../lib/isAdmin');
+const style = require('../../lib/messageStyle');
 
 // Define paths
 const databaseDir = path.join(process.cwd(), 'data');
+// Manual admin warning store: warnings.json[chatId][userJid].
+// (Automated moderation warnings from antilink/antibadword live separately in
+// userGroupData.json.warnings via lib/index.js — see commands/admin/warnings.js.)
 const warningsPath = path.join(databaseDir, 'warnings.json');
 
 // Initialize warnings file if it doesn't exist
@@ -27,7 +31,7 @@ async function warnCommand(sock, chatId, senderId, mentionedJids, message) {
         // First check if it's a group
         if (!chatId.endsWith('@g.us')) {
             await sock.sendMessage(chatId, { 
-                text: 'This command can only be used in groups!'
+                text: style.permissionDenied('group', { box: false })
             });
             return;
         }
@@ -38,21 +42,21 @@ async function warnCommand(sock, chatId, senderId, mentionedJids, message) {
             
             if (!isBotAdmin) {
                 await sock.sendMessage(chatId, { 
-                    text: '❌ Error: Please make the bot an admin first to use this command.'
+                    text: style.permissionDenied('botAdmin', { box: false })
                 });
                 return;
             }
 
             if (!isSenderAdmin) {
                 await sock.sendMessage(chatId, { 
-                    text: '❌ Error: Only group admins can use the warn command.'
+                    text: style.permissionDenied('admin', { box: false })
                 });
                 return;
             }
         } catch (adminError) {
             console.error('Error checking admin status:', adminError);
             await sock.sendMessage(chatId, { 
-                text: '❌ Error: Please make sure the bot is an admin of this group.'
+                text: style.permissionDenied('botAdmin', { box: false })
             });
             return;
         }
@@ -70,7 +74,7 @@ async function warnCommand(sock, chatId, senderId, mentionedJids, message) {
         
         if (!userToWarn) {
             await sock.sendMessage(chatId, { 
-                text: '❌ Error: Please mention the user or reply to their message to warn!'
+                text: style.invalidInput('Please mention the user or reply to their message.', '.warn @user', { box: false })
             });
             return;
         }
@@ -125,7 +129,7 @@ async function warnCommand(sock, chatId, senderId, mentionedJids, message) {
         } catch (error) {
             console.error('Error in warn command:', error);
             await sock.sendMessage(chatId, { 
-                text: '❌ Failed to warn user!'
+                text: style.error('Failed to warn user.')
             });
         }
     } catch (error) {
@@ -134,7 +138,7 @@ async function warnCommand(sock, chatId, senderId, mentionedJids, message) {
             await new Promise(resolve => setTimeout(resolve, 2000));
             try {
                 await sock.sendMessage(chatId, { 
-                    text: '❌ Rate limit reached. Please try again in a few seconds.'
+                    text: style.warning('Rate limit reached. Please try again in a few seconds.')
                 });
             } catch (retryError) {
                 console.error('Error sending retry message:', retryError);
@@ -142,7 +146,7 @@ async function warnCommand(sock, chatId, senderId, mentionedJids, message) {
         } else {
             try {
                 await sock.sendMessage(chatId, { 
-                    text: '❌ Failed to warn user. Make sure the bot is admin and has sufficient permissions.'
+                    text: style.error('Failed to warn user. Make sure the bot is admin and has sufficient permissions.')
                 });
             } catch (sendError) {
                 console.error('Error sending error message:', sendError);

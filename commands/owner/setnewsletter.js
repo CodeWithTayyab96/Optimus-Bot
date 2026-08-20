@@ -1,5 +1,6 @@
 const settings = require('../../settings');
 const { updateSetting } = require('../../lib/settingsWriter');
+const style = require('../../lib/messageStyle');
 
 module.exports = {
     name: 'setnewsletter',
@@ -43,38 +44,45 @@ module.exports = {
                 newsletterJid = findNewsletterJid(contextInfo);
 
                 if (!newsletterJid) {
-                    return extra.reply('❌ The replied message is not from a newsletter!\n\nPlease reply to a newsletter message or provide a newsletter JID directly.');
+                    return extra.reply(style.error('The replied message is not from a newsletter. Reply to a newsletter message or provide a newsletter JID directly.'));
                 }
             } else if (args[0]) {
                 newsletterJid = args[0].trim();
             } else {
                 const currentJid = settings.newsletterJid || 'Not set';
                 return extra.reply(
-                    `📰 *Newsletter Configuration*\n\n` +
-                    `Current Newsletter JID: \`${currentJid}\`\n` +
-                    `Newsletter Name: ${settings.newsletterName || settings.botName}\n\n` +
-                    `Usage:\n` +
-                    `  ${extra.prefix}setnewsletter <newsletter JID>\n` +
-                    `  Or reply to a newsletter message with ${extra.prefix}setnewsletter\n\n` +
-                    `Example: ${extra.prefix}setnewsletter 120363161513685998@newsletter`
+                    style.box('📰 NEWSLETTER', [
+                        `Current Newsletter JID: \`${currentJid}\``,
+                        `Newsletter Name: ${settings.newsletterName || settings.botName}`,
+                        '',
+                        'Usage:',
+                        ` ${extra.prefix}setnewsletter <newsletter JID>`,
+                        ` Or reply to a newsletter message with ${extra.prefix}setnewsletter`,
+                        '',
+                        `Example: ${extra.prefix}setnewsletter 120363161513685998@newsletter`
+                    ])
                 );
             }
 
             if (!newsletterJid.endsWith('@newsletter')) {
-                return extra.reply('❌ Invalid newsletter JID format!\n\nNewsletter JID must end with `@newsletter`\nExample: `120363161513685998@newsletter`');
+                return extra.reply(style.invalidInput('Invalid newsletter JID format. The JID must end with @newsletter.', `${extra.prefix}setnewsletter <jid>`, { box: false }));
             }
 
             updateSetting('newsletterJid', newsletterJid);
 
             await extra.reply(
-                `✅ Newsletter JID updated successfully!\n\n` +
-                `📰 Newsletter JID: \`${newsletterJid}\`\n` +
-                `📛 Newsletter Name: ${settings.newsletterName || settings.botName}\n\n` +
-                `Bot messages will now link back to this channel.`
+                style.box('📰 NEWSLETTER', [
+                    '✅ Newsletter JID updated successfully',
+                    '',
+                    `JID: \`${newsletterJid}\``,
+                    `Name: ${settings.newsletterName || settings.botName}`,
+                    '',
+                    'Bot messages will now link back to this channel.'
+                ])
             );
         } catch (error) {
             console.error('SetNewsletter command error:', error);
-            await extra.reply(`❌ Failed to set newsletter JID: ${error.message}`);
+            await extra.reply(style.error('Failed to set the newsletter JID.'));
         }
     }
 };

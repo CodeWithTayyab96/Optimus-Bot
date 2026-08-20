@@ -1,181 +1,210 @@
-const settings = require('../../settings');
+/**
+ * help.js — dynamic command menu.
+ *
+ * The menu is generated from the real command registry (lib/commandLoader),
+ * never from a second hardcoded list, so it always reflects the actual
+ * commands, aliases, categories and permission flags in the tree.
+ *
+ *   .help / .menu / .bot / .list   → full menu (split into messages when long)
+ *   .help <command>                → detail card from the command's metadata
+ *
+ * Visibility respects the existing permission model without changing it:
+ *   - owner/sudo viewers see every command
+ *   - group admins additionally see admin-only commands
+ *   - everyone else sees only commands they are allowed to run
+ *
+ * Long menus are split at category-block boundaries (never mid-block).
+ */
+
 const fs = require('fs');
 const path = require('path');
+const settings = require('../../settings');
+const { loadCommands } = require('../../lib/commandLoader');
+const { readMode } = require('../../lib/mode');
+const style = require('../../lib/messageStyle');
+const { channelInfo } = require('../../lib/messageConfig');
 
-async function helpCommand(sock, chatId, message) {
-    const helpMessage = `
-╭━━━━━━━━━━━━━━━━━━━━━╮
-┃   🤖 *${settings.botName || 'Optimus Bot'}*
-┃   ⚡ v${settings.version || '1.0.0'} • by *${settings.botOwner || 'Tayyab'}*
-╰━━━━━━━━━━━━━━━━━━━━━╯
+// Lazy + memoized: loadCommands() must not run during this module's own init
+// (it would skip help.js itself — the require of this file would still be
+// mid-execution). First real call happens after boot, exactly like main.js.
+let commandsCache = null;
+function getCommands() {
+    if (!commandsCache) commandsCache = loadCommands();
+    return commandsCache;
+}
 
-━━━━〔 🌐 *GENERAL* 〕━━━━
-  ◈ .help / .menu / .ping / .alive
-  ◈ .owner • .groupinfo • .staff
-  ◈ .joke • .quote • .fact
-  ◈ .weather <city> • .news
-  ◈ .8ball <question>
-  ◈ .lyrics <song> • .attp <text>
-  ◈ .tts / .tovoice <text>
-  ◈ .totext _(reply to voice)_
-  ◈ .trt <text> <lang> • .ss <link>
-  ◈ .vv • .jid • .url
-  ◈ .getpp @user • .groupstats
-  ◈ .myactivity • .uptime
-  ◈ .calc <expr> • .qr <text>
+const CATEGORY_LABELS = {
+    general: 'GENERAL',
+    admin: 'ADMIN',
+    owner: 'OWNER',
+    ai: 'AI',
+    fun: 'FUN ZONE',
+    games: 'GAMES',
+    media: 'DOWNLOADER',
+    anime: 'ANIME',
+    textmaker: 'TEXTMAKER',
+    utility: 'UTILITY'
+};
 
-━━━━〔 👮 *ADMIN* 〕━━━━
-  ◈ .ban / .unban @user
-  ◈ .kick / .warn @user
-  ◈ .promote / .demote @user
-  ◈ .mute <min> • .unmute
-  ◈ .delete / .del • .clear
-  ◈ .tag / .tagall / .tagnotadmin
-  ◈ .hidetag <msg> • .chatbot
-  ◈ .antilink • .antibadword
-  ◈ .antitag <on/off>
-  ◈ .welcome / .goodbye <on/off>
-  ◈ .resetlink • .warnings @user
-  ◈ .resetwarn @user
-  ◈ .setgname / .setgdesc / .setgpp
-  ◈ .grouplink • .pending
-  ◈ .groupstatus _(reply to media)_
-  ◈ .antisticker / .autosticker
-  ◈ .antigroupstatus / .antigroupmention
+const CATEGORY_ORDER = ['general', 'admin', 'owner', 'ai', 'fun', 'games', 'media', 'anime', 'textmaker', 'utility'];
 
-━━━━〔 🔒 *OWNER* 〕━━━━
-  ◈ .mode <public/private>
-  ◈ .setpp _(reply to image)_
-  ◈ .autoreact / .autostatus <on/off>
-  ◈ .autotyping / .autoread <on/off>
-  ◈ .anticall / .antidelete <on/off>
-  ◈ .pmblocker <on/off/status>
-  ◈ .mention / .setmention <on/off>
-  ◈ .clearsession • .cleartmp
-  ◈ .update • .settings • .restart
-  ◈ .afk <on/off> [message]
-  ◈ .block / .unblock @user
-  ◈ .broadcast <message>
-  ◈ .setprefix <prefix>
-  ◈ .setbotname <name>
-  ◈ .setmenuimage _(reply to image)_
-  ◈ .setnewsletter <jid>
-  ◈ .sudo add/del/list @user
-  ◈ .pair <number>
+function categoryLabel(cat) {
+    return CATEGORY_LABELS[cat] || String(cat || 'misc').toUpperCase();
+}
 
-━━━━〔 🤖 *AI* 〕━━━━
-  ◈ .gpt <question>
-  ◈ .gemini <question>
-  ◈ .imagine <prompt>
-  ◈ .magicstudio <prompt>
-  ◈ .gptimage <prompt> _(reply to img)_
-  ◈ .study _(reply to doc)_
-  ◈ .summarize / .tldr _(reply to msg)_
-  ◈ .reply _(reply to msg)_
-  ◈ .rewrite <text>
-  ◈ .voicesummary / .vsum _(reply to VN)_
+function categoryTitle(cat) {
+    const label = categoryLabel(cat);
+    return label.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+}
 
-━━━━〔 🎯 *FUN ZONE* 〕━━━━
-  ◈ .joke • .fact • .quote
-  ◈ .truth • .dare • .riddle
-  ◈ .flirt • .shayari • .advice
-  ◈ .motivate / .motivation
-  ◈ .roast @user
-  ◈ .compliment / .insult @user
-  ◈ .goodnight • .roseday
-  ◈ .ship / .simp / .wasted @user
-  ◈ .character / .stupid @user
-  ◈ .gayrate @user
-  ◈ .memesearch <query>
-  ◈ .gif <search> • .topmembers
+/**
+ * Permission-aware visibility. Mirrors the command flags; never changes them.
+ * @param {{ownerOnly?: boolean, modOnly?: boolean, adminOnly?: boolean}} cmd
+ * @param {{isOwnerOrSudo?: boolean, isAdmin?: boolean}} viewer
+ */
+function isVisibleTo(cmd, viewer = {}) {
+    if (viewer.isOwnerOrSudo) return true;
+    if (cmd.ownerOnly || cmd.modOnly) return false;
+    if (cmd.adminOnly) return Boolean(viewer.isAdmin);
+    return true;
+}
 
-━━━━〔 🎮 *GAMES* 〕━━━━
-  ◈ .tictactoe @user
-  ◈ .hangman • .guess <letter>
-  ◈ .trivia • .answer <answer>
-  ◈ .bomb
+/** Group every visible command by category (deduped by command name). */
+function collectCommands(viewer = {}) {
+    const seen = new Set();
+    const byCat = new Map();
+    for (const [, cmd] of getCommands()) {
+        if (seen.has(cmd.name)) continue;
+        seen.add(cmd.name);
+        if (!isVisibleTo(cmd, viewer)) continue;
+        const cat = cmd.category || 'misc';
+        if (!byCat.has(cat)) byCat.set(cat, []);
+        byCat.get(cat).push(cmd);
+    }
+    return byCat;
+}
 
-━━━━〔 🎨 *IMAGE & STICKER* 〕━━━━
-  ◈ .sticker / .sticker2 / .simage / .crop
-  ◈ .blur • .removebg • .remini
-  ◈ .meme • .take <packname>
-  ◈ .tgsticker <link>
-  ◈ .emojimix <e1>+<e2>
-  ◈ .igs / .igsc <insta link>
+/** One atomic block per category: ╭─「 GENERAL 」 … ╰────────────. */
+function buildBlocks(viewer = {}) {
+    const byCat = collectCommands(viewer);
+    const cats = [...byCat.keys()].sort((a, b) => {
+        const ia = CATEGORY_ORDER.indexOf(a);
+        const ib = CATEGORY_ORDER.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b);
+    });
+    return cats.map(cat => {
+        const names = byCat.get(cat).map(c => c.name).sort();
+        return `╭─「 ${categoryLabel(cat)} 」\n${names.map(n => `│ ✦ ${n}`).join('\n')}\n╰────────────`;
+    });
+}
 
-━━━━〔 📥 *DOWNLOADER* 〕━━━━
-  ◈ .play / .song / .music <name>
-  ◈ .video / .ytmp4 <link>
-  ◈ .spotify <query>
-  ◈ .instagram / .facebook / .tiktok <link>
-  ◈ .twitter / .x <link>
-  ◈ .pinterest / .pin <link>
+/**
+ * Build the full menu as a list of messages (chunks), split at block
+ * boundaries so no category card is ever cut in half.
+ * @param {{isOwnerOrSudo?: boolean, isAdmin?: boolean, userName?: string}} viewer
+ * @param {{prefix?: string, maxLen?: number}} opts
+ */
+function buildMenuChunks(viewer = {}, opts = {}) {
+    const prefix = String(opts.prefix || settings.prefix || '.').replace(/\\$/, '');
+    const mode = readMode() ? 'public' : 'private';
+    const header = style.menuHeader({
+        user: viewer.userName || '',
+        prefix,
+        mode
+    });
+    const footer = [
+        `╭━━━〔 📢 ${settings.botName || 'Optimus Bot'} 〕━━━╮`,
+        `┃ ${settings.channelLink || 'Join our channel for updates'}`,
+        `╰━━━━━━━━━━━━━━━━━━━━━━╯`
+    ].join('\n');
+    return style.splitBlocks([header, ...buildBlocks(viewer), footer], opts.maxLen || 3000);
+}
 
-━━━━〔 🔤 *TEXTMAKER* 〕━━━━
-  ◈ .metallic • .ice • .snow • .neon
-  ◈ .fire • .glitch • .matrix • .hacker
-  ◈ .devil • .thunder • .purple • .light
-  ◈ .impressive • .leaves • .arena
-  ◈ .1917 • .sand • .blackpink
+/** Full menu as one string (all chunks joined) — used by tests/coverage. */
+function buildMenuText(viewer = {}, opts = {}) {
+    return buildMenuChunks(viewer, opts).join('\n\n');
+}
 
-━━━━〔 🖼️ *PIES* 〕━━━━
-  ◈ .pies <country>
-  ◈ .china • .japan • .korea
-  ◈ .indonesia • .hijab
+/** Count of visible commands for a viewer (used by the menu footer). */
+function visibleCommandCount(viewer = {}) {
+    const byCat = collectCommands(viewer);
+    let total = 0;
+    for (const list of byCat.values()) total += list.length;
+    return total;
+}
 
-━━━━〔 🧩 *MISC* 〕━━━━
-  ◈ .heart • .circle • .lgbt • .gay
-  ◈ .tweet • .ytcomment • .namecard
-  ◈ .oogway • .comrade • .glass
-  ◈ .jail • .passed • .triggered
-  ◈ .horny • .lolice • .its-so-stupid
+/**
+ * Detail card for .help <command>.
+ * @returns {string|null} null when unknown or not visible to the viewer.
+ */
+function buildCommandDetail(query, viewer = {}) {
+    const name = String(query || '').toLowerCase().replace(/^[^a-z0-9]+/, '');
+    if (!name) return null;
+    const cmd = getCommands().get(name);
+    if (!cmd || !isVisibleTo(cmd, viewer)) return null;
 
-━━━━〔 🌸 *ANIME* 〕━━━━
-  ◈ .hug • .kiss • .pat • .poke
-  ◈ .nom • .cry • .wink • .facepalm
+    const prefix = settings.prefix || '.';
+    const lines = [
+        `Name     : ${cmd.name}`,
+        `Category : ${categoryTitle(cmd.category || 'misc')}`,
+        '',
+        'Description:',
+        ` ${cmd.description || 'No description provided.'}`,
+        '',
+        'Usage:',
+        ` ${cmd.usage || `${prefix}${cmd.name}`}`,
+        '',
+        'Aliases:',
+        ` ${(cmd.aliases && cmd.aliases.length) ? cmd.aliases.map(a => `• ${a}`).join(' ') : '—'}`
+    ];
+    return style.box('🔎 COMMAND INFO', lines);
+}
 
-━━━━〔 💻 *GITHUB* 〕━━━━
-  ◈ .git / .github / .repo / .sc
+function viewerFromExtra(extra = {}) {
+    return {
+        isOwnerOrSudo: Boolean(extra.senderIsOwnerOrSudo || extra.isOwnerOrSudoCheck),
+        isAdmin: Boolean(extra.isSenderAdmin),
+        userName: extra.senderId ? `@${String(extra.senderId).split('@')[0]}` : ''
+    };
+}
 
-╭━━━━━━━━━━━━━━━━━━━━━╮
-┃  📢 Join our channel for updates
-╰━━━━━━━━━━━━━━━━━━━━━╯`;
+async function helpCommand(sock, chatId, message, args, extra) {
+    const viewer = viewerFromExtra(extra);
+    const query = (args && args[0]) ? String(args[0]) : '';
 
-    try {
-        const imagePath = path.join(__dirname, '../../assets/bot_image.jpg');
-
-        if (fs.existsSync(imagePath)) {
-            const imageBuffer = fs.readFileSync(imagePath);
-            await sock.sendMessage(chatId, {
-                image: imageBuffer,
-                caption: helpMessage,
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363424568988623@newsletter',
-                        newsletterName: 'Optimus Bot',
-                        serverMessageId: -1
-                    }
-                }
-            }, { quoted: message });
-        } else {
-            await sock.sendMessage(chatId, {
-                text: helpMessage,
-                contextInfo: {
-                    forwardingScore: 1,
-                    isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363424568988623@newsletter',
-                        newsletterName: 'Optimus Bot',
-                        serverMessageId: -1
-                    }
-                }
-            });
+    // --- .help <command> detail ---
+    if (query) {
+        const detail = buildCommandDetail(query, viewer);
+        if (!detail) {
+            const hidden = getCommands().has(String(query).toLowerCase().replace(/^[^a-z0-9]+/, ''));
+            const text = hidden
+                ? style.permissionDenied('ownerOrSudo', { box: false })
+                : style.notFound(`Command "${query}"`);
+            return sock.sendMessage(chatId, { text, ...channelInfo }, { quoted: message });
         }
-    } catch (error) {
-        console.error('Error in help command:', error);
-        await sock.sendMessage(chatId, { text: helpMessage });
+        return sock.sendMessage(chatId, { text: detail, ...channelInfo }, { quoted: message });
+    }
+
+    // --- full menu (possibly several messages) ---
+    const chunks = buildMenuChunks(viewer, { prefix: extra?.prefix });
+    const imagePath = path.join(__dirname, '../../assets/bot_image.jpg');
+    const imageExists = fs.existsSync(imagePath);
+
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        if (i === 0 && imageExists) {
+            try {
+                await sock.sendMessage(chatId, {
+                    image: fs.readFileSync(imagePath),
+                    caption: chunk,
+                    ...channelInfo
+                }, { quoted: message });
+                continue;
+            } catch {
+                // fall through to plain-text send
+            }
+        }
+        await sock.sendMessage(chatId, { text: chunk, ...channelInfo }, { quoted: message });
     }
 }
 
@@ -183,8 +212,8 @@ module.exports = {
     name: 'help',
     aliases: ['menu', 'bot', 'list'],
     category: 'general',
-    description: 'Show the command menu',
-    usage: '.help',
+    description: 'Show the command menu (use .help <command> for details)',
+    usage: '.help [command]',
     ownerOnly: false,
     modOnly: false,
     groupOnly: false,
@@ -192,7 +221,13 @@ module.exports = {
     adminOnly: false,
     botAdminNeeded: false,
     async execute(sock, message, args, extra) {
-        await helpCommand(sock, extra.chatId, message, global.channelLink);
+        await helpCommand(sock, extra.chatId, message, args, extra);
     },
-
+    // Exported for tests / coverage checks
+    buildMenuChunks,
+    buildMenuText,
+    buildCommandDetail,
+    visibleCommandCount,
+    isVisibleTo,
+    categoryLabel
 };

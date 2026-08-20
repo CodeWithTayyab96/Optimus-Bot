@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const style = require('../../lib/messageStyle');
 const {
     generateWAMessageContent,
     generateWAMessageFromContent,
@@ -34,26 +35,27 @@ module.exports = {
             if (!hasQuoted) {
                 if (!caption) {
                     return extra.reply(
-                        '📝 *Group Status Usage*\n\n' +
-                        '• Reply to image/video/audio with:\n' +
-                        `  \`${extra.prefix}groupstatus [optional caption]\`\n` +
-                        '• Or send text status only:\n' +
-                        `  \`${extra.prefix}groupstatus Your text here\`\n\n` +
-                        'Text statuses use a single purple background color by default.'
+                        style.box('📝 GROUP STATUS', [
+                            'Reply to image/video/audio with:',
+                            ` \`${extra.prefix}groupstatus [optional caption]\``,
+                            '',
+                            'Or send a text status:',
+                            ` \`${extra.prefix}groupstatus Your text here\``
+                        ])
                     );
                 }
 
-                await extra.reply('⏳ Posting text group status...');
+                await extra.reply(style.processing('Posting text group status'));
 
                 try {
                     await groupStatus(sock, from, {
                         text: caption,
                         backgroundColor: PURPLE_COLOR,
                     });
-                    return extra.reply('✅ Text group status posted!');
+                    return extra.reply(style.success('Text group status posted!'));
                 } catch (e) {
                     console.error('groupstatus text error:', e);
-                    return extra.reply('❌ Failed to post text group status: ' + (e.message || e));
+                    return extra.reply(style.error('Failed to post text group status.'));
                 }
             }
 
@@ -80,54 +82,54 @@ module.exports = {
 
             // IMAGE (also handles stickers)
             if (/image|sticker/i.test(mtype)) {
-                await extra.reply('⏳ Posting image group status...');
+                await extra.reply(style.processing('Posting image group status'));
                 let buf;
                 try {
                     buf = await downloadBuf();
                 } catch {
-                    return extra.reply('❌ Failed to download image');
+                    return extra.reply(style.error('Failed to download image.'));
                 }
-                if (!buf) return extra.reply('❌ Could not download image');
+                if (!buf) return extra.reply(style.error('Could not download image.'));
 
                 try {
                     await groupStatus(sock, from, { image: buf, caption: caption || '' });
-                    return extra.reply('✅ Image group status posted!');
+                    return extra.reply(style.success('Image group status posted!'));
                 } catch (e) {
                     console.error('groupstatus image error:', e);
-                    return extra.reply('❌ Failed to post image group status: ' + (e.message || e));
+                    return extra.reply(style.error('Failed to post image group status.'));
                 }
             }
 
             // VIDEO
             if (/video/i.test(mtype)) {
-                await extra.reply('⏳ Posting video group status...');
+                await extra.reply(style.processing('Posting video group status'));
                 let buf;
                 try {
                     buf = await downloadBuf();
                 } catch {
-                    return extra.reply('❌ Failed to download video');
+                    return extra.reply(style.error('Failed to download video.'));
                 }
-                if (!buf) return extra.reply('❌ Could not download video');
+                if (!buf) return extra.reply(style.error('Could not download video.'));
 
                 try {
                     await groupStatus(sock, from, { video: buf, caption: caption || '' });
-                    return extra.reply('✅ Video group status posted!');
+                    return extra.reply(style.success('Video group status posted!'));
                 } catch (e) {
                     console.error('groupstatus video error:', e);
-                    return extra.reply('❌ Failed to post video group status: ' + (e.message || e));
+                    return extra.reply(style.error('Failed to post video group status.'));
                 }
             }
 
             // AUDIO (voice-style group status)
             if (/audio/i.test(mtype)) {
-                await extra.reply('⏳ Posting audio group status...');
+                await extra.reply(style.processing('Posting audio group status'));
                 let buf;
                 try {
                     buf = await downloadBuf();
                 } catch {
-                    return extra.reply('❌ Failed to download audio');
+                    return extra.reply(style.error('Failed to download audio.'));
                 }
-                if (!buf) return extra.reply('❌ Could not download audio');
+                if (!buf) return extra.reply(style.error('Could not download audio.'));
 
                 let vn;
                 try {
@@ -150,17 +152,17 @@ module.exports = {
                         ptt: true,
                         waveform,
                     });
-                    return extra.reply('✅ Audio group status posted!');
+                    return extra.reply(style.success('Audio group status posted!'));
                 } catch (e) {
                     console.error('groupstatus audio error:', e);
-                    return extra.reply('❌ Failed to post audio group status: ' + (e.message || e));
+                    return extra.reply(style.error('Failed to post audio group status.'));
                 }
             }
 
-            return extra.reply('❌ Unsupported media type. Reply to an image, video, or audio.');
+            return extra.reply(style.invalidInput('Unsupported media type. Reply to an image, video, or audio.', `${extra.prefix}groupstatus`, { box: false }));
         } catch (e) {
             console.error('groupstatus command error (outer):', e);
-            return extra.reply('❌ Error: ' + (e.message || e));
+            return extra.reply(style.error('Failed to post group status.'));
         }
     }
 };

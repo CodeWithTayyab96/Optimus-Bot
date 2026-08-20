@@ -1,5 +1,6 @@
 const settings = require('../../settings');
 const { updateSetting } = require('../../lib/settingsWriter');
+const style = require('../../lib/messageStyle');
 
 module.exports = {
     name: 'setbotname',
@@ -32,24 +33,30 @@ module.exports = {
 
             if (!newBotName) {
                 return extra.reply(
-                    `📝 *Set Bot Name*\n\n` +
-                    `Current bot name: *${settings.botName}*\n\n` +
-                    `Usage:\n` +
-                    `  ${extra.prefix}setbotname <new name>\n` +
-                    `  Or reply to a message with ${extra.prefix}setbotname`
+                    style.box('👑 BOT NAME', [
+                        `Current bot name: *${settings.botName}*`,
+                        '',
+                        'Usage:',
+                        ` ${extra.prefix}setbotname <new name>`,
+                        ` Or reply to a message with ${extra.prefix}setbotname`
+                    ])
                 );
             }
 
             if (newBotName.length > 50) {
-                return extra.reply('❌ Bot name must be 50 characters or less!');
+                return extra.reply(style.invalidInput('The bot name must be 50 characters or less.', `${extra.prefix}setbotname <name>`, { box: false }));
             }
 
             updateSetting('botName', newBotName);
 
-            await extra.reply(`✅ Bot name changed to: *${newBotName}*\n\nThe new name will be used in menus and other places.`);
+            await extra.reply(style.box('👑 BOT NAME', [
+                `✅ Bot name changed to: *${newBotName}*`,
+                '',
+                'The new name will be used in menus and other places.'
+            ]));
         } catch (error) {
             console.error('Setbotname command error:', error);
-            await extra.reply(`❌ Error: ${error.message}`);
+            await extra.reply(style.error('Failed to change the bot name.'));
         }
     }
 };

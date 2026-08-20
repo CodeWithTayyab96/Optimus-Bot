@@ -1,33 +1,12 @@
-const fs = require('fs');
-const path = require('path');
+const style = require('../../lib/messageStyle');
 const fetch = require('node-fetch');
-
-const USER_GROUP_DATA = path.join(__dirname, '../../data/userGroupData.json');
+const { getChatbot, setChatbot, removeChatbot, loadUserGroupData } = require('../../lib/index');
 
 // In-memory storage for chat history and user info
 const chatMemory = {
     messages: new Map(), // Stores last 5 messages per user
     userInfo: new Map()  // Stores user information
 };
-
-// Load user group data
-function loadUserGroupData() {
-    try {
-        return JSON.parse(fs.readFileSync(USER_GROUP_DATA));
-    } catch (error) {
-        console.error('❌ Error loading user group data:', error.message);
-        return { groups: [], chatbot: {} };
-    }
-}
-
-// Save user group data
-function saveUserGroupData(data) {
-    try {
-        fs.writeFileSync(USER_GROUP_DATA, JSON.stringify(data, null, 2));
-    } catch (error) {
-        console.error('❌ Error saving user group data:', error.message);
-    }
-}
 
 // Add random delay between 2-5 seconds
 function getRandomDelay() {
@@ -71,13 +50,15 @@ async function handleChatbotCommand(sock, chatId, message, match) {
     if (!match) {
         await showTyping(sock, chatId);
         return sock.sendMessage(chatId, {
-            text: `*CHATBOT SETUP*\n\n*.chatbot on*\nEnable chatbot\n\n*.chatbot off*\nDisable chatbot in this group`,
+            text: style.box('🤖 CHATBOT', [
+                'Setup:',
+                ' .chatbot on — enable the chatbot',
+                ' .chatbot off — disable the chatbot in this group'
+            ]),
             quoted: message
         });
     }
 
-    const data = loadUserGroupData();
-    
     // Get bot's number
     const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
     
@@ -89,34 +70,34 @@ async function handleChatbotCommand(sock, chatId, message, match) {
     if (isOwner) {
         if (match === 'on') {
             await showTyping(sock, chatId);
-            if (data.chatbot[chatId]) {
+            const existing = await getChatbot(chatId);
+            if (existing?.enabled) {
                 return sock.sendMessage(chatId, { 
-                    text: '*Chatbot is already enabled for this group*',
+                    text: style.info('Chatbot is already enabled for this group.'),
                     quoted: message
                 });
             }
-            data.chatbot[chatId] = true;
-            saveUserGroupData(data);
+            await setChatbot(chatId, true);
             console.log(`✅ Chatbot enabled for group ${chatId}`);
             return sock.sendMessage(chatId, { 
-                text: '*Chatbot has been enabled for this group*',
+                text: style.success('Chatbot has been enabled for this group.'),
                 quoted: message
             });
         }
 
         if (match === 'off') {
             await showTyping(sock, chatId);
-            if (!data.chatbot[chatId]) {
+            const existing = await getChatbot(chatId);
+            if (!existing?.enabled) {
                 return sock.sendMessage(chatId, { 
-                    text: '*Chatbot is already disabled for this group*',
+                    text: style.info('Chatbot is already disabled for this group.'),
                     quoted: message
                 });
             }
-            delete data.chatbot[chatId];
-            saveUserGroupData(data);
+            await removeChatbot(chatId);
             console.log(`✅ Chatbot disabled for group ${chatId}`);
             return sock.sendMessage(chatId, { 
-                text: '*Chatbot has been disabled for this group*',
+                text: style.success('Chatbot has been disabled for this group.'),
                 quoted: message
             });
         }
@@ -136,55 +117,55 @@ async function handleChatbotCommand(sock, chatId, message, match) {
     if (!isAdmin && !isOwner) {
         await showTyping(sock, chatId);
         return sock.sendMessage(chatId, {
-            text: '❌ Only group admins or the bot owner can use this command.',
+            text: style.permissionDenied('admin', { box: false }),
             quoted: message
         });
     }
 
     if (match === 'on') {
         await showTyping(sock, chatId);
-        if (data.chatbot[chatId]) {
+        const existing = await getChatbot(chatId);
+        if (existing?.enabled) {
             return sock.sendMessage(chatId, { 
-                text: '*Chatbot is already enabled for this group*',
+                text: style.info('Chatbot is already enabled for this group.'),
                 quoted: message
             });
         }
-        data.chatbot[chatId] = true;
-        saveUserGroupData(data);
+        await setChatbot(chatId, true);
         console.log(`✅ Chatbot enabled for group ${chatId}`);
         return sock.sendMessage(chatId, { 
-            text: '*Chatbot has been enabled for this group*',
+            text: style.success('Chatbot has been enabled for this group.'),
             quoted: message
         });
     }
 
     if (match === 'off') {
         await showTyping(sock, chatId);
-        if (!data.chatbot[chatId]) {
+        const existing = await getChatbot(chatId);
+        if (!existing?.enabled) {
             return sock.sendMessage(chatId, { 
-                text: '*Chatbot is already disabled for this group*',
+                text: style.info('Chatbot is already disabled for this group.'),
                 quoted: message
             });
         }
-        delete data.chatbot[chatId];
-        saveUserGroupData(data);
+        await removeChatbot(chatId);
         console.log(`✅ Chatbot disabled for group ${chatId}`);
         return sock.sendMessage(chatId, { 
-            text: '*Chatbot has been disabled for this group*',
+            text: style.success('Chatbot has been disabled for this group.'),
             quoted: message
         });
     }
 
     await showTyping(sock, chatId);
     return sock.sendMessage(chatId, { 
-        text: '*Invalid command. Use .chatbot to see usage*',
+        text: style.invalidInput('Invalid command. Use .chatbot to see usage.', '.chatbot on/off', { box: false }),
         quoted: message
     });
 }
 
 async function handleChatbotResponse(sock, chatId, message, userMessage, senderId) {
-    const data = loadUserGroupData();
-    if (!data.chatbot[chatId]) return;
+    const chatbotConfig = await getChatbot(chatId);
+    if (!chatbotConfig?.enabled) return;
 
     try {
         // Get bot's ID - try multiple formats

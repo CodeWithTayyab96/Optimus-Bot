@@ -3,6 +3,7 @@ const yts = require('yt-search');
 const fs = require('fs');
 const path = require('path');
 const { toAudio } = require('../../lib/converter');
+const style = require('../../lib/messageStyle');
 
 const AXIOS_DEFAULTS = {
 	timeout: 60000,
@@ -71,7 +72,7 @@ async function songCommand(sock, chatId, message) {
     try {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
         if (!text) {
-            await sock.sendMessage(chatId, { text: 'Usage: .song <song name or YouTube link>' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.invalidInput('Please provide a song name or YouTube link.', '.song <song name or YouTube link>') }, { quoted: message });
             return;
         }
 
@@ -81,7 +82,7 @@ async function songCommand(sock, chatId, message) {
         } else {
 			const search = await yts(text);
 			if (!search || !search.videos.length) {
-                await sock.sendMessage(chatId, { text: 'No results found.' }, { quoted: message });
+                await sock.sendMessage(chatId, { text: style.error('No results found for your search.') }, { quoted: message });
                 return;
             }
 			video = search.videos[0];
@@ -90,7 +91,7 @@ async function songCommand(sock, chatId, message) {
         // Inform user
         await sock.sendMessage(chatId, {
             image: { url: video.thumbnail },
-            caption: `🎵 Downloading: *${video.title}*\n⏱ Duration: ${video.timestamp}`
+            caption: `🎵 Downloading: *${video.title || 'Your song'}*\n⏱️ Duration: ${video.timestamp || 'Unknown'}`
         }, { quoted: message });
 
 		// Try multiple APIs with fallback chain: EliteProTech -> Yupra -> Okatsu
@@ -301,17 +302,17 @@ async function songCommand(sock, chatId, message) {
         console.error('Song command error:', err);
         
         // Provide more specific error messages
-        let errorMessage = '❌ Failed to download song.';
+        let errorMessage = 'Failed to download the song. Please try again later.';
         if (err.message && err.message.includes('blocked')) {
-            errorMessage = '❌ Download blocked. The content may be unavailable in your region or due to legal restrictions.';
+            errorMessage = 'Download blocked. The content may be unavailable in your region or due to legal restrictions.';
         } else if (err.response?.status === 451 || err.status === 451) {
-            errorMessage = '❌ Content unavailable (451). This may be due to legal restrictions or regional blocking.';
+            errorMessage = 'Content unavailable. This may be due to legal restrictions or regional blocking.';
         } else if (err.message && err.message.includes('All download sources failed')) {
-            errorMessage = '❌ All download sources failed. The content may be unavailable or blocked.';
+            errorMessage = 'All download sources failed. The content may be unavailable or blocked.';
         }
         
         await sock.sendMessage(chatId, { 
-            text: errorMessage 
+            text: style.error(errorMessage)
         }, { quoted: message });
     }
 }

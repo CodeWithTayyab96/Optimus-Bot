@@ -10,6 +10,7 @@ function readJsonSafe(path, fallback) {
 }
 
 const isOwnerOrSudo = require('../../lib/isOwner');
+const { readMode } = require('../../lib/mode');
 
 async function settingsCommand(sock, chatId, message) {
     try {
@@ -24,7 +25,7 @@ async function settingsCommand(sock, chatId, message) {
         const isGroup = chatId.endsWith('@g.us');
         const dataDir = './data';
 
-        const mode = readJsonSafe(`${dataDir}/messageCount.json`, { isPublic: true });
+        const mode = { isPublic: readMode() };
         const autoStatus = readJsonSafe(`${dataDir}/autoStatus.json`, { enabled: false });
         const autoread = readJsonSafe(`${dataDir}/autoread.json`, { enabled: false });
         const autotyping = readJsonSafe(`${dataDir}/autotyping.json`, { enabled: false });

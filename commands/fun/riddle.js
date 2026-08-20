@@ -19,7 +19,7 @@ const riddleCommand = async function (sock, chatId, message) {
         if (!riddleMatch) return await sock.sendMessage(chatId, { text: result, ...channelInfo }, { quoted: message });
 
         await sock.sendMessage(chatId, {
-            text: `🧩 *Riddle*\n\n${riddleMatch[1].trim()}\n\n_Reply with your answer, then type_ *.answer* _to reveal!_`,
+            text: `🧩 RIDDLE\n\n${riddleMatch[1].trim()}\n\n_Reply with your answer, then type_ *.answer* _to reveal!_`,
             ...channelInfo
         }, { quoted: message });
 

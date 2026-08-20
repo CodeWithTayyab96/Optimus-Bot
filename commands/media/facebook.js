@@ -1,6 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const style = require('../../lib/messageStyle');
 
 async function facebookCommand(sock, chatId, message) {
     try {
@@ -9,14 +10,14 @@ async function facebookCommand(sock, chatId, message) {
         
         if (!url) {
             return await sock.sendMessage(chatId, { 
-                text: "Please provide a Facebook video URL.\nExample: .fb https://www.facebook.com/..."
+                text: style.invalidInput('Please provide a Facebook video URL.', '.facebook <url>')
             }, { quoted: message });
         }
 
         // Validate Facebook URL
         if (!url.includes('facebook.com')) {
             return await sock.sendMessage(chatId, { 
-                text: "That is not a Facebook link."
+                text: style.invalidInput('That is not a Facebook link. Please provide a valid Facebook video URL.', '.facebook <url>')
             }, { quoted: message });
         }
 
@@ -159,7 +160,7 @@ async function facebookCommand(sock, chatId, message) {
 
         if (!fbvid) {
             return await sock.sendMessage(chatId, { 
-                text: '❌ Failed to get video URL from Facebook.\n\nPossible reasons:\n• Video is private or deleted\n• Link is invalid\n• Video is not available for download\n\nPlease try a different Facebook video link.'
+                text: style.error('Failed to get the video URL from Facebook.\n\nPossible reasons:\n• Video is private or deleted\n• Link is invalid\n• Video is not available for download\n\nPlease try a different Facebook video link.')
             }, { quoted: message });
         }
 
@@ -240,7 +241,7 @@ async function facebookCommand(sock, chatId, message) {
     } catch (error) {
         console.error('Error in Facebook command:', error);
         await sock.sendMessage(chatId, { 
-            text: "An error occurred. API might be down. Error: " + error.message
+            text: style.error('Failed to download the Facebook video. Please try again later.')
         }, { quoted: message });
     }
 }

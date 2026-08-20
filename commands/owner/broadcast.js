@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 module.exports = {
     name: 'broadcast',
     aliases: ['bc'],
@@ -13,7 +15,7 @@ module.exports = {
     async execute(sock, message, args, extra) {
         try {
             if (args.length === 0) {
-                return extra.reply(`❌ Usage: ${extra.prefix}broadcast <message>\n\nExample: ${extra.prefix}broadcast Hello everyone!`);
+                return extra.reply(style.invalidInput('Provide a message to broadcast.', `${extra.prefix}broadcast <message>`, { box: false }));
             }
 
             const broadcastText = args.join(' ');
@@ -35,9 +37,15 @@ module.exports = {
                 }
             }
 
-            await extra.reply(`✅ Broadcast complete!\n\n✅ Success: ${success}\n❌ Failed: ${failed}`);
+            await extra.reply(style.box('📢 BROADCAST', [
+                '✅ Broadcast complete',
+                '',
+                `✅ Success: ${success}`,
+                `❌ Failed: ${failed}`
+            ]));
         } catch (error) {
-            await extra.reply(`❌ Error: ${error.message}`);
+            console.error('Broadcast command error:', error);
+            await extra.reply(style.error('Failed to broadcast the message.'));
         }
     }
 };

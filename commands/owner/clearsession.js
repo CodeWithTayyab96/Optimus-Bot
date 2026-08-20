@@ -2,18 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const isOwnerOrSudo = require('../../lib/isOwner');
-
-const channelInfo = {
-    contextInfo: {
-        forwardingScore: 999,
-        isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-            newsletterJid: '120363424568988623@newsletter',
-            newsletterName: 'Optimus Bot',
-            serverMessageId: -1
-        }
-    }
-};
+const style = require('../../lib/messageStyle');
+const { channelInfo: baseChannelInfo } = require('../../lib/messageConfig');
+// Keep this command's intentional forwardingScore: 999 while centralising
+// the newsletter branding (jid/name) in lib/messageConfig.
+const channelInfo = { ...baseChannelInfo, contextInfo: { ...baseChannelInfo.contextInfo, forwardingScore: 999 } };
 
 async function clearSessionCommand(sock, chatId, msg) {
     try {
@@ -22,7 +15,7 @@ async function clearSessionCommand(sock, chatId, msg) {
         
         if (!msg.key.fromMe && !isOwner) {
             await sock.sendMessage(chatId, { 
-                text: '❌ This command can only be used by the owner!',
+                text: style.permissionDenied('owner', { box: false }),
                 ...channelInfo
             });
             return;
@@ -33,7 +26,7 @@ async function clearSessionCommand(sock, chatId, msg) {
 
         if (!fs.existsSync(sessionDir)) {
             await sock.sendMessage(chatId, { 
-                text: '❌ Session directory not found!',
+                text: style.notFound('Session directory', { box: false }),
                 ...channelInfo
             });
             return;
@@ -45,7 +38,7 @@ async function clearSessionCommand(sock, chatId, msg) {
 
         // Send initial status
         await sock.sendMessage(chatId, { 
-            text: `🔍 Optimizing session files for better performance...`,
+            text: style.processing('Optimizing session files'),
             ...channelInfo
         });
 
@@ -77,12 +70,15 @@ async function clearSessionCommand(sock, chatId, msg) {
         }
 
         // Send completion message
-        const message = `✅ Session files cleared successfully!\n\n` +
-                       `📊 Statistics:\n` +
-                       `• Total files cleared: ${filesCleared}\n` +
-                       `• App state sync files: ${appStateSyncCount}\n` +
-                       `• Pre-key files: ${preKeyCount}\n` +
-                       (errors > 0 ? `\n⚠️ Errors encountered: ${errors}\n${errorDetails.join('\n')}` : '');
+        const message = style.box('👑 SESSION CLEANUP', [
+            '✅ Session files cleared successfully',
+            '',
+            'Statistics:',
+            ` • Total files cleared: ${filesCleared}`,
+            ` • App state sync files: ${appStateSyncCount}`,
+            ` • Pre-key files: ${preKeyCount}`,
+            ...(errors > 0 ? [``, `⚠️ Errors encountered: ${errors}`] : [])
+        ]);
 
         await sock.sendMessage(chatId, { 
             text: message,
@@ -92,7 +88,7 @@ async function clearSessionCommand(sock, chatId, msg) {
     } catch (error) {
         console.error('Error in clearsession command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Failed to clear session files!',
+            text: style.error('Failed to clear session files.'),
             ...channelInfo
         });
     }

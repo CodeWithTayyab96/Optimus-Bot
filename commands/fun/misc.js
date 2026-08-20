@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { uploadImage } = require('../../lib/uploadImage');
+const style = require('../../lib/messageStyle');
 
 async function getQuotedOrOwnImageUrl(sock, message) {
     // 1) Quoted image (highest priority)
@@ -95,7 +96,7 @@ async function miscCommand(sock, chatId, message, args) {
             case 'its-so-stupid': {
                 const dog = rest.join(' ').trim();
                 if (!dog) {
-                    await sock.sendMessage(chatId, { text: 'Usage: .misc its-so-stupid <text>' }, { quoted: message });
+                    await sock.sendMessage(chatId, { text: style.invalidInput('Please provide text.', '.misc its-so-stupid <text>') }, { quoted: message });
                     return;
                 }
                 const avatarUrl = await getQuotedOrOwnImageUrl(sock, message);
@@ -110,7 +111,7 @@ async function miscCommand(sock, chatId, message, args) {
                 const joined = rest.join(' ');
                 const [username, birthday, description] = joined.split('|').map(s => (s || '').trim());
                 if (!username || !birthday) {
-                    await sock.sendMessage(chatId, { text: 'Usage: .misc namecard username|birthday|description(optional)' }, { quoted: message });
+                    await sock.sendMessage(chatId, { text: style.invalidInput('Please provide a username and birthday.', '.misc namecard username|birthday|description(optional)') }, { quoted: message });
                     return;
                 }
                 const avatarUrl = await getQuotedOrOwnImageUrl(sock, message);
@@ -127,7 +128,7 @@ async function miscCommand(sock, chatId, message, args) {
             case 'oogway2': {
                 const quote = rest.join(' ').trim();
                 if (!quote) {
-                    await sock.sendMessage(chatId, { text: `Usage: .misc ${sub} <quote>` }, { quoted: message });
+                    await sock.sendMessage(chatId, { text: style.invalidInput('Please provide a quote.', `.misc ${sub} <quote>`) }, { quoted: message });
                     return;
                 }
                 const avatarUrl = await getQuotedOrOwnImageUrl(sock, message);
@@ -142,7 +143,7 @@ async function miscCommand(sock, chatId, message, args) {
                 const joined = rest.join(' ');
                 const [displayname, username, comment, theme] = joined.split('|').map(s => (s || '').trim());
                 if (!displayname || !username || !comment) {
-                    await sock.sendMessage(chatId, { text: 'Usage: .misc tweet displayname|username|comment|theme(optional light/dark)' }, { quoted: message });
+                    await sock.sendMessage(chatId, { text: style.invalidInput('Please provide a display name, username and comment.', '.misc tweet displayname|username|comment|theme(optional light/dark)') }, { quoted: message });
                     return;
                 }
                 const avatarUrl = await getQuotedOrOwnImageUrl(sock, message);
@@ -159,7 +160,7 @@ async function miscCommand(sock, chatId, message, args) {
                 const joined = rest.join(' ');
                 const [username, comment] = joined.split('|').map(s => (s || '').trim());
                 if (!username || !comment) {
-                    await sock.sendMessage(chatId, { text: 'Usage: .misc youtube-comment username|comment' }, { quoted: message });
+                    await sock.sendMessage(chatId, { text: style.invalidInput('Please provide a username and comment.', '.misc youtube-comment username|comment') }, { quoted: message });
                     return;
                 }
                 const avatarUrl = await getQuotedOrOwnImageUrl(sock, message);
@@ -185,7 +186,15 @@ async function miscCommand(sock, chatId, message, args) {
             }
 
             default:
-                await sock.sendMessage(chatId, { text: 'Usage: .misc <heart|horny|circle|lgbt|lesbian|nonbinary|pansexual|transgender|lied|lolice|simpcard|tonikawa|its-so-stupid <text>|namecard u|b|d?|nobitches <text>|oogway <q>|oogway2 <q>|tweet dn|un|c|theme?|youtube-comment un|c>' }, { quoted: message });
+                await sock.sendMessage(chatId, {
+                    text: style.box('🎨 IMAGE EFFECTS', [
+                        'Usage:',
+                        ' .misc <heart|horny|circle|lgbt|lied|lolice|simpcard|tonikawa>',
+                        ' .misc <comrade|gay|glass|jail|passed|triggered>',
+                        ' .misc its-so-stupid <text> | namecard username|birthday|desc?',
+                        ' .misc oogway <quote> | tweet dn|un|c|theme? | youtube-comment un|c',
+                    ])
+                }, { quoted: message });
                 break;
         }
     } catch (error) {

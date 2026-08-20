@@ -1,6 +1,9 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const axios = require('axios');
 const sharp = require('sharp');
+const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
+const { channelInfo } = require('../../lib/messageConfig');
 
 async function blurCommand(sock, chatId, message, quotedMessage) {
     try {
@@ -11,7 +14,7 @@ async function blurCommand(sock, chatId, message, quotedMessage) {
             // If replying to a message
             if (!quotedMessage.imageMessage) {
                 await sock.sendMessage(chatId, { 
-                    text: '❌ Please reply to an image message' 
+                    text: style.invalidInput('Please reply to an image message.', '.blur (reply to image)', { box: false }) 
                 }, { quoted: message });
                 return;
             }
@@ -38,7 +41,7 @@ async function blurCommand(sock, chatId, message, quotedMessage) {
             );
         } else {
             await sock.sendMessage(chatId, { 
-                text: '❌ Please reply to an image or send an image with caption .blur' 
+                text: style.invalidInput('Please reply to an image or send an image with caption .blur', '.blur (reply to image)', { box: false }) 
             }, { quoted: message });
             return;
         }
@@ -60,22 +63,14 @@ async function blurCommand(sock, chatId, message, quotedMessage) {
         // Send the blurred image
         await sock.sendMessage(chatId, {
             image: blurredImage,
-            caption: '*[ ✔ ] Image Blurred Successfully*',
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363424568988623@newsletter',
-                    newsletterName: 'Optimus Bot',
-                    serverMessageId: -1
-                }
-            }
+            caption: `🖼️ Image blurred successfully!\n⚡ ${settings.botName || 'Optimus Bot'}`,
+            ...channelInfo
         }, { quoted: message });
 
     } catch (error) {
         console.error('Error in blur command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Failed to blur image. Please try again later.' 
+            text: style.error('Failed to blur the image. Please try again later.') 
         }, { quoted: message });
     }
 }

@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 async function groupInfoCommand(sock, chatId, msg) {
     try {
         // Get group metadata
@@ -14,28 +16,25 @@ async function groupInfoCommand(sock, chatId, msg) {
         // Get admins from participants
         const participants = groupMetadata.participants;
         const groupAdmins = participants.filter(p => p.admin);
-        const listAdmin = groupAdmins.map((v, i) => `${i + 1}. @${v.id.split('@')[0]}`).join('\n');
         
         // Get group owner
         const owner = groupMetadata.owner || groupAdmins.find(p => p.admin === 'superadmin')?.id || chatId.split('-')[0] + '@s.whatsapp.net';
 
         // Create info text
-        const text = `
-┌──「 *INFO GROUP* 」
-▢ *♻️ID:*
-   • ${groupMetadata.id}
-▢ *🔖NAME* : 
-• ${groupMetadata.subject}
-▢ *👥Members* :
-• ${participants.length}
-▢ *🤿Group Owner:*
-• @${owner.split('@')[0]}
-▢ *🕵🏻‍♂️Admins:*
-${listAdmin}
-
-▢ *📌Description* :
-   • ${groupMetadata.desc?.toString() || 'No description'}
-`.trim();
+        const text = style.box('📊 GROUP INFO', [
+            `👑 Owner: @${owner.split('@')[0]}`,
+            `👥 Members: ${participants.length}`,
+            `🛡️ Admins: ${groupAdmins.length}`,
+            '',
+            `📌 Name: ${groupMetadata.subject}`,
+            `🆔 ID: ${groupMetadata.id}`,
+            '',
+            '👥 Admin List:',
+            ...groupAdmins.map((v, i) => `${i + 1}. @${v.id.split('@')[0]}`),
+            '',
+            '📝 Description:',
+            groupMetadata.desc?.toString() || 'No description'
+        ]);
 
         // Send the message with image and mentions
         await sock.sendMessage(chatId, {

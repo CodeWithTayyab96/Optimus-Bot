@@ -1,4 +1,5 @@
 const fetch = require('node-fetch');
+const { channelInfo } = require('../../lib/messageConfig');
 
 async function simpCommand(sock, chatId, quotedMsg, mentionedJid, sender) {
     try {
@@ -33,30 +34,14 @@ async function simpCommand(sock, chatId, quotedMsg, mentionedJid, sender) {
         await sock.sendMessage(chatId, {
             image: imageBuffer,
             caption: '*your religion is simping*',
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363424568988623@newsletter',
-                    newsletterName: 'Optimus Bot',
-                    serverMessageId: -1
-                }
-            }
+            ...channelInfo
         });
 
     } catch (error) {
         console.error('Error in simp command:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Sorry, I couldn\'t generate the simp card. Please try again later!',
-            contextInfo: {
-                forwardingScore: 1,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363424568988623@newsletter',
-                    newsletterName: 'Optimus Bot',
-                    serverMessageId: -1
-                }
-            }
+            ...channelInfo
         });
     }
 }

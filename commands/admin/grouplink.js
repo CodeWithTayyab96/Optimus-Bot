@@ -1,3 +1,5 @@
+const style = require('../../lib/messageStyle');
+
 module.exports = {
     name: 'grouplink',
     aliases: ['link', 'invite'],
@@ -16,14 +18,18 @@ module.exports = {
             const link = `https://chat.whatsapp.com/${code}`;
             const metadata = await sock.groupMetadata(extra.chatId);
 
-            let text = `🔗 *GROUP INVITE LINK*\n\n`;
-            text += `📱 Group: ${metadata.subject}\n`;
-            text += `🔗 Link: ${link}\n\n`;
-            text += `⚠️ Don't share this link publicly!`;
+            const text = style.box('🔗 GROUP LINK', [
+                `Group: ${metadata.subject}`,
+                '',
+                `Link: ${link}`,
+                '',
+                '⚠️ Don\'t share this link publicly!'
+            ]);
 
             await extra.reply(text);
         } catch (error) {
-            await extra.reply(`❌ Error: ${error.message}`);
+            console.error('Error in grouplink command:', error);
+            await extra.reply(style.error('Failed to fetch the group invite link.'));
         }
     }
 };

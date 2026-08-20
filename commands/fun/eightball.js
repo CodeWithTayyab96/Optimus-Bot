@@ -1,9 +1,10 @@
 const { chat } = require('../../lib/ai');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
 
 async function eightBallCommand(sock, chatId, question) {
     if (!question) {
-        await sock.sendMessage(chatId, { text: '🎱 Please ask a question!\nExample: .8ball Will I pass my exam?', ...channelInfo });
+        await sock.sendMessage(chatId, { text: style.invalidInput('Please ask a question.', '.8ball <question>'), ...channelInfo });
         return;
     }
 

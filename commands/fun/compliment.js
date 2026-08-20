@@ -16,7 +16,7 @@ async function complimentCommand(sock, chatId, message) {
 
         if (!userToCompliment) {
             return await sock.sendMessage(chatId, {
-                text: 'Please mention someone or reply to their message to compliment them!',
+                text: '⚠️ Please mention someone or reply to their message to compliment them.',
                 ...channelInfo
             });
         }
@@ -28,7 +28,7 @@ async function complimentCommand(sock, chatId, message) {
         );
 
         await sock.sendMessage(chatId, {
-            text: `Hey @${userToCompliment.split('@')[0]}, ${compliment || 'you are absolutely amazing!'}`,
+            text: `💖 COMPLIMENT\n\nHey @${userToCompliment.split('@')[0]}, ${compliment || 'you are absolutely amazing!'}`,
             mentions: [userToCompliment],
             ...channelInfo
         });

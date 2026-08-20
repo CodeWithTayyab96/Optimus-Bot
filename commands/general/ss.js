@@ -1,9 +1,20 @@
 const fetch = require('node-fetch');
+const style = require('../../lib/messageStyle');
 
 async function handleSsCommand(sock, chatId, message, match) {
     if (!match) {
         await sock.sendMessage(chatId, {
-            text: `*SCREENSHOT TOOL*\n\n*.ss <url>*\n*.ssweb <url>*\n*.screenshot <url>*\n\nTake a screenshot of any website\n\nExample:\n.ss https://google.com\n.ssweb https://google.com\n.screenshot https://google.com`,
+            text: style.box('📸 SCREENSHOT', [
+                'Usage:',
+                ' .ss <url>',
+                ' .ssweb <url>',
+                ' .screenshot <url>',
+                '',
+                'Take a screenshot of any website',
+                '',
+                'Example:',
+                ' .ss https://google.com'
+            ]),
             quoted: message
         });
         return;

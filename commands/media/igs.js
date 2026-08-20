@@ -7,6 +7,7 @@ const webp = require('node-webpmux');
 const crypto = require('crypto');
 const settings = require('../../settings');
 const { stickercropFromBuffer } = require('../general/stickercrop');
+const style = require('../../lib/messageStyle');
 
 async function convertBufferToStickerWebp(inputBuffer, isAnimated, cropSquare) {
     const tmpDir = path.join(process.cwd(), 'tmp');
@@ -189,7 +190,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text || '';
         const urlMatch = text.match(/https?:\/\/\S+/);
         if (!urlMatch) {
-            await sock.sendMessage(chatId, { text: `Send an Instagram post/reel link.\nUsage:\n.igs <url>\n.igsc <url>` }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.invalidInput('Send an Instagram post/reel link.', '.igs <url> | .igsc <url>') }, { quoted: message });
             return;
         }
 
@@ -197,7 +198,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
 
         const downloadData = await igdl(urlMatch[0]).catch(() => null);
         if (!downloadData || !downloadData.data) {
-            await sock.sendMessage(chatId, { text: '❌ Failed to fetch media from Instagram link.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.error('Failed to fetch media from that Instagram link.') }, { quoted: message });
             return;
         }
         // Raw items
@@ -212,7 +213,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
             }
         }
         if (items.length === 0) {
-            await sock.sendMessage(chatId, { text: '❌ No media found at the provided link.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.error('No media found at the provided link.') }, { quoted: message });
             return;
         }
 
@@ -265,7 +266,7 @@ async function igsCommand(sock, chatId, message, crop = false) {
 
     } catch (err) {
         console.error('Error in igs command:', err);
-        await sock.sendMessage(chatId, { text: 'Failed to create sticker from Instagram link.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to create a sticker from that Instagram link. Please try again.') }, { quoted: message });
     }
 }
 

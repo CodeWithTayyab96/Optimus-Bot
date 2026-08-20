@@ -1,6 +1,7 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { chat } = require('../../lib/ai');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
 const path = require('path');
 
 // Supported text-based extensions (read as UTF-8 directly)
@@ -35,7 +36,20 @@ async function studyCommand(sock, chatId, message) {
 
         if (!docMsg) {
             return await sock.sendMessage(chatId, {
-                text: `📄 *Study Command — AI Document Scanner*\n\nReply to a document with:\n• \`.study\` — Get a full summary\n• \`.study <question>\` — Ask about the document\n\n*Supported formats:*\n📕 PDF files\n📘 Word documents (.docx)\n📝 Text files (.txt, .csv, .json)\n💻 Code files (.js, .py, .java, etc.)\n\n*Example:*\n> Reply to a PDF → \`.study what are the key points?\``,
+                text: style.box('📄 AI STUDY', [
+                    'Reply to a document with:',
+                    '• .study — Get a full summary',
+                    '• .study <question> — Ask about the document',
+                    '',
+                    'Supported formats:',
+                    '📕 PDF files',
+                    '📘 Word documents (.docx)',
+                    '📝 Text files (.txt, .csv, .json)',
+                    '💻 Code files (.js, .py, .java, etc.)',
+                    '',
+                    'Example:',
+                    'Reply to a PDF → .study what are the key points?'
+                ]),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -46,7 +60,7 @@ async function studyCommand(sock, chatId, message) {
         });
 
         await sock.sendMessage(chatId, {
-            text: '📄 Scanning document... Please wait.',
+            text: style.processing('Scanning document...'),
             ...channelInfo
         }, { quoted: message });
 
@@ -67,14 +81,14 @@ async function studyCommand(sock, chatId, message) {
         } catch (dlErr) {
             console.error('Document download error:', dlErr.message);
             return await sock.sendMessage(chatId, {
-                text: '❌ Failed to download the document. Please try sending it again.',
+                text: style.error('Failed to download the document. Please try sending it again.'),
                 ...channelInfo
             }, { quoted: message });
         }
 
         if (!docBuffer || docBuffer.length === 0) {
             return await sock.sendMessage(chatId, {
-                text: '❌ The document appears to be empty.',
+                text: style.error('The document appears to be empty.'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -90,7 +104,7 @@ async function studyCommand(sock, chatId, message) {
             } catch (pdfErr) {
                 console.error('PDF parse error:', pdfErr.message);
                 return await sock.sendMessage(chatId, {
-                    text: '❌ Failed to read this PDF. It may be scanned/image-based or corrupted.',
+                    text: style.error('Failed to read this PDF. It may be scanned, image-based, or corrupted.'),
                     ...channelInfo
                 }, { quoted: message });
             }
@@ -102,7 +116,7 @@ async function studyCommand(sock, chatId, message) {
             } catch (docxErr) {
                 console.error('DOCX parse error:', docxErr.message);
                 return await sock.sendMessage(chatId, {
-                    text: '❌ Failed to read this Word document. It may be corrupted or password-protected.',
+                    text: style.error('Failed to read this Word document. It may be corrupted or password-protected.'),
                     ...channelInfo
                 }, { quoted: message });
             }
@@ -118,13 +132,13 @@ async function studyCommand(sock, chatId, message) {
                     extractedText = textAttempt;
                 } else {
                     return await sock.sendMessage(chatId, {
-                        text: `❌ Unsupported file type: *${ext || 'unknown'}*\n\nSupported: PDF, DOCX, TXT, CSV, JSON, and code files.`,
+                        text: style.error(`Unsupported file type: ${ext || 'unknown'}.\n\nSupported: PDF, DOCX, TXT, CSV, JSON, and code files.`),
                         ...channelInfo
                     }, { quoted: message });
                 }
             } catch {
                 return await sock.sendMessage(chatId, {
-                    text: `❌ Cannot read this file type: *${ext || 'unknown'}*`,
+                    text: style.error(`Cannot read this file type: ${ext || 'unknown'}.`),
                     ...channelInfo
                 }, { quoted: message });
             }
@@ -135,7 +149,7 @@ async function studyCommand(sock, chatId, message) {
 
         if (!extractedText || extractedText.length < 10) {
             return await sock.sendMessage(chatId, {
-                text: '❌ No readable text found in this document. It may be an image-based PDF or empty file.',
+                text: style.error('No readable text found in this document. It may be an image-based PDF or empty file.'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -161,7 +175,7 @@ async function studyCommand(sock, chatId, message) {
 
         if (!analysis) {
             return await sock.sendMessage(chatId, {
-                text: '❌ AI analysis failed. Please try again later.',
+                text: style.error('AI analysis failed. Please try again later.'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -176,7 +190,7 @@ async function studyCommand(sock, chatId, message) {
     } catch (error) {
         console.error('Error in study command:', error.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to analyze document. Please try again later.',
+            text: style.error('Failed to analyze the document. Please try again later.'),
             ...channelInfo
         }, { quoted: message });
     }

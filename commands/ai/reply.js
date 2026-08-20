@@ -1,5 +1,6 @@
 const { chat } = require('../../lib/ai');
 const { channelInfo } = require('../../lib/messageConfig');
+const style = require('../../lib/messageStyle');
 
 const MODES = {
     normal: 'Write a natural reply.',
@@ -42,7 +43,7 @@ async function replyCommand(sock, chatId, message) {
 
         if (!quotedText) {
             return await sock.sendMessage(chatId, {
-                text: '💬 Reply to a message with `.reply <mode>`\n\nModes: normal, polite, funny, savage, flirty, professional, short',
+                text: style.invalidInput('Reply to a message with .reply <mode>.\n\nModes: normal, polite, funny, savage, flirty, professional, short', '.reply (reply to a message)'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -63,13 +64,13 @@ async function replyCommand(sock, chatId, message) {
         const response = await chat(prompt, quotedText, { maxTokens: 256, temperature: 0.9 });
 
         await sock.sendMessage(chatId, {
-            text: response || '❌ Could not generate a reply.',
+            text: response || style.error("I couldn't generate a reply right now. Please try again."),
             ...channelInfo
         }, { quoted: message });
     } catch (error) {
         console.error('Reply command error:', error.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to generate reply. Please try again later.',
+            text: style.error("I couldn't generate a reply right now. Please try again."),
             ...channelInfo
         }, { quoted: message });
     }

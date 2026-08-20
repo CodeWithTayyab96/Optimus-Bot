@@ -1,6 +1,8 @@
 const axios = require('axios');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { uploadImage } = require('../../lib/uploadImage');
+const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
 
 async function getQuotedOrOwnImageUrl(sock, message) {
     // 1) Quoted image (highest priority)
@@ -49,7 +51,7 @@ module.exports = {
                     imageUrl = url;
                 } else {
                     return sock.sendMessage(chatId, { 
-                        text: '❌ Invalid URL provided.\n\nUsage: `.removebg https://example.com/image.jpg`' 
+                        text: style.invalidInput('Invalid image URL provided.', '.removebg <image_url>') 
                     }, { quoted: message });
                 }
             } else {
@@ -58,7 +60,15 @@ module.exports = {
                 
                 if (!imageUrl) {
                     return sock.sendMessage(chatId, { 
-                        text: '📸 *Remove Background Command*\n\nUsage:\n• `.removebg <image_url>`\n• Reply to an image with `.removebg`\n• Send image with `.removebg`\n\nExample: `.removebg https://example.com/image.jpg`' 
+                        text: style.box('🖼️ REMOVE BACKGROUND', [
+                            'Usage:',
+                            '• .removebg <image_url>',
+                            '• Reply to an image with .removebg',
+                            '• Send an image with .removebg',
+                            '',
+                            'Example:',
+                            '.removebg https://example.com/image.jpg'
+                        ]) 
                     }, { quoted: message });
                 }
             }
@@ -79,7 +89,7 @@ module.exports = {
                 // Send the processed image
                 await sock.sendMessage(chatId, {
                     image: response.data,
-                    caption: '✨ *Background removed successfully!*\n\n𝗣𝗥𝗢𝗖𝗘𝗦𝗦𝗘𝗗 𝗕𝗬 𝗞𝗡𝗜𝗚𝗛𝗧-𝗕𝗢𝗧'
+                    caption: `✨ Background removed successfully!\n⚡ ${settings.botName || 'Optimus Bot'}`
                 }, { quoted: message });
             } else {
                 throw new Error('Failed to process image');
@@ -88,22 +98,22 @@ module.exports = {
         } catch (error) {
             console.error('RemoveBG Error:', error.message);
             
-            let errorMessage = '❌ Failed to remove background.';
+            let errorMessage = 'Failed to remove the background. Please try again later.';
             
             if (error.response?.status === 429) {
-                errorMessage = '⏰ Rate limit exceeded. Please try again later.';
+                errorMessage = 'Rate limit exceeded. Please try again later.';
             } else if (error.response?.status === 400) {
-                errorMessage = '❌ Invalid image URL or format.';
+                errorMessage = 'Invalid image URL or format.';
             } else if (error.response?.status === 500) {
-                errorMessage = '🔧 Server error. Please try again later.';
+                errorMessage = 'Server error. Please try again later.';
             } else if (error.code === 'ECONNABORTED') {
-                errorMessage = '⏰ Request timeout. Please try again.';
+                errorMessage = 'Request timed out. Please try again.';
             } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-                errorMessage = '🌐 Network error. Please check your connection.';
+                errorMessage = 'Network error. Please check your connection.';
             }
             
             await sock.sendMessage(chatId, { 
-                text: errorMessage 
+                text: style.error(errorMessage) 
             }, { quoted: message });
         }
     }

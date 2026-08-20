@@ -1,4 +1,5 @@
 const fetch = require('node-fetch');
+const style = require('../../lib/messageStyle');
 
 const BASE = 'https://api.shizo.top/pies';
 const VALID_COUNTRIES = ['india','malaysia', 'thailand', 'china', 'indonesia', 'japan', 'korea', 'vietnam'];
@@ -10,16 +11,14 @@ async function fetchPiesImageBuffer(country) {
 	const contentType = res.headers.get('content-type') || '';
 	if (!contentType.includes('image')) throw new Error('API did not return an image');
 	return res.buffer();
-}
-
-async function piesCommand(sock, chatId, message, args) {
+}	async function piesCommand(sock, chatId, message, args) {
 	const sub = (args && args[0] ? args[0] : '').toLowerCase();
 	if (!sub) {
-		await sock.sendMessage(chatId, { text: `Usage: .pies <country>\nCountries: ${VALID_COUNTRIES.join(', ')}` }, { quoted: message });
+		await sock.sendMessage(chatId, { text: style.invalidInput('Please provide a country.', `.pies <country>\nCountries: ${VALID_COUNTRIES.join(', ')}`) }, { quoted: message });
 		return;
 	}
 	if (!VALID_COUNTRIES.includes(sub)) {
-		await sock.sendMessage(chatId, { text: `❌ Unsupported country: ${sub}. Try one of: ${VALID_COUNTRIES.join(', ')}` }, { quoted: message });
+		await sock.sendMessage(chatId, { text: style.invalidInput(`Unsupported country: ${sub}.`, `.pies <country>\nCountries: ${VALID_COUNTRIES.join(', ')}`) }, { quoted: message });
 		return;
 	}
 	try {

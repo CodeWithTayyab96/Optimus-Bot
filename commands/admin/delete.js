@@ -1,17 +1,18 @@
 const isAdmin = require('../../lib/isAdmin');
 const store = require('../../lib/lightweight_store');
+const style = require('../../lib/messageStyle');
 
 async function deleteCommand(sock, chatId, message, senderId) {
     try {
         const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
 
         if (!isBotAdmin) {
-            await sock.sendMessage(chatId, { text: 'I need to be an admin to delete messages.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('botAdmin', { box: false }) }, { quoted: message });
             return;
         }
 
         if (!isSenderAdmin) {
-            await sock.sendMessage(chatId, { text: 'Only admins can use the .delete command.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.permissionDenied('admin', { box: false }) }, { quoted: message });
             return;
         }
 
@@ -40,7 +41,7 @@ async function deleteCommand(sock, chatId, message, senderId) {
         // If no number provided and not replying/mentioning, show usage message
         else if (countArg === null && !repliedParticipant && !mentioned) {
             await sock.sendMessage(chatId, { 
-                text: '❌ Please specify the number of messages to delete.\n\nUsage:\n• `.del 5` - Delete last 5 messages from group\n• `.del 3 @user` - Delete last 3 messages from @user\n• `.del 2` (reply to message) - Delete last 2 messages from replied user' 
+                text: style.invalidInput('Please specify the number of messages to delete.', '.del 5 | .del 3 @user | .del 2 (reply)', { box: false }) 
             }, { quoted: message });
             return;
         }
@@ -124,8 +125,8 @@ async function deleteCommand(sock, chatId, message, senderId) {
 
         if (toDelete.length === 0) {
             const errorMsg = deleteGroupMessages 
-                ? 'No recent messages found in the group to delete.' 
-                : 'No recent messages found for the target user.';
+                ? style.info('No recent messages found in the group to delete.')
+                : style.info('No recent messages found for the target user.');
             await sock.sendMessage(chatId, { text: errorMsg }, { quoted: message });
             return;
         }
@@ -152,7 +153,8 @@ async function deleteCommand(sock, chatId, message, senderId) {
 
     
     } catch (err) {
-        await sock.sendMessage(chatId, { text: 'Failed to delete messages.' }, { quoted: message });
+        console.error('Error in delete command:', err);
+        await sock.sendMessage(chatId, { text: style.error('Failed to delete messages.') }, { quoted: message });
     }
 }
 

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const style = require('../../lib/messageStyle');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { writeFile } = require('fs/promises');
 
@@ -397,14 +398,20 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
     const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
     
     if (!message.key.fromMe && !isOwner) {
-        return sock.sendMessage(chatId, { text: '*Only the bot owner can use this command.*' }, { quoted: message });
+        return sock.sendMessage(chatId, { text: style.permissionDenied('owner', { box: false }) }, { quoted: message });
     }
 
     const config = loadAntideleteConfig();
 
     if (!match) {
         return sock.sendMessage(chatId, {
-            text: `*ANTIDELETE SETUP*\n\nCurrent Status: ${config.enabled ? '✅ Enabled' : '❌ Disabled'}\n\n*.antidelete on* - Enable\n*.antidelete off* - Disable`
+            text: style.box('🛡️ ANTIDELETE', [
+                `Current Status: ${config.enabled ? '✅ Enabled' : '❌ Disabled'}`,
+                '',
+                'Usage:',
+                ' .antidelete on — enable',
+                ' .antidelete off — disable'
+            ])
         }, {quoted: message});
     }
 
@@ -413,11 +420,11 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
     } else if (match === 'off') {
         config.enabled = false;
     } else {
-        return sock.sendMessage(chatId, { text: '*Invalid command. Use .antidelete to see usage.*' }, {quoted:message});
+        return sock.sendMessage(chatId, { text: style.invalidInput('Invalid command. Use .antidelete to see usage.', '.antidelete on/off', { box: false }) }, {quoted:message});
     }
 
     saveAntideleteConfig(config);
-    return sock.sendMessage(chatId, { text: `*Antidelete ${match === 'on' ? 'enabled' : 'disabled'}*` }, {quoted:message});
+    return sock.sendMessage(chatId, { text: style.success(`Antidelete ${match === 'on' ? 'enabled' : 'disabled'}.`) }, {quoted:message});
 }
 
 // Store incoming messages (also handles anti-view-once by forwarding immediately)
@@ -527,8 +534,9 @@ async function handleMessageRevocation(sock, revocationMessage) {
             try {
                 await sendStoredMedia(sock, ownerNumber, sender, senderName, deletedBy, groupName, time, original);
             } catch (err) {
+                console.error('Error sending deleted media:', err);
                 await sock.sendMessage(ownerNumber, {
-                    text: `⚠️ Error sending media: ${err.message}`
+                    text: '⚠️ Failed to send the deleted media. The file may no longer be available.'
                 });
             }
 
