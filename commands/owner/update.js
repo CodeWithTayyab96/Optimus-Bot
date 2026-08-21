@@ -1,296 +1,245 @@
+/**
+ * update.js - Katabump-compatible ZIP/Release updater
+ * Replaces git-dependent update with a self-contained ZIP system.
+ * Inspired by KnightBot-Mini, adapted for Optimus.
+ */
+
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const http = require('http');
 const settings = require('../../settings');
 const isOwnerOrSudo = require('../../lib/isOwner');
 const style = require('../../lib/messageStyle');
+const { channelInfo } = require('../../lib/messageConfig');
 
-function run(cmd) {
+const GITHUB_REPO = settings.githubRepo || 'https://github.com/CodeWithTayyab96/Optimus-Bot';
+const GITHUB_API = 'https://api.github.com';
+const MAX_REDIRECTS = 5;
+const DOWNLOAD_TIMEOUT_MS = 120000;
+
+const PROTECTED_PATHS = ['session', 'data', 'baileys_store.json', 'settings.js', 'version.json', 'tmp', 'temp', '.env', 'node_modules', '.git', '__tests__'];
+const SKIP_DIRS = ['node_modules', '.git', 'session', 'tmp', 'temp', '__tests__', 'data'];
+
+function run(cmd, timeoutMs = 30000) {
     return new Promise((resolve, reject) => {
-        exec(cmd, { windowsHide: true }, (err, stdout, stderr) => {
+        exec(cmd, { windowsHide: true, timeout: timeoutMs }, (err, stdout, stderr) => {
             if (err) return reject(new Error((stderr || stdout || err.message || '').toString()));
             resolve((stdout || '').toString());
         });
     });
 }
 
-async function hasGitRepo() {
-    const gitDir = path.join(process.cwd(), '.git');
-    if (!fs.existsSync(gitDir)) return false;
-    try {
-        await run('git --version');
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-// Runtime state that must survive an update. `data/` is fully runtime state
-// (mode, warnings, bans, stats, AFK...) even though some files are committed
-// as defaults; `git reset --hard` + `git clean -fd` would otherwise revert or
-// delete them. settings.js is user configuration. baileys_store.json is the
-// lightweight message store.
-const RUNTIME_BACKUP_PATHS = ['data', 'baileys_store.json', 'settings.js'];
-
-function backupRuntimeState() {
-    const backupDir = path.join(process.cwd(), 'tmp', `update-backup-${Date.now()}`);
-    for (const rel of RUNTIME_BACKUP_PATHS) {
-        const src = path.join(process.cwd(), rel);
-        if (!fs.existsSync(src)) continue;
-        const dest = path.join(backupDir, rel);
-        if (fs.statSync(src).isDirectory()) {
-            copyRecursive(src, dest, [], '', []);
-        } else {
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.copyFileSync(src, dest);
-        }
-    }
-    return backupDir;
-}
-
-function restoreRuntimeState(backupDir) {
-    for (const rel of RUNTIME_BACKUP_PATHS) {
-        const src = path.join(backupDir, rel);
-        if (!fs.existsSync(src)) continue;
-        const dest = path.join(process.cwd(), rel);
-        fs.rmSync(dest, { recursive: true, force: true });
-        if (fs.statSync(src).isDirectory()) {
-            copyRecursive(src, dest, [], '', []);
-        } else {
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.copyFileSync(src, dest);
-        }
-    }
-}
-
-async function updateViaGit() {
-    const backupDir = backupRuntimeState();
-    try {
-        const oldRev = (await run('git rev-parse HEAD').catch(() => 'unknown')).trim();
-        await run('git fetch https://github.com/CodeWithTayyab96/Optimus-Bot.git main');
-        const newRev = (await run('git rev-parse FETCH_HEAD')).trim();
-        const alreadyUpToDate = oldRev === newRev;
-        const commits = alreadyUpToDate ? '' : await run(`git log --pretty=format:"%h %s (%an)" ${oldRev}..${newRev}`).catch(() => '');
-        const files = alreadyUpToDate ? '' : await run(`git diff --name-status ${oldRev} ${newRev}`).catch(() => '');
-        await run(`git reset --hard ${newRev}`);
-        await run('git clean -fd');
-        restoreRuntimeState(backupDir);
-        return { oldRev, newRev, alreadyUpToDate, commits, files };
-    } finally {
-        try { fs.rmSync(backupDir, { recursive: true, force: true }); } catch { }
-    }
-}
-
 function downloadFile(url, dest, visited = new Set()) {
     return new Promise((resolve, reject) => {
-        try {
-            // Avoid infinite redirect loops
-            if (visited.has(url) || visited.size > 5) {
-                return reject(new Error('Too many redirects'));
+        if (visited.has(url) || visited.size > MAX_REDIRECTS) return reject(new Error('Too many redirects'));
+        visited.add(url);
+        const client = url.startsWith('https') ? https : http;
+        const timer = setTimeout(() => { req.destroy(); reject(new Error('Download timed out')); }, DOWNLOAD_TIMEOUT_MS);
+        const req = client.get(url, { headers: { 'User-Agent': 'OptimusBot-Updater/1.0', 'Accept': '*/*' } }, res => {
+            if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
+                clearTimeout(timer);
+                const loc = res.headers.location;
+                if (!loc) return reject(new Error('HTTP ' + res.statusCode + ' without Location'));
+                res.resume();
+                return downloadFile(new URL(loc, url).toString(), dest, visited).then(resolve).catch(reject);
             }
-            visited.add(url);
-
-            const useHttps = url.startsWith('https://');
-            const client = useHttps ? require('https') : require('http');
-            const req = client.get(url, {
-                headers: {
-                    'User-Agent': 'OptimusBot-Updater/1.0',
-                    'Accept': '*/*'
-                }
-            }, res => {
-                // Handle redirects
-                if ([301, 302, 303, 307, 308].includes(res.statusCode)) {
-                    const location = res.headers.location;
-                    if (!location) return reject(new Error(`HTTP ${res.statusCode} without Location`));
-                    const nextUrl = new URL(location, url).toString();
-                    res.resume();
-                    return downloadFile(nextUrl, dest, visited).then(resolve).catch(reject);
-                }
-
-                if (res.statusCode !== 200) {
-                    return reject(new Error(`HTTP ${res.statusCode}`));
-                }
-
-                const file = fs.createWriteStream(dest);
-                res.pipe(file);
-                file.on('finish', () => file.close(resolve));
-                file.on('error', err => {
-                    try { file.close(() => {}); } catch {}
-                    fs.unlink(dest, () => reject(err));
-                });
-            });
-            req.on('error', err => {
-                fs.unlink(dest, () => reject(err));
-            });
-        } catch (e) {
-            reject(e);
-        }
+            if (res.statusCode !== 200) { clearTimeout(timer); res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
+            const file = fs.createWriteStream(dest);
+            res.pipe(file);
+            file.on('finish', () => { clearTimeout(timer); file.close(resolve); });
+            file.on('error', err => { clearTimeout(timer); try { file.close(() => {}); } catch {} fs.unlink(dest, () => reject(err)); });
+        });
+        req.on('error', err => { clearTimeout(timer); fs.unlink(dest, () => reject(err)); });
     });
 }
 
 async function extractZip(zipPath, outDir) {
-    // Try to use platform tools; no extra npm modules required
     if (process.platform === 'win32') {
-        const cmd = `powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${outDir.replace(/\\/g, '/')}' -Force"`;
-        await run(cmd);
+        await run('powershell -NoProfile -Command "Expand-Archive -Path \'' + zipPath + '\' -DestinationPath \'' + outDir.replace(/\\/g, '/') + '\' -Force"', 60000);
         return;
     }
-    // Linux/mac: try unzip, else 7z, else busybox unzip
-    try {
-        await run('command -v unzip');
-        await run(`unzip -o '${zipPath}' -d '${outDir}'`);
-        return;
-    } catch {}
-    try {
-        await run('command -v 7z');
-        await run(`7z x -y '${zipPath}' -o'${outDir}'`);
-        return;
-    } catch {}
-    try {
-        await run('busybox unzip -h');
-        await run(`busybox unzip -o '${zipPath}' -d '${outDir}'`);
-        return;
-    } catch {}
-    throw new Error("No system unzip tool found (unzip/7z/busybox). Git mode is recommended on this panel.");
+    try { await run('command -v unzip'); await run('unzip -o \'' + zipPath + '\' -d \'' + outDir + '\'', 60000); return; } catch {}
+    try { await run('command -v 7z'); await run('7z x -y \'' + zipPath + '\' -o\'' + outDir + '\'', 60000); return; } catch {}
+    try { await run('busybox unzip -h'); await run('busybox unzip -o \'' + zipPath + '\' -d \'' + outDir + '\'', 60000); return; } catch {}
+    throw new Error('No unzip tool available (unzip/7z/busybox).');
 }
 
 function copyRecursive(src, dest, ignore = [], relative = '', outList = []) {
     if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
     for (const entry of fs.readdirSync(src)) {
-        if (ignore.includes(entry)) continue;
+        if (ignore.some(p => p.includes('*') ? new RegExp('^' + p.replace(/\*/g, '.*') + '$').test(entry) : entry === p)) continue;
         const s = path.join(src, entry);
         const d = path.join(dest, entry);
-        const stat = fs.lstatSync(s);
-        if (stat.isDirectory()) {
-            copyRecursive(s, d, ignore, path.join(relative, entry), outList);
-        } else {
-            fs.copyFileSync(s, d);
-            if (outList) outList.push(path.join(relative, entry).replace(/\\/g, '/'));
-        }
+        if (!path.resolve(d).startsWith(path.resolve(dest))) { console.warn('[update] SKIPPED (path traversal): ' + d); continue; }
+        if (fs.lstatSync(s).isDirectory()) { copyRecursive(s, d, ignore, path.join(relative, entry), outList); }
+        else { fs.copyFileSync(s, d); if (outList) outList.push(path.join(relative, entry).replace(/\\/g, '/')); }
     }
 }
 
-async function updateViaZip(sock, chatId, message, zipOverride) {
-    const zipUrl = (zipOverride || settings.updateZipUrl || process.env.UPDATE_ZIP_URL || '').trim();
-    if (!zipUrl) {
-        throw new Error('No ZIP URL configured. Set settings.updateZipUrl or UPDATE_ZIP_URL env.');
+function backupRuntimeState() {
+    const backupDir = path.join(process.cwd(), 'tmp', 'update-backup-' + Date.now());
+    for (const rel of ['data', 'baileys_store.json', 'settings.js', 'version.json']) {
+        const src = path.join(process.cwd(), rel);
+        if (!fs.existsSync(src)) continue;
+        const dest = path.join(backupDir, rel);
+        if (fs.statSync(src).isDirectory()) copyRecursive(src, dest);
+        else { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.copyFileSync(src, dest); }
     }
+    return backupDir;
+}
+
+function restoreRuntimeState(backupDir) {
+    for (const rel of ['data', 'baileys_store.json', 'settings.js', 'version.json']) {
+        const src = path.join(backupDir, rel);
+        if (!fs.existsSync(src)) continue;
+        const dest = path.join(process.cwd(), rel);
+        fs.rmSync(dest, { recursive: true, force: true });
+        if (fs.statSync(src).isDirectory()) copyRecursive(src, dest);
+        else { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.copyFileSync(src, dest); }
+    }
+}
+
+function getInstalledVersion() {
+    try { return require('../../version.json').version || '0.0.0'; } catch { return settings.version || '0.0.0'; }
+}
+
+function writeVersion(version) {
+    try { fs.writeFileSync(path.join(process.cwd(), 'version.json'), JSON.stringify({ version, name: 'Optimus Bot', repository: GITHUB_REPO }, null, 2)); } catch (e) { console.error('[update] Failed to write version.json:', e.message); }
+}
+
+function packageJsonChanged(oldDir, newDir) {
+    try { return fs.readFileSync(path.join(oldDir, 'package.json'), 'utf8') !== fs.readFileSync(path.join(newDir, 'package.json'), 'utf8'); } catch { return false; }
+}
+
+async function getLatestRelease() {
+    const url = GITHUB_API + '/repos/CodeWithTayyab96/Optimus-Bot/releases/latest';
+    return new Promise((resolve, reject) => {
+        https.get(url, { headers: { 'User-Agent': 'OptimusBot-Updater/1.0', 'Accept': 'application/vnd.github.v3+json' } }, res => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                if (res.statusCode === 404) return resolve(null);
+                if (res.statusCode !== 200) return reject(new Error('GitHub API: HTTP ' + res.statusCode));
+                try { const r = JSON.parse(data); const z = (r.assets || []).find(a => a.name.endsWith('.zip')); resolve({ tag: r.tag_name, name: r.name || r.tag_name, body: r.body || '', zipUrl: z ? z.browser_download_url : null }); } catch (e) { reject(new Error('Failed to parse GitHub API: ' + e.message)); }
+            });
+        }).on('error', reject);
+    });
+}
+
+function getTagZipUrl(tag) { return GITHUB_REPO + '/archive/refs/tags/' + tag + '.zip'; }
+function getMainBranchZipUrl() { return settings.updateZipUrl || GITHUB_REPO + '/archive/refs/heads/main.zip'; }
+
+async function performUpdate(sock, chatId, message, manualZipUrl) {
+    const reply = async (text) => { await sock.sendMessage(chatId, { text, ...channelInfo }, { quoted: message }); };
+    const currentVersion = getInstalledVersion();
+    console.log('[update] Current version: ' + currentVersion);
+
+    let zipUrl = manualZipUrl;
+    let latestVersion = null;
+
+    if (!zipUrl) {
+        await reply(style.processing('Checking for updates'));
+        try {
+            const release = await getLatestRelease();
+            if (release) { latestVersion = release.tag; zipUrl = release.zipUrl || getTagZipUrl(release.tag); console.log('[update] Latest release: ' + latestVersion); }
+            else { zipUrl = getMainBranchZipUrl(); latestVersion = currentVersion; console.log('[update] No releases found, using main branch ZIP'); }
+        } catch (e) { console.error('[update] Failed to check releases:', e.message); zipUrl = getMainBranchZipUrl(); latestVersion = currentVersion; }
+    }
+
+    if (latestVersion && latestVersion === currentVersion && !manualZipUrl) {
+        await reply('\u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502\n\u2502 Current version: v' + currentVersion + '\n\u2502 Latest version:  v' + latestVersion + '\n\u2502\n\u2502 \u2705 Bot is already up to date.\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f');
+        return;
+    }
+
     const tmpDir = path.join(process.cwd(), 'tmp');
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
     const zipPath = path.join(tmpDir, 'update.zip');
-    await downloadFile(zipUrl, zipPath);
     const extractTo = path.join(tmpDir, 'update_extract');
-    if (fs.existsSync(extractTo)) fs.rmSync(extractTo, { recursive: true, force: true });
-    await extractZip(zipPath, extractTo);
 
-    // Find the top-level extracted folder (GitHub zips create REPO-branch folder)
-    const [root] = fs.readdirSync(extractTo).map(n => path.join(extractTo, n));
-    const srcRoot = fs.existsSync(root) && fs.lstatSync(root).isDirectory() ? root : extractTo;
+    try {
+        const vi = latestVersion ? 'v' + latestVersion : 'latest';
+        await reply('\u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502\n\u2502 Current: v' + currentVersion + '\n\u2502 Latest:  ' + vi + '\n\u2502\n\u2502 \u23f3 Downloading update...');
+        console.log('[update] Downloading from: ' + zipUrl);
+        await downloadFile(zipUrl, zipPath);
+        console.log('[update] Downloaded: ' + (fs.statSync(zipPath).size / 1024).toFixed(1) + ' KB');
 
-    // Copy over while preserving runtime dirs/files
-    const ignore = ['node_modules', '.git', 'session', 'tmp', 'tmp/', 'temp', 'data', 'baileys_store.json'];
-    const copied = [];
-    // Preserve ownerNumber from existing settings.js if present
-    let preservedOwner = null;
-    let preservedBotOwner = null;
-    try {
-        const currentSettings = require('../../settings');
-        preservedOwner = currentSettings && currentSettings.ownerNumber ? String(currentSettings.ownerNumber) : null;
-        preservedBotOwner = currentSettings && currentSettings.botOwner ? String(currentSettings.botOwner) : null;
-    } catch {}
-    copyRecursive(srcRoot, process.cwd(), ignore, '', copied);
-    if (preservedOwner) {
-        try {
-            const settingsPath = path.join(process.cwd(), 'settings.js');
-            if (fs.existsSync(settingsPath)) {
-                let text = fs.readFileSync(settingsPath, 'utf8');
-                text = text.replace(/ownerNumber:\s*'[^']*'/, `ownerNumber: '${preservedOwner}'`);
-                if (preservedBotOwner) {
-                    text = text.replace(/botOwner:\s*'[^']*'/, `botOwner: '${preservedBotOwner}'`);
-                }
-                fs.writeFileSync(settingsPath, text);
-            }
-        } catch {}
-    }
-    // Cleanup extracted directory
-    try { fs.rmSync(extractTo, { recursive: true, force: true }); } catch {}
-    try { fs.rmSync(zipPath, { force: true }); } catch {}
-    return { copiedFiles: copied };
-}
+        await reply('\u2502 \u23f3 Extracting update...');
+        if (fs.existsSync(extractTo)) fs.rmSync(extractTo, { recursive: true, force: true });
+        await extractZip(zipPath, extractTo);
 
-async function restartProcess(sock, chatId, message) {
-    try {
-        await sock.sendMessage(chatId, { text: '✅ Update complete! Restarting…' }, { quoted: message });
-    } catch {}
-    try {
-        // Preferred: PM2
-        await run('pm2 restart all');
-        return;
-    } catch {}
-    // Panels usually auto-restart when the process exits.
-    // Exit after a short delay to allow the above message to flush.
-    setTimeout(() => {
-        process.exit(0);
-    }, 500);
-}
+        const entries = fs.readdirSync(extractTo);
+        const rootCandidate = entries.length === 1 ? path.join(extractTo, entries[0]) : extractTo;
+        const srcRoot = fs.existsSync(rootCandidate) && fs.lstatSync(rootCandidate).isDirectory() ? rootCandidate : extractTo;
 
-async function updateCommand(sock, chatId, message, zipOverride) {
-    const senderId = message.key.participant || message.key.remoteJid;
-    const isOwner = await isOwnerOrSudo(senderId, sock, chatId);
-    
-    if (!message.key.fromMe && !isOwner) {
-        await sock.sendMessage(chatId, { text: style.permissionDenied('ownerOrSudo', { box: false }) }, { quoted: message });
-        return;
-    }
-    try {
-        // Minimal UX
-        await sock.sendMessage(chatId, { text: style.processing('Updating the bot') }, { quoted: message });
-        if (await hasGitRepo()) {
-            // silent
-            const { oldRev, newRev, alreadyUpToDate, commits, files } = await updateViaGit();
-            // Short message only: version info
-            const summary = alreadyUpToDate ? `✅ Already up to date: ${newRev}` : `✅ Updated to ${newRev}`;
-            console.log('[update] summary generated');
-            // silent
-            await run('npm install --no-audit --no-fund');
-        } else {
-            const { copiedFiles } = await updateViaZip(sock, chatId, message, zipOverride);
-            // silent
+        for (const file of ['package.json', 'main.js', 'index.js']) {
+            if (!fs.existsSync(path.join(srcRoot, file))) throw new Error('Invalid update: missing ' + file);
         }
-        try {
-            const v = require('../../settings').version || '';
-            await sock.sendMessage(chatId, { text: style.success('Update done. Restarting…') }, { quoted: message });
-        } catch {
-            await sock.sendMessage(chatId, { text: style.success('Restarted successfully. Type .ping to check the latest version.') }, { quoted: message });
+
+        await reply('\u2502 \u23f3 Installing update...');
+        const backupDir = backupRuntimeState();
+
+        const copiedFiles = [];
+        copyRecursive(srcRoot, process.cwd(), SKIP_DIRS, '', copiedFiles);
+        console.log('[update] Replaced ' + copiedFiles.length + ' files');
+
+        restoreRuntimeState(backupDir);
+
+        if (latestVersion) writeVersion(latestVersion.replace(/^v/, ''));
+
+        let depsChanged = false;
+        try { depsChanged = packageJsonChanged(backupDir, process.cwd()); } catch {}
+        if (!fs.existsSync(path.join(process.cwd(), 'node_modules'))) depsChanged = true;
+        if (depsChanged) {
+            await reply('\u2502 \u23f3 Installing dependencies...');
+            console.log('[update] Running npm install...');
+            try { await run('npm install --no-audit --no-fund --omit=dev', 180000); console.log('[update] npm install completed'); } catch (e) { console.error('[update] npm install failed:', e.message); }
         }
-        await restartProcess(sock, chatId, message);
+
+        try { fs.rmSync(extractTo, { recursive: true, force: true }); } catch {}
+        try { fs.rmSync(zipPath, { force: true }); } catch {}
+        try { fs.rmSync(backupDir, { recursive: true, force: true }); } catch {}
+
+        const nv = latestVersion || 'unknown';
+        await reply('\u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502\n\u2502 Updated: v' + currentVersion + ' \u2192 ' + nv + '\n\u2502 Files changed: ' + copiedFiles.length + '\n' + (depsChanged ? '\u2502 Dependencies: updated\n' : '\u2502 Dependencies: unchanged\n') + '\u2502\n\u2502 Restarting bot...\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f');
+        await restartProcess();
     } catch (err) {
-        console.error('Update failed:', err);
-        await sock.sendMessage(chatId, { text: style.error('Update failed. Check the bot logs for details.') }, { quoted: message });
+        console.error('[update] Update failed:', err.message);
+        try { fs.rmSync(extractTo, { recursive: true, force: true }); } catch {}
+        try { fs.rmSync(zipPath, { force: true }); } catch {}
+        await reply('\u256d\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502\n\u2502 \u274c Update could not be installed.\n\u2502\n\u2502 Your current installation\n\u2502 has NOT been modified.\n\u2502\n\u2502 Reason:\n\u2502 ' + err.message.substring(0, 200) + '\n\u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256f');
     }
+}
+
+async function restartProcess() {
+    try { await run('pm2 restart all', 10000); return; } catch {}
+    setTimeout(() => { process.exit(0); }, 1000);
 }
 
 module.exports = {
+    backupRuntimeState,
+    restoreRuntimeState,
+    PROTECTED_PATHS,
     name: 'update',
-    aliases: [],
+    aliases: ['upgrade'],
     category: 'owner',
-    description: 'Update the bot from the repository',
-    usage: '.update [zip url]',
-    ownerOnly: false,
+    description: 'Update the bot from GitHub Releases (ZIP-based, no git required)',
+    usage: '.update [zip_url]',
+    ownerOnly: true,
     modOnly: false,
     groupOnly: false,
     privateOnly: false,
     adminOnly: false,
     botAdminNeeded: false,
     async execute(sock, message, args, extra) {
+        const senderId = message.key.participant || message.key.remoteJid;
+        const isOwner = await isOwnerOrSudo(senderId, sock, message.key.remoteJid);
+        if (!message.key.fromMe && !isOwner) {
+            await sock.sendMessage(extra.chatId, { text: style.permissionDenied('ownerOrSudo', { box: false }), ...channelInfo }, { quoted: message });
+            return;
+        }
         const zipArg = args[0] && args[0].startsWith('http') ? args[0] : '';
-        await updateCommand(sock, extra.chatId, message, zipArg);
+        await performUpdate(sock, extra.chatId, message, zipArg);
     },
-    // Exported for testing the runtime-state backup/restore.
-    backupRuntimeState,
-    restoreRuntimeState,
-    RUNTIME_BACKUP_PATHS,
 };
-
-
