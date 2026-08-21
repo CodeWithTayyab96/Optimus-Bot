@@ -12,6 +12,10 @@
 
 jest.mock('@whiskeysockets/baileys', () => ({
     downloadMediaMessage: jest.fn().mockResolvedValue(Buffer.from('fake-media')),
+    downloadContentFromMessage: jest.fn().mockResolvedValue({
+        [Symbol.asyncIterator]: async function* () { yield Buffer.from('fallback-media'); }
+    }),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from('fallback-media')),
 }));
 
 jest.mock('../lib/messageConfig', () => ({
@@ -36,6 +40,8 @@ function getMocks() {
     const baileys = require('@whiskeysockets/baileys');
     return {
         downloadMediaMessage: baileys.downloadMediaMessage,
+        downloadContentFromMessage: baileys.downloadContentFromMessage,
+        toBuffer: baileys.toBuffer,
     };
 }
 
@@ -486,7 +492,8 @@ describe('.vv command', () => {
             const [targetMsg] = downloadMediaMessage.mock.calls[0];
             expect(targetMsg.key.id).toBe('STANZA_001');
             expect(targetMsg.key.remoteJid).toBe(extra.chatId);
-            expect(targetMsg.message.viewOnceMessageV2).toBeDefined();
+            // With recursive unwrapping, message is set to the deepest inner node
+            expect(targetMsg.message.imageMessage).toBeDefined();
         });
 
         test('quoted viewOnceMessage (v1) image downloads and sends', async () => {
@@ -542,16 +549,19 @@ describe('.vv command', () => {
             const sendFn = jest.fn().mockResolvedValue({});
             const sock = makeSock(sendFn);
             const msg = makeQuotedViewOnceImage();
-            const { downloadMediaMessage } = getMocks();
+            const { downloadMediaMessage, downloadContentFromMessage, toBuffer } = getMocks();
             downloadMediaMessage.mockRejectedValueOnce(new Error('ENOTFOUND some-server.whatsapp.net'));
+            downloadContentFromMessage.mockRejectedValueOnce(new Error('fallback failed'));
 
             await vv.execute(sock, msg, [], extra);
 
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('Failed to download');
+            // With fallback, both paths fail → 'empty media' message
+            expect(payload.text).toContain('media');
             expect(payload.text).not.toContain('ENOTFOUND');
             expect(payload.text).not.toContain('some-server');
+            expect(payload.text).not.toContain('fallback failed');
         });
 
         test('send failure shows friendly message', async () => {
@@ -702,7 +712,7 @@ describe('.vv command', () => {
             expect(targetMsg.key.remoteJid).toBe(extra.chatId);
         });
 
-        test('target message contains the original quotedMessage', async () => {
+        test('target message contains the deepest inner media node', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             const sock = makeSock(sendFn);
             const msg = makeQuotedViewOnceImage();
@@ -711,7 +721,209 @@ describe('.vv command', () => {
             await vv.execute(sock, msg, [], extra);
 
             const [targetMsg] = downloadMediaMessage.mock.calls[0];
-            expect(targetMsg.message.viewOnceMessageV2).toBeDefined();
+            // With recursive unwrapping, message is set to the deepest inner node
+            expect(targetMsg.message.imageMessage).toBeDefined();
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // 14. Nested / multi-level envelope unwrapping
+    // -----------------------------------------------------------------------
+    describe('14. Nested multi-level envelope unwrapping', () => {
+        function makeNestedEphemeralViewOnceImage() {
+            return {
+                message: {
+                    extendedTextMessage: {
+                        contextInfo: {
+                            stanzaId: 'STANZA_NEST1',
+                            participant: '5511999999999@s.whatsapp.net',
+                            quotedMessage: {
+                                ephemeralMessage: {
+                                    message: {
+                                        viewOnceMessageV2: {
+                                            message: {
+                                                imageMessage: {
+                                                    mimetype: 'image/jpeg',
+                                                    caption: 'nested ephemeral',
+                                                    mediaKey: Buffer.from('key'),
+                                                    directPath: '/nested1',
+                                                    url: 'https://example.com/n1',
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+        }
+
+        function makeTriplyNestedViewOnceVideo() {
+            return {
+                message: {
+                    extendedTextMessage: {
+                        contextInfo: {
+                            stanzaId: 'STANZA_NEST2',
+                            participant: '5511999999999@s.whatsapp.net',
+                            quotedMessage: {
+                                ephemeralMessage: {
+                                    message: {
+                                        viewOnceMessageV2: {
+                                            message: {
+                                                viewOnceMessage: {
+                                                    message: {
+                                                        videoMessage: {
+                                                            mimetype: 'video/mp4',
+                                                            caption: 'triply nested video',
+                                                            mediaKey: Buffer.from('key'),
+                                                            directPath: '/nested2',
+                                                            url: 'https://example.com/n2',
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+        }
+
+        function makeNestedEphemeralAudio() {
+            return {
+                message: {
+                    extendedTextMessage: {
+                        contextInfo: {
+                            stanzaId: 'STANZA_NEST3',
+                            participant: '5511999999999@s.whatsapp.net',
+                            quotedMessage: {
+                                ephemeralMessage: {
+                                    message: {
+                                        audioMessage: {
+                                            mimetype: 'audio/ogg; codecs=opus',
+                                            mediaKey: Buffer.from('key'),
+                                            directPath: '/nested3',
+                                            url: 'https://example.com/n3',
+                                            ptt: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            };
+        }
+
+        test('ephemeralMessage → viewOnceMessageV2 → imageMessage unwraps and sends', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            const sock = makeSock(sendFn);
+            const msg = makeNestedEphemeralViewOnceImage();
+
+            await vv.execute(sock, msg, [], extra);
+
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.image).toBeInstanceOf(Buffer);
+            expect(payload.viewOnce).toBe(true);
+            expect(payload.caption).toBe('nested ephemeral');
+        });
+
+        test('triply nested ephemeralMessage → viewOnceMessageV2 → viewOnceMessage → videoMessage', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            const sock = makeSock(sendFn);
+            const msg = makeTriplyNestedViewOnceVideo();
+
+            await vv.execute(sock, msg, [], extra);
+
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.video).toBeInstanceOf(Buffer);
+            expect(payload.viewOnce).toBe(true);
+            expect(payload.caption).toBe('triply nested video');
+        });
+
+        test('ephemeralMessage → audioMessage sends as PTT', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            const sock = makeSock(sendFn);
+            const msg = makeNestedEphemeralAudio();
+
+            await vv.execute(sock, msg, [], extra);
+
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.audio).toBeInstanceOf(Buffer);
+            expect(payload.ptt).toBe(true);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // 15. Download fallback (downloadContentFromMessage)
+    // -----------------------------------------------------------------------
+    describe('15. Download fallback via downloadContentFromMessage', () => {
+        test('falls back to downloadContentFromMessage when downloadMediaMessage fails', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            const sock = makeSock(sendFn);
+            const msg = makeQuotedViewOnceImage();
+            const { downloadMediaMessage, downloadContentFromMessage, toBuffer } = getMocks();
+            downloadMediaMessage.mockRejectedValueOnce(new Error('primary download failed'));
+            downloadContentFromMessage.mockResolvedValueOnce({
+                [Symbol.asyncIterator]: async function* () { yield Buffer.from('fallback-data'); }
+            });
+            toBuffer.mockResolvedValueOnce(Buffer.from('fallback-data'));
+
+            await vv.execute(sock, msg, [], extra);
+
+            expect(downloadMediaMessage).toHaveBeenCalledTimes(1);
+            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
+            expect(toBuffer).toHaveBeenCalledTimes(1);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.image).toBeInstanceOf(Buffer);
+            expect(payload.viewOnce).toBe(true);
+        });
+
+        test('both download paths fail → friendly empty message', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            const sock = makeSock(sendFn);
+            const msg = makeQuotedViewOnceImage();
+            const { downloadMediaMessage, downloadContentFromMessage } = getMocks();
+            downloadMediaMessage.mockRejectedValueOnce(new Error('primary failed'));
+            downloadContentFromMessage.mockRejectedValueOnce(new Error('fallback failed'));
+
+            await vv.execute(sock, msg, [], extra);
+
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.text).toContain('media');
+            // Must not leak technical details
+            expect(payload.text).not.toContain('primary failed');
+            expect(payload.text).not.toContain('fallback failed');
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // 16. API keys / secrets never exposed
+    // -----------------------------------------------------------------------
+    describe('16. No secrets in output', () => {
+        test('no API keys or tokens in any sendMessage payload', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            const sock = makeSock(sendFn);
+            const msg = makeQuotedViewOnceImage();
+
+            await vv.execute(sock, msg, [], extra);
+
+            for (const call of sendFn.mock.calls) {
+                const payload = JSON.stringify(call[1]);
+                expect(payload).not.toMatch(/sk-[a-zA-Z0-9]{20,}/);
+                expect(payload).not.toMatch(/bearer/i);
+                expect(payload).not.toMatch(/ghp_|gho_/);
+            }
         });
     });
 });

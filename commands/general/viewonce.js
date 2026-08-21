@@ -1,4 +1,4 @@
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage, downloadContentFromMessage, toBuffer } = require('@whiskeysockets/baileys');
 const { channelInfo } = require('../../lib/messageConfig');
 
 /**
@@ -20,32 +20,67 @@ const { channelInfo } = require('../../lib/messageConfig');
 // ---------------------------------------------------------------------------
 
 /**
- * Unwrap a view-once / ephemeral envelope so we reach the inner
- * imageMessage / videoMessage / audioMessage.
- *
- * Baileys stores view-once media inside one of these wrappers:
- *   viewOnceMessageV2.message.{imageMessage,videoMessage,audioMessage}
- *   viewOnceMessageV2Extension.message.{...}
- *   viewOnceMessage.message.{...}
- *   ephemeralMessage.message.{...}
+ * Known envelope wrappers used by WhatsApp for view-once / ephemeral media.
+ * Checked at each nesting level until we reach the actual media message.
  */
-function unwrapMedia(content) {
-    if (!content) return null;
-    const inner =
-        content.viewOnceMessageV2?.message ||
-        content.viewOnceMessageV2Extension?.message ||
-        content.viewOnceMessage?.message ||
-        content.ephemeralMessage?.message ||
-        content;
-    const image = inner.imageMessage || null;
-    const video = inner.videoMessage || null;
-    const audio = inner.audioMessage || null;
-    const sticker = inner.stickerMessage || null;
-    if (image) return { type: 'image', media: image, caption: image.caption || '', inner };
-    if (video) return { type: 'video', media: video, caption: video.caption || '', inner };
-    if (audio) return { type: 'audio', media: audio, caption: '', inner };
-    if (sticker) return { type: 'sticker', media: sticker, caption: '', inner };
+const ENVELOPE_KEYS = [
+    'viewOnceMessageV2',
+    'viewOnceMessageV2Extension',
+    'viewOnceMessage',
+    'ephemeralMessage',
+];
+
+/**
+ * Recursively unwrap view-once / ephemeral envelopes so we reach the inner
+ * imageMessage / videoMessage / audioMessage, regardless of nesting depth.
+ *
+ * Handles arbitrary combinations such as:
+ *   ephemeralMessage.message.viewOnceMessageV2.message.imageMessage
+ *   viewOnceMessage.message.ephemeralMessage.message.videoMessage
+ *   viewOnceMessageV2.message.imageMessage  (single level)
+ */
+function unwrapMedia(content, _depth = 0) {
+    if (!content || _depth > 10) return null; // safety limit
+
+    // Check for media at this level first
+    const image = content.imageMessage || null;
+    const video = content.videoMessage || null;
+    const audio = content.audioMessage || null;
+    const sticker = content.stickerMessage || null;
+    if (image) return { type: 'image', media: image, caption: image.caption || '', inner: content };
+    if (video) return { type: 'video', media: video, caption: video.caption || '', inner: content };
+    if (audio) return { type: 'audio', media: audio, caption: '', inner: content };
+    if (sticker) return { type: 'sticker', media: sticker, caption: '', inner: content };
+
+    // No media here — try unwrapping one envelope layer and recurse
+    for (const key of ENVELOPE_KEYS) {
+        if (content[key]?.message) {
+            const result = unwrapMedia(content[key].message, _depth + 1);
+            if (result) return result;
+        }
+    }
+
+    // Also check if content itself has a .message property (some Baileys structures)
+    if (content.message && typeof content.message === 'object') {
+        const result = unwrapMedia(content.message, _depth + 1);
+        if (result) return result;
+    }
+
     return null;
+}
+
+/**
+ * Find the deepest inner message node (for building synthetic download targets).
+ * Walks the same envelope keys as unwrapMedia but returns the raw message object.
+ */
+function deepestMessage(content, _depth = 0) {
+    if (!content || _depth > 10) return content;
+    for (const key of ENVELOPE_KEYS) {
+        if (content[key]?.message) {
+            return deepestMessage(content[key].message, _depth + 1);
+        }
+    }
+    return content;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,6 +93,9 @@ async function viewonceCommand(sock, chatId, message) {
     // Try quoted message first
     const quotedInfo = message.message?.extendedTextMessage?.contextInfo;
     const quotedMsg = quotedInfo?.quotedMessage;
+    // Caption is extracted by unwrapMedia() which handles recursive nesting.
+    // The quotedImage/quotedVideo flat lookups below are kept as a safety net
+    // for the caption fallback if unwrapMedia somehow returns no caption.
     const quotedImage =
         quotedMsg?.imageMessage ||
         quotedMsg?.viewOnceMessageV2?.message?.imageMessage ||
@@ -83,14 +121,19 @@ async function viewonceCommand(sock, chatId, message) {
     if (quotedMsg) {
         source = unwrapMedia(quotedMsg);
         if (source) {
-            // Build a synthetic WAMessage so downloadMediaMessage works
+            // Build the synthetic message for downloadMediaMessage.
+            // Use the deepest unwrapped message node so Baileys can find
+            // the media fields (mimetype, mediaKey, directPath, url) directly.
+            const deepest = deepestMessage(quotedMsg);
             source.targetMessage = {
                 key: {
                     remoteJid: chatId,
                     id: quotedInfo.stanzaId,
                     participant: quotedInfo.participant,
                 },
-                message: quotedMsg,
+                message: deepest,
+                // Also keep the full quoted message for fallback download
+                _fullQuotedMessage: quotedMsg,
             };
             source.isDirect = false;
         }
@@ -139,9 +182,11 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 4. Download the media
+    // 4. Download the media (with fallback)
 
-    let buffer;
+    let buffer = null;
+
+    // Primary path: downloadMediaMessage
     try {
         buffer = await downloadMediaMessage(
             source.targetMessage,
@@ -152,13 +197,29 @@ async function viewonceCommand(sock, chatId, message) {
                 reuploadRequest: sock.updateMediaMessage,
             },
         );
-    } catch (err) {
-        console.error('.vv download error:', err);
-        await sock.sendMessage(chatId, {
-            text: '\u274c Failed to download media. The message may have been revoked or expired.',
-            ...channelInfo,
-        }, { quoted: message });
-        return;
+    } catch (primaryErr) {
+        console.error('.vv downloadMediaMessage failed, trying fallback:', primaryErr.message);
+    }
+
+    // Fallback path: downloadContentFromMessage + toBuffer
+    if (!buffer || buffer.length === 0) {
+        try {
+            const mediaNode = source.media; // the extracted imageMessage/videoMessage/audioMessage
+            if (mediaNode && mediaNode.mimetype && (mediaNode.directPath || mediaNode.url)) {
+                const stream = await downloadContentFromMessage(
+                    {
+                        mediaKey: mediaNode.mediaKey,
+                        directPath: mediaNode.directPath,
+                        url: mediaNode.url,
+                        mimetype: mediaNode.mimetype,
+                    },
+                    mediaNode.mimetype.split('/')[0], // 'image', 'video', 'audio'
+                );
+                buffer = await toBuffer(stream);
+            }
+        } catch (fallbackErr) {
+            console.error('.vv downloadContentFromMessage fallback failed:', fallbackErr.message);
+        }
     }
 
     if (!buffer || buffer.length === 0) {
@@ -173,37 +234,19 @@ async function viewonceCommand(sock, chatId, message) {
 
     try {
         if (source.type === 'image') {
-            if (source.isDirect) {
-                await sock.sendMessage(chatId, {
-                    image: buffer,
-                    caption: source.caption || '',
-                    viewOnce: true,
-                    ...channelInfo,
-                }, { quoted: message });
-            } else {
-                await sock.sendMessage(chatId, {
-                    image: buffer,
-                    caption: quotedImage.caption || '',
-                    viewOnce: true,
-                    ...channelInfo,
-                }, { quoted: message });
-            }
+            await sock.sendMessage(chatId, {
+                image: buffer,
+                caption: source.caption || quotedImage.caption || '',
+                viewOnce: true,
+                ...channelInfo,
+            }, { quoted: message });
         } else if (source.type === 'video') {
-            if (source.isDirect) {
-                await sock.sendMessage(chatId, {
-                    video: buffer,
-                    caption: source.caption || '',
-                    viewOnce: true,
-                    ...channelInfo,
-                }, { quoted: message });
-            } else {
-                await sock.sendMessage(chatId, {
-                    video: buffer,
-                    caption: quotedVideo.caption || '',
-                    viewOnce: true,
-                    ...channelInfo,
-                }, { quoted: message });
-            }
+            await sock.sendMessage(chatId, {
+                video: buffer,
+                caption: source.caption || quotedVideo.caption || '',
+                viewOnce: true,
+                ...channelInfo,
+            }, { quoted: message });
         } else if (source.type === 'audio') {
             // WhatsApp / Baileys does NOT support view-once for audio.
             // Send as a PTT (voice note) which is the closest behaviour.
