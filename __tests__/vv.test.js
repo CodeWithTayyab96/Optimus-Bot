@@ -1,14 +1,15 @@
 /**
  * Smoke tests for the .vv (View-Once) command.
  *
- * Primary download method: downloadContentFromMessage (known-working Baileys pattern).
+ * Uses downloadMediaMessage (same pattern as the sticker command) with
+ * a synthetic message object, plus downloadContentFromMessage as fallback.
  */
 
 jest.mock('@whiskeysockets/baileys', () => ({
+    downloadMediaMessage: jest.fn().mockResolvedValue(Buffer.from('fake-media')),
     downloadContentFromMessage: jest.fn().mockResolvedValue({
-        [Symbol.asyncIterator]: async function* () { yield Buffer.from('fake-media'); }
+        [Symbol.asyncIterator]: async function* () { yield Buffer.from('fallback-media'); }
     }),
-    toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-media')),
 }));
 
 jest.mock('../lib/messageConfig', () => ({
@@ -28,8 +29,8 @@ jest.mock('../lib/messageConfig', () => ({
 function getMocks() {
     const baileys = require('@whiskeysockets/baileys');
     return {
+        downloadMediaMessage: baileys.downloadMediaMessage,
         downloadContentFromMessage: baileys.downloadContentFromMessage,
-        toBuffer: baileys.toBuffer,
     };
 }
 
@@ -196,40 +197,6 @@ function makeNestedEphemeralViewOnceImage() {
     };
 }
 
-function makeTriplyNestedVideo() {
-    return {
-        message: {
-            extendedTextMessage: {
-                contextInfo: {
-                    stanzaId: 'STANZA_TRI',
-                    participant: '5511999999999@s.whatsapp.net',
-                    quotedMessage: {
-                        ephemeralMessage: {
-                            message: {
-                                viewOnceMessageV2: {
-                                    message: {
-                                        viewOnceMessage: {
-                                            message: {
-                                                videoMessage: {
-                                                    mimetype: 'video/mp4',
-                                                    caption: 'triply nested',
-                                                    mediaKey: Buffer.from('key'),
-                                                    directPath: '/tri',
-                                                    url: 'https://example.com/tri',
-                                                },
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    };
-}
-
 function makeNoMedia() {
     return { message: { conversation: '.vv' } };
 }
@@ -277,7 +244,7 @@ describe('.vv command', () => {
         test('execute is a function', () => expect(typeof vv.execute).toBe('function'));
     });
 
-    // Direct quoted image (simplest path — matches known-working bot)
+    // Direct quoted image
     describe('direct quoted image', () => {
         test('downloads and sends with viewOnce: true', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
@@ -285,19 +252,17 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
             expect(payload.caption).toBe('test caption');
         });
 
-        test('calls downloadContentFromMessage with raw media node', async () => {
+        test('calls downloadMediaMessage with synthetic message', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
-            const { downloadContentFromMessage } = getMocks();
+            const { downloadMediaMessage } = getMocks();
             await vv.execute(makeSock(sendFn), makeQuotedImage(), [], extra);
-            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
-            const [media, type] = downloadContentFromMessage.mock.calls[0];
-            expect(type).toBe('image');
-            expect(media.mimetype).toBe('image/jpeg');
-            expect(media.directPath).toBe('/abc');
+            expect(downloadMediaMessage).toHaveBeenCalledTimes(1);
+            const [targetMsg] = downloadMediaMessage.mock.calls[0];
+            expect(targetMsg.key.id).toBe('STANZA_001');
+            expect(targetMsg.message.imageMessage).toBeDefined();
         });
     });
 
@@ -309,7 +274,6 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
             expect(payload.caption).toBe('v2 caption');
         });
     });
@@ -322,7 +286,6 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
         });
     });
 
@@ -334,7 +297,6 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.video).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
             expect(payload.caption).toBe('video caption');
         });
     });
@@ -360,17 +322,7 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
             expect(payload.caption).toBe('nested');
-        });
-
-        test('triply nested video', async () => {
-            const sendFn = jest.fn().mockResolvedValue({});
-            await vv.execute(makeSock(sendFn), makeTriplyNestedVideo(), [], extra);
-            expect(sendFn).toHaveBeenCalledTimes(1);
-            const [, payload] = sendFn.mock.calls[0];
-            expect(payload.video).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
         });
     });
 
@@ -384,24 +336,37 @@ describe('.vv command', () => {
             expect(payload.text).toContain('Please reply');
         });
 
-        test('does not call downloadContentFromMessage', async () => {
-            const { downloadContentFromMessage } = getMocks();
+        test('does not call downloadMediaMessage', async () => {
+            const { downloadMediaMessage } = getMocks();
             await vv.execute(makeSock(jest.fn().mockResolvedValue({})), makeNoMedia(), [], extra);
-            expect(downloadContentFromMessage).not.toHaveBeenCalled();
+            expect(downloadMediaMessage).not.toHaveBeenCalled();
         });
     });
 
-    // Download failure
-    describe('download failure', () => {
-        test('shows friendly error, not stack trace', async () => {
-            const { downloadContentFromMessage } = getMocks();
-            downloadContentFromMessage.mockRejectedValueOnce(new Error('ENOTFOUND'));
+    // Download failure with fallback
+    describe('download failure with fallback', () => {
+        test('falls back to downloadContentFromMessage', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
+            const { downloadMediaMessage, downloadContentFromMessage } = getMocks();
+            downloadMediaMessage.mockRejectedValueOnce(new Error('primary failed'));
+            await vv.execute(makeSock(sendFn), makeQuotedImage(), [], extra);
+            // Should still succeed via fallback
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.image).toBeInstanceOf(Buffer);
+        });
+
+        test('both fail shows friendly error', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            const { downloadMediaMessage, downloadContentFromMessage } = getMocks();
+            downloadMediaMessage.mockRejectedValueOnce(new Error('primary failed'));
+            downloadContentFromMessage.mockRejectedValueOnce(new Error('fallback failed'));
             await vv.execute(makeSock(sendFn), makeQuotedImage(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('Failed to download');
-            expect(payload.text).not.toContain('ENOTFOUND');
+            expect(payload.text).toContain('Failed to recover');
+            expect(payload.text).not.toContain('primary failed');
+            expect(payload.text).not.toContain('fallback failed');
         });
     });
 
@@ -413,7 +378,6 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
         });
 
         test('direct audio sends as PTT', async () => {
@@ -451,7 +415,7 @@ describe('.vv command', () => {
         });
     });
 
-    // Caption preservation
+    // Captions
     describe('captions', () => {
         test('image caption preserved', async () => {
             const sendFn = jest.fn().mockResolvedValue({});

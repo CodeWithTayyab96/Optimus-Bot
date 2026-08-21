@@ -1,23 +1,13 @@
-const { downloadContentFromMessage, toBuffer } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { channelInfo } = require('../../lib/messageConfig');
 
 /**
  * .vv — View-Once media re-send (image / video / audio)
  *
- * Uses downloadContentFromMessage as the PRIMARY download method,
- * matching the known-working Baileys pattern from other bots.
+ * Uses downloadMediaMessage with a synthetic message object — the same
+ * proven pattern used by the sticker command in this project.
  *
- * Known-working pattern (from another bot):
- *   const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
- *   const quotedImage = quoted?.imageMessage;
- *   const stream = await downloadContentFromMessage(quotedImage, 'image');
- *   for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
- *
- * This implementation extends the pattern to also handle:
- *   - viewOnceMessage / viewOnceMessageV2 / viewOnceMessageV2Extension wrappers
- *   - ephemeralMessage wrappers
- *   - audio (sent as PTT)
- *   - direct media (image/video/audio with .vv as caption)
+ * Includes diagnostic logging and a download timeout to prevent hangs.
  */
 
 const ENVELOPE_KEYS = [
@@ -33,12 +23,10 @@ const ENVELOPE_KEYS = [
 function findMedia(content, depth = 0) {
     if (!content || depth > 10) return null;
 
-    // Check for media at this level
-    if (content.imageMessage) return { type: 'image', media: content.imageMessage };
-    if (content.videoMessage) return { type: 'video', media: content.videoMessage };
-    if (content.audioMessage) return { type: 'audio', media: content.audioMessage };
+    if (content.imageMessage) return { type: 'image', media: content.imageMessage, node: content };
+    if (content.videoMessage) return { type: 'video', media: content.videoMessage, node: content };
+    if (content.audioMessage) return { type: 'audio', media: content.audioMessage, node: content };
 
-    // Try envelope wrappers
     for (const key of ENVELOPE_KEYS) {
         if (content[key]?.message) {
             const result = findMedia(content[key].message, depth + 1);
@@ -46,7 +34,6 @@ function findMedia(content, depth = 0) {
         }
     }
 
-    // Generic .message unwrapping
     if (content.message && typeof content.message === 'object') {
         const result = findMedia(content.message, depth + 1);
         if (result) return result;
@@ -56,19 +43,22 @@ function findMedia(content, depth = 0) {
 }
 
 /**
- * Download media using downloadContentFromMessage (the known-working method).
- * Collects stream chunks into a single Buffer.
+ * Promise with timeout — rejects if the operation takes too long.
+ * Clears the timer when the promise resolves to prevent open handle leaks.
  */
-async function downloadMedia(mediaNode, type) {
-    const stream = await downloadContentFromMessage(mediaNode, type);
-    const chunks = [];
-    for await (const chunk of stream) {
-        chunks.push(chunk);
-    }
-    return Buffer.concat(chunks);
+function withTimeout(promise, ms, label = 'operation') {
+    let timer;
+    return new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        promise.then(resolve, reject);
+    }).finally(() => clearTimeout(timer));
 }
 
+const DOWNLOAD_TIMEOUT_MS = 30000; // 30 seconds
+
 async function viewonceCommand(sock, chatId, message) {
+    console.log('[VV] ENTER command');
+
     // 1. Extract quoted message
     const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
@@ -80,46 +70,72 @@ async function viewonceCommand(sock, chatId, message) {
     let mediaType = null;
     let mediaNode = null;
     let caption = '';
+    let envelopePath = 'direct';
 
     if (quotedMsg) {
-        // 3a. Try direct media on quoted message first (simplest path — matches known-working bot)
+        console.log('[VV] quotedMessage exists: YES');
+        console.log('[VV] quotedMessage keys:', Object.keys(quotedMsg));
+
+        // Check for direct media first
         if (quotedMsg.imageMessage) {
             mediaType = 'image';
             mediaNode = quotedMsg.imageMessage;
             caption = mediaNode.caption || '';
+            envelopePath = 'direct.imageMessage';
         } else if (quotedMsg.videoMessage) {
             mediaType = 'video';
             mediaNode = quotedMsg.videoMessage;
             caption = mediaNode.caption || '';
+            envelopePath = 'direct.videoMessage';
         } else if (quotedMsg.audioMessage) {
             mediaType = 'audio';
             mediaNode = quotedMsg.audioMessage;
             caption = '';
+            envelopePath = 'direct.audioMessage';
         } else {
-            // 3b. Try unwrapping envelope wrappers
+            // Try envelope unwrapping
+            console.log('[VV] No direct media, checking envelopes...');
+            for (const key of ENVELOPE_KEYS) {
+                if (quotedMsg[key]) {
+                    console.log(`[VV] Found envelope: ${key}`);
+                }
+            }
             const found = findMedia(quotedMsg);
             if (found) {
                 mediaType = found.type;
                 mediaNode = found.media;
                 caption = found.media.caption || '';
+                envelopePath = `unwrapped.${found.type}`;
             }
         }
-    } else if (directImage) {
+    } else {
+        console.log('[VV] quotedMessage exists: NO');
+    }
+
+    // Check direct media
+    if (!mediaType && directImage) {
         mediaType = 'image';
         mediaNode = directImage;
         caption = directImage.caption || '';
-    } else if (directVideo) {
+        envelopePath = 'direct.image';
+    } else if (!mediaType && directVideo) {
         mediaType = 'video';
         mediaNode = directVideo;
         caption = directVideo.caption || '';
-    } else if (directAudio) {
+        envelopePath = 'direct.video';
+    } else if (!mediaType && directAudio) {
         mediaType = 'audio';
         mediaNode = directAudio;
         caption = '';
+        envelopePath = 'direct.audio';
     }
 
-    // 4. No media found
+    console.log(`[VV] detected media type: ${mediaType || 'none'}`);
+    console.log(`[VV] envelope path: ${envelopePath}`);
+
+    // 3. No media found
     if (!mediaType || !mediaNode) {
+        console.log('[VV] No media found, sending usage message');
         await sock.sendMessage(chatId, {
             text: '❌ Please reply to a view-once image or video.\n\n*Supported:*\n  🖼️ Image → View-Once image\n  🎬 Video → View-Once video\n  🎵 Audio → Voice note',
             ...channelInfo,
@@ -127,20 +143,68 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 5. Download the media
+    // Log media node fields (safe — no secrets)
+    console.log('[VV] media node keys:', Object.keys(mediaNode));
+    console.log('[VV] media mimetype:', mediaNode.mimetype);
+    console.log('[VV] has mediaKey:', !!mediaNode.mediaKey);
+    console.log('[VV] has directPath:', !!mediaNode.directPath);
+    console.log('[VV] has url:', !!mediaNode.url);
+
+    // 4. Build the target message for downloadMediaMessage
+    // This follows the exact same pattern as the sticker command
+    const targetMessage = {
+        key: {
+            remoteJid: chatId,
+            id: message.message?.extendedTextMessage?.contextInfo?.stanzaId,
+            participant: message.message?.extendedTextMessage?.contextInfo?.participant,
+        },
+        message: quotedMsg || message.message,
+    };
+
+    console.log('[VV] download starting...');
+
+    // 5. Download with timeout
     let buffer;
     try {
-        buffer = await downloadMedia(mediaNode, mediaType);
+        buffer = await withTimeout(
+            downloadMediaMessage(targetMessage, 'buffer', {}, {
+                logger: undefined,
+                reuploadRequest: sock.updateMediaMessage,
+            }),
+            DOWNLOAD_TIMEOUT_MS,
+            'downloadMediaMessage'
+        );
+        console.log('[VV] download completed, bytes:', buffer ? buffer.length : 0);
     } catch (dlErr) {
-        console.error(`[.vv] Download failed for ${mediaType}:`, dlErr.message);
-        await sock.sendMessage(chatId, {
-            text: '❌ Failed to download media. The view-once media may have expired or the download URL is no longer valid.',
-            ...channelInfo,
-        }, { quoted: message });
-        return;
+        console.error(`[VV] Download failed: ${dlErr.message}`);
+
+        // If downloadMediaMessage failed, try downloadContentFromMessage as fallback
+        console.log('[VV] Trying downloadContentFromMessage fallback...');
+        try {
+            const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+            const stream = await withTimeout(
+                downloadContentFromMessage(mediaNode, mediaType),
+                DOWNLOAD_TIMEOUT_MS,
+                'downloadContentFromMessage'
+            );
+            const chunks = [];
+            for await (const chunk of stream) {
+                chunks.push(chunk);
+            }
+            buffer = Buffer.concat(chunks);
+            console.log('[VV] fallback download completed, bytes:', buffer.length);
+        } catch (fallbackErr) {
+            console.error(`[VV] Fallback download also failed: ${fallbackErr.message}`);
+            await sock.sendMessage(chatId, {
+                text: `❌ Failed to recover the View Once media.\n\nReason: ${fallbackErr.message.includes('timed out') ? 'Download timed out' : 'Media may have expired or is unavailable'}`,
+                ...channelInfo,
+            }, { quoted: message });
+            return;
+        }
     }
 
     if (!buffer || buffer.length === 0) {
+        console.log('[VV] Buffer is empty');
         await sock.sendMessage(chatId, {
             text: '❌ Downloaded media is empty. Please try again.',
             ...channelInfo,
@@ -149,23 +213,21 @@ async function viewonceCommand(sock, chatId, message) {
     }
 
     // 6. Send the recovered media
+    console.log('[VV] sending media...');
     try {
         if (mediaType === 'image') {
             await sock.sendMessage(chatId, {
                 image: buffer,
                 caption,
-                viewOnce: true,
                 ...channelInfo,
             }, { quoted: message });
         } else if (mediaType === 'video') {
             await sock.sendMessage(chatId, {
                 video: buffer,
                 caption,
-                viewOnce: true,
                 ...channelInfo,
             }, { quoted: message });
         } else if (mediaType === 'audio') {
-            // WhatsApp doesn't support view-once for audio — send as PTT
             await sock.sendMessage(chatId, {
                 audio: buffer,
                 mimetype: mediaNode.mimetype || 'audio/ogg; codecs=opus',
@@ -173,8 +235,9 @@ async function viewonceCommand(sock, chatId, message) {
                 ...channelInfo,
             }, { quoted: message });
         }
+        console.log('[VV] send completed');
     } catch (sendErr) {
-        console.error('[.vv] Send error:', sendErr.message);
+        console.error('[VV] Send error:', sendErr.message);
         await sock.sendMessage(chatId, {
             text: '❌ Failed to send media. Please try again.',
             ...channelInfo,
@@ -195,6 +258,17 @@ module.exports = {
     adminOnly: false,
     botAdminNeeded: false,
     async execute(sock, message, args, extra) {
-        await viewonceCommand(sock, extra.chatId, message);
+        try {
+            await viewonceCommand(sock, extra.chatId, message);
+        } catch (err) {
+            console.error('[VV] UNCAUGHT ERROR:', err.message);
+            console.error('[VV] Stack:', err.stack);
+            try {
+                await sock.sendMessage(extra.chatId, {
+                    text: '❌ An unexpected error occurred while processing .vv',
+                    ...channelInfo,
+                }, { quoted: message });
+            } catch (_) {}
+        }
     },
 };
