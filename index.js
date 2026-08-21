@@ -47,6 +47,8 @@ const { join } = require('path')
 
 // Import lightweight store
 const store = require('./lib/lightweight_store')
+// Import productivity scheduler
+const scheduler = require('./lib/productivity/scheduler')
 
 // Initialize store
 store.readFromFile()
@@ -281,6 +283,9 @@ async function startXeonBotInc() {
                 console.error('Error sending connection message:', error.message)
             }
 
+            // Initialize reminder scheduler
+            scheduler.init(XeonBotInc)
+
             await delay(1999)
             console.log(chalk.yellow(`\n\n                  ${chalk.bold.blue(`[ ${global.botname || 'OPTIMUS BOT'} ]`)}\n\n`))
             console.log(chalk.cyan(`< ================================================== >`))
@@ -388,6 +393,10 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Rejection:', err)
 })
+
+// Clean shutdown of scheduler timers
+process.on('SIGTERM', () => { scheduler.shutdown(); process.exit(0); })
+process.on('SIGINT', () => { scheduler.shutdown(); process.exit(0); })
 
 let file = require.resolve(__filename)
 fs.watchFile(file, () => {

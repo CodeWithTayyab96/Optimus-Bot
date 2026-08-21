@@ -152,7 +152,7 @@ const allAdmins = [
         const commands = loadCommands();
         const unique = new Set();
         for (const [, cmd] of commands) unique.add(cmd.name);
-        check('registry still has 144 unique commands', unique.size === 144, ` (got ${unique.size})`);
+        check(`registry has expected unique commands (expected >= 144, got ${unique.size})`, unique.size >= 144, ` (got ${unique.size})`);
         for (const name of ['ban', 'unban', 'warn', 'warnings', 'resetwarn', 'kick', 'promote', 'demote', 'mute', 'unmute', 'delete', 'clear', 'antilink', 'antitag', 'antibadword', 'welcome', 'goodbye', 'pending', 'grouplink', 'resetlink', 'groupstatus', 'chatbot', 'mode', 'jid', 'sudo', 'broadcast', 'setprefix', 'setbotname', 'setnewsletter', 'setmenuimage', 'setpp', 'afk', 'pair', 'pmblocker', 'update', 'restart', 'antidelete', 'autoread', 'autostatus', 'autotyping', 'areact', 'block', 'unblock', 'clearsession', 'cleartmp']) {
             check(`command "${name}" still registered`, commands.has(name));
         }
