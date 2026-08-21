@@ -1,6 +1,6 @@
 /**
  * Optimus Bot - A WhatsApp Bot
- * Copyright (c) 2026 Tayyab
+ * Copyright (c) 2026 Muhammad Tayyab Imran
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the MIT License.
@@ -161,7 +161,7 @@ async function startXeonBotInc() {
                             forwardingScore: 1,
                             isForwarded: true,
                             forwardedNewsletterMessageInfo: {
-                                newsletterJid: settings.newsletterJid || '120363000000000000@newsletter',
+                                newsletterJid: settings.newsletterJid || '120363424568988623@newsletter',
                                 newsletterName: settings.newsletterName || 'Optimus Bot',
                                 serverMessageId: -1
                             }
@@ -271,7 +271,7 @@ async function startXeonBotInc() {
                         forwardingScore: 1,
                         isForwarded: true,
                         forwardedNewsletterMessageInfo: {
-                            newsletterJid: settings.newsletterJid || '120363000000000000@newsletter',
+                            newsletterJid: settings.newsletterJid || '120363424568988623@newsletter',
                             newsletterName: settings.newsletterName || 'Optimus Bot',
                             serverMessageId: -1
                         }
