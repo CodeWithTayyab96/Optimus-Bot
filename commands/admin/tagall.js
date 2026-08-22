@@ -1,6 +1,6 @@
 const style = require('../../lib/messageStyle');
 
-async function tagAllCommand(sock, chatId, senderId, message) {
+async function tagAllCommand(sock, chatId, senderId, message, args) {
     try {
         // Get group metadata
         const groupMetadata = await sock.groupMetadata(chatId);
@@ -11,16 +11,29 @@ async function tagAllCommand(sock, chatId, senderId, message) {
             return;
         }
 
-        // Create message with each member on a new line
-        let messageText = '🔊 *Hello Everyone:*\n\n';
-        participants.forEach(participant => {
-            messageText += `@${participant.id.split('@')[0]}\n`; // Add \n for new line
+        // Custom message text after .tagall
+        const customText = args && args.length > 0 ? args.join(' ') : '';
+        const header = customText ? `🔊 *${customText}*\n\n` : '🔊 *Hello Everyone:*\n\n';
+
+        // Create message with each member on a new line, deduplicate participant IDs
+        const seen = new Set();
+        const uniqueParticipants = [];
+        for (const participant of participants) {
+            if (!seen.has(participant.id)) {
+                seen.add(participant.id);
+                uniqueParticipants.push(participant);
+            }
+        }
+
+        let messageText = header;
+        uniqueParticipants.forEach(participant => {
+            messageText += `@${participant.id.split('@')[0]}\n`;
         });
 
         // Send message with mentions
         await sock.sendMessage(chatId, {
             text: messageText,
-            mentions: participants.map(p => p.id)
+            mentions: uniqueParticipants.map(p => p.id)
         });
 
     } catch (error) {
@@ -34,15 +47,15 @@ module.exports = {
     aliases: [],
     category: 'admin',
     description: 'Mention every group member',
-    usage: '.tagall',
+    usage: '.tagall <optional message>',
     ownerOnly: false,
     modOnly: false,
-    groupOnly: false,
+    groupOnly: true,
     privateOnly: false,
     adminOnly: true,
-    botAdminNeeded: true,
+    botAdminNeeded: false,
     async execute(sock, message, args, extra) {
-        await tagAllCommand(sock, extra.chatId, extra.senderId, message);
+        await tagAllCommand(sock, extra.chatId, extra.senderId, message, args);
     },
 
 };

@@ -1,18 +1,19 @@
-const { bots } = require('../../lib/antilink');
 const { setAntilink, getAntilink, removeAntilink } = require('../../lib/index');
 const isAdmin = require('../../lib/isAdmin');
 const style = require('../../lib/messageStyle');
 
-async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSenderAdmin, message) {
+async function handleAntilinkCommand(sock, chatId, userMessage, senderId, message) {
     try {
-        if (!isSenderAdmin) {
+        // Check sender admin status directly (so command works even when bot is not admin)
+        const adminStatus = await isAdmin(sock, chatId, senderId);
+        if (!adminStatus.isSenderAdmin) {
             await sock.sendMessage(chatId, { text: style.permissionDenied('admin', { box: false }) }, { quoted: message });
             return;
         }
 
         const prefix = require('../../settings').prefix || '.';
-        const args = userMessage.trim().split(/s+/).slice(1);
-        const action = args[0];
+        const args = userMessage.trim().split(/\s+/).slice(1);
+        const action = args[0] ? args[0].toLowerCase() : undefined;
 
         if (!action) {
             const usage = style.box('🛡️ ANTILINK', [
@@ -50,7 +51,7 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
                     }, { quoted: message });
                     return;
                 }
-                const setAction = args[1];
+                const setAction = args[1] ? args[1].toLowerCase() : '';
                 if (!['delete', 'kick', 'warn'].includes(setAction)) {
                     await sock.sendMessage(chatId, { 
                         text: style.invalidInput('Invalid action. Choose delete, kick, or warn.', `${prefix}antilink set <action>`, { box: false }) 
@@ -155,9 +156,9 @@ module.exports = {
     groupOnly: true,
     privateOnly: false,
     adminOnly: false,
-    botAdminNeeded: true,
+    botAdminNeeded: false,
     async execute(sock, message, args, extra) {
-        await handleAntilinkCommand(sock, extra.chatId, extra.userMessage, extra.senderId, extra.isSenderAdmin, message);
+        await handleAntilinkCommand(sock, extra.chatId, extra.userMessage, extra.senderId, message);
     },
     handleAntilinkCommand,
     handleLinkDetection,
