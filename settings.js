@@ -14,6 +14,9 @@ const settings = {
   // Get credentials from: https://dash.cloudflare.com → Workers AI → Use REST API
   cloudflareAccountId: 'YOUR_CLOUDFLARE_ACCOUNT_ID',
   cloudflareApiToken: 'YOUR_CLOUDFLARE_API_TOKEN',
+  // OMDb API key for .imdb command
+  // Get your free key from: https://www.omdbapi.com/apikey.aspx
+  omdbApiKey: '',
   commandMode: 'public',
   maxStoreMessages: 20,
   storeWriteInterval: 10000,
