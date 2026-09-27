@@ -18,10 +18,11 @@ data/*
 # Environment variables
 .env
 
-# User configuration — contains API keys, copy settings.example.js instead.
-# Anchored with a leading slash so it does NOT also swallow the legitimate
-# command file commands/general/settings.js.
-/settings.js
+# User configuration.
+# settings.js IS committed — it holds placeholders only, so a fresh clone runs
+# without a manual copy step. Real credentials belong in .env (ignored below).
+# NOTE: never add a bare `settings.js` rule here — an unanchored pattern matches
+# at every depth and would silently swallow commands/general/settings.js.
 
 # Log files
 *.log

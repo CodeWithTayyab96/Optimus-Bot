@@ -136,31 +136,35 @@ so later starts skip the install entirely.
 
 ### Configuration
 
-1. **Copy the settings template:**
+`settings.js` is **committed** and works out of the box — it ships with placeholders, so a fresh
+clone runs with no manual copy step. **Never put real API keys in it.**
+
+Put credentials in `.env` instead (gitignored):
 
 ```bash
-cp settings.example.js settings.js
+cp .env.example .env
 ```
 
-2. **Edit `settings.js`** — fill in your own values:
+Then fill in `.env`. Every value is optional — the bot starts without them, but the related
+command won't work until it is set:
 
-```js
-const settings = {
-  prefix: '.',              // Command prefix
-  botName: 'Optimus Bot',   // Display name
-  botOwner: 'Your Name',    // Owner name
-  ownerNumber: '1234567890', // Your WhatsApp number (no + or spaces)
-  groqApiKey: 'YOUR_GROQ_API_KEY',           // Get from console.groq.com
-  geminiApiKey: 'YOUR_GEMINI_API_KEY',       // Get from aistudio.google.com
-  cloudflareAccountId: 'YOUR_CLOUDFLARE_ACCOUNT_ID', // From dash.cloudflare.com
-  cloudflareApiToken: 'YOUR_CLOUDFLARE_API_TOKEN',   // Workers AI REST API token
-  // ... other settings
-};
+```ini
+GROQ_API_KEY=            # .ai / whisper transcription — console.groq.com
+GEMINI_API_KEY=          # .ai image generation — aistudio.google.com
+CLOUDFLARE_ACCOUNT_ID=   # image fallback #1 — dash.cloudflare.com → Workers AI
+CLOUDFLARE_API_TOKEN=
+GIPHY_API_KEY=           # .gif
+OMDB_API_KEY=            # .imdb
+TENOR_API_KEY=           # .emojimix
+TELEGRAM_BOT_TOKEN=      # .stickertelegram — create your own with @BotFather
 ```
 
-> **⚠️ Important:** `settings.js` is gitignored and will **never** be committed. Real API keys stay on your machine only. You can also supply keys via `.env` or environment variables.
+Each of these is read as `process.env.X || '<placeholder>'`, so the environment always wins.
+Non-secret options — prefix, bot name, owner number, channel links — are edited directly in
+`settings.js`.
 
-3. **Save the file.**
+> **⚠️ Important:** `settings.js` **is** committed to this repository. Anything you put in it,
+> including API keys, is published permanently in the git history. Keep secrets in `.env`.
 
 ### Running
 
