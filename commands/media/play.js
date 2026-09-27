@@ -38,8 +38,15 @@ async function playCommand(sock, chatId, message) {
             audioData = await downloadYouTubeAudio(urlYt, { tempDir, title: video.title });
         } catch (e) {
             console.error('[music] download failed:', e.message);
+            // Show the real cause (e.g. "yt-dlp is not installed…") so the
+            // failure is diagnosable instead of a vague "source unavailable".
+            const msg = String(e?.message || '');
             return await sock.sendMessage(chatId, {
-                text: style.error('Failed to fetch the audio. The source may be unavailable or blocked. Please try again later.')
+                text: style.error(
+                    msg.startsWith('yt-dlp')
+                        ? msg
+                        : 'Failed to fetch the audio. The source may be unavailable or blocked. Please try again later.'
+                )
             });
         }
 

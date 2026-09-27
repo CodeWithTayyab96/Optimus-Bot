@@ -38,8 +38,10 @@ async function songCommand(sock, chatId, message, query) {
         try {
             audioData = await downloadYouTubeAudio(video.url, { tempDir, title: video.title });
         } catch (e) {
+            // Propagate the real cause (e.g. "yt-dlp is not installed…") instead
+            // of replacing it with a generic message that hides the problem.
             console.error('[song] download failed:', e.message);
-            throw new Error('All download sources failed. The content may be unavailable or blocked in your region.');
+            throw e;
         }
 
         const audioBuffer = audioData.buffer;
@@ -84,12 +86,14 @@ async function songCommand(sock, chatId, message, query) {
         console.error('Song command error:', err);
 
         let errorMessage = 'Failed to download the song. Please try again later.';
-        if (err.message && err.message.includes('blocked')) {
+        const msg = String(err?.message || '');
+        if (msg.startsWith('yt-dlp')) {
+            // Surface actionable causes ("yt-dlp is not installed…") verbatim.
+            errorMessage = msg;
+        } else if (msg.includes('blocked')) {
             errorMessage = 'Download blocked. The content may be unavailable in your region or due to legal restrictions.';
         } else if (err.response?.status === 451 || err.status === 451) {
             errorMessage = 'Content unavailable. This may be due to legal restrictions or regional blocking.';
-        } else if (err.message && err.message.includes('All download sources failed')) {
-            errorMessage = 'All download sources failed. The content may be unavailable or blocked.';
         }
 
         await sock.sendMessage(chatId, {
