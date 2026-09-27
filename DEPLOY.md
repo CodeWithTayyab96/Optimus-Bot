@@ -60,6 +60,29 @@ cd /path/to/Optimus-Bot-main
 node index.js
 ```
 
+### Doing it in one command instead
+
+`bootstrap.js` performs steps 1 and 3 for you — it installs the bot's npm
+dependencies, then clones and compiles the PO token provider if it is missing,
+and reports the state of the python side:
+
+```bash
+node bootstrap.js                # deps + provider, then start
+node bootstrap.js --deps-only    # the same, then exit
+node bootstrap.js --no-provider  # skip the provider (leave it to you)
+node bootstrap.js --with-python  # also pip-install yt-dlp + the plugin
+```
+
+Notes:
+
+- The provider's default branch is **`master`**, not `main`.
+- Upstream has no `build` script — the build step is `tsc`, run from
+  `server/node_modules/.bin/tsc` so it does not depend on `npx` being on `PATH`.
+- The provider is optional: if the clone or build fails, bootstrap warns and
+  starts the bot anyway. Only `.song`/`.video` degrade.
+- Point `POT_PROVIDER_DIR` at a different location to skip the default
+  `~/bgutil-ytdlp-pot-provider/server`.
+
 If you cloned the provider somewhere else, point the bot at it with
 `POT_PROVIDER_DIR` (§4).
 

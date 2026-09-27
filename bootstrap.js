@@ -12,6 +12,8 @@
  *   node bootstrap.js --deps-only    install if needed, then exit (used by `prestart`)
  *   node bootstrap.js --check        report what would happen, change nothing
  *   node bootstrap.js --force-install  install even if the stamp says up to date
+ *   node bootstrap.js --no-provider  skip installing the PO token provider
+ *   node bootstrap.js --with-python  also pip-install yt-dlp + its plugin
  *   node bootstrap.js --qr           extra flags are passed through to index.js
  *
  * It is deliberately dependency-free: it must run before node_modules exists.
@@ -34,7 +36,11 @@ const argv = process.argv.slice(2)
 const DEPS_ONLY = argv.includes('--deps-only')
 const CHECK_ONLY = argv.includes('--check')
 const FORCE = argv.includes('--force-install')
-const passthrough = argv.filter((a) => !['--deps-only', '--check', '--force-install'].includes(a))
+const NO_PROVIDER = argv.includes('--no-provider')
+const WITH_PYTHON = argv.includes('--with-python')
+const passthrough = argv.filter(
+    (a) => !['--deps-only', '--check', '--force-install', '--no-provider', '--with-python'].includes(a)
+)
 
 // npm is a .cmd shim on Windows; spawning it without a shell throws EINVAL.
 const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
@@ -194,6 +200,137 @@ function runNpm(cmd) {
     return true
 }
 
+/**
+ * The PO token provider is NOT an npm dependency — it is a separate repository
+ * that has to be cloned and compiled. Without it, .song/.video fall back to a
+ * much slower path. `lib/potSupervisor.js` only *runs* it; nothing installed it,
+ * which is why a fresh host logged "provider entry not found".
+ */
+const PROVIDER_REPO = 'https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git'
+// The upstream default branch is `master`, not `main` — a `main` clone 404s.
+const PROVIDER_BRANCH = 'master'
+const YTDLP_MIN = '2025.05.22'
+
+function providerServerDir() {
+    return process.env.POT_PROVIDER_DIR || path.join(os.homedir(), 'bgutil-ytdlp-pot-provider', 'server')
+}
+
+function providerEntry() {
+    return path.join(providerServerDir(), 'build', 'main.js')
+}
+
+function hasCommand(cmd) {
+    const probe = process.platform === 'win32' ? 'where' : 'which'
+    try {
+        return spawnSync(probe, [cmd], { stdio: 'ignore', shell: USE_SHELL }).status === 0
+    } catch {
+        return false
+    }
+}
+
+/** Clone + build the provider if it is not already usable. Never fatal. */
+function ensureProvider() {
+    const entry = providerEntry()
+
+    if (fs.existsSync(entry)) {
+        say(`PO token provider present (${entry})`)
+        return
+    }
+
+    if (NO_PROVIDER) {
+        warn('PO token provider missing and --no-provider was given — .song/.video will be slow.')
+        return
+    }
+
+    if (!hasCommand('git')) {
+        warn(
+            'PO token provider is missing and git is not available to install it.\n' +
+                `            expected: ${entry}\n` +
+                '            install git, or set POT_PROVIDER_DIR to an existing provider.'
+        )
+        return
+    }
+
+    const serverDir = providerServerDir()
+    const repoDir = path.dirname(serverDir) // <clone>/server
+    say('PO token provider not found — installing it (one-time, this can take a few minutes)…')
+
+    if (!fs.existsSync(repoDir)) {
+        const clone = spawnSync(
+            'git',
+            ['clone', '--depth', '1', '--branch', PROVIDER_BRANCH, PROVIDER_REPO, repoDir],
+            { stdio: 'inherit', shell: USE_SHELL }
+        )
+        if (clone.status !== 0) {
+            warn(`could not clone the provider into ${repoDir} — .song/.video will be slow.`)
+            return
+        }
+    }
+
+    if (!fs.existsSync(path.join(serverDir, 'node_modules'))) {
+        const ci = spawnSync(NPM, ['ci', '--no-audit', '--no-fund'], {
+            cwd: serverDir,
+            stdio: 'inherit',
+            shell: USE_SHELL,
+        })
+        if (ci.status !== 0) {
+            warn(`"npm ci" failed in ${serverDir} — the provider will not be available.`)
+            return
+        }
+    }
+
+    // Upstream has no "build" script; compiling with the local tsc is the
+    // documented step and produces build/main.js. Resolve the local binary
+    // rather than relying on npx being on PATH.
+    const localTsc = path.join(serverDir, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc')
+    const build = fs.existsSync(localTsc)
+        ? spawnSync(localTsc, [], { cwd: serverDir, stdio: 'inherit', shell: USE_SHELL })
+        : spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsc'], {
+              cwd: serverDir,
+              stdio: 'inherit',
+              shell: USE_SHELL,
+          })
+
+    if (build.status !== 0 || !fs.existsSync(entry)) {
+        warn('could not build the provider — .song/.video will fall back to the slow path.')
+        return
+    }
+
+    say(`PO token provider installed ✅ (${entry})`)
+}
+
+/** yt-dlp + its plugin live in python, outside npm's reach. Detect and report. */
+function reportPythonDeps() {
+    const hasYtdlp = hasCommand('yt-dlp')
+
+    if (hasYtdlp) {
+        const res = spawnSync('yt-dlp', ['--version'], { encoding: 'utf8', shell: USE_SHELL })
+        const version = (res.stdout || '').trim()
+        // The version probe can legitimately fail (sandboxed spawn, wrapper
+        // script). Report that it exists rather than printing nothing at all.
+        say(version ? `yt-dlp ${version} (needs >= ${YTDLP_MIN})` : 'yt-dlp present (version unreadable)')
+    } else if (WITH_PYTHON) {
+        const pip = hasCommand('pip') ? 'pip' : hasCommand('pip3') ? 'pip3' : null
+        if (!pip) {
+            warn('pip not found — install yt-dlp manually: pip install -U yt-dlp bgutil-ytdlp-pot-provider')
+            return
+        }
+        say('installing yt-dlp + the PO token plugin via pip…')
+        const res = spawnSync(pip, ['install', '-U', 'yt-dlp', 'bgutil-ytdlp-pot-provider'], {
+            stdio: 'inherit',
+            shell: USE_SHELL,
+        })
+        if (res.status === 0) say('yt-dlp installed ✅')
+        else warn('pip install failed — .song/.video will not work until yt-dlp is present.')
+    } else {
+        warn(
+            'yt-dlp not found — .song/.video need it.\n' +
+                '            pip install -U yt-dlp bgutil-ytdlp-pot-provider\n' +
+                '            (or re-run with --with-python to do it automatically)'
+        )
+    }
+}
+
 /** Non-fatal checks for things npm cannot provide. */
 function preflight() {
     const major = Number(process.versions.node.split('.')[0])
@@ -201,15 +338,8 @@ function preflight() {
         warn(`Node ${process.version} detected — this bot expects Node >= 22.`)
     }
 
-    const providerDir =
-        process.env.POT_PROVIDER_DIR || path.join(os.homedir(), 'bgutil-ytdlp-pot-provider', 'server')
-    if (!fs.existsSync(path.join(providerDir, 'build', 'main.js'))) {
-        warn(
-            'PO token provider not found — .song/.video will use the slow fallback path.\n' +
-                `            expected: ${path.join(providerDir, 'build', 'main.js')}\n` +
-                '            see DEPLOY.md §3 to install it.'
-        )
-    }
+    ensureProvider()
+    reportPythonDeps()
 
     try {
         require.resolve('ffmpeg-static', { paths: [ROOT] })
