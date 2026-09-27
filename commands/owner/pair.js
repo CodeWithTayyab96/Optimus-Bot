@@ -1,0 +1,105 @@
+const axios = require('axios');
+const { sleep } = require('../../lib/myfunc');
+const settings = require('../../settings');
+const style = require('../../lib/messageStyle');
+const { channelInfo } = require('../../lib/messageConfig');
+
+async function pairCommand(sock, chatId, message, q) {
+    try {
+        if (!settings.pairCodeService) {
+            return await sock.sendMessage(chatId, {
+                text: style.warning("The .pair command is disabled. Set `pairCodeService` in settings.js to the URL of an external pairing-code service that accepts `?number=` and returns JSON `{ code: '...' }`."),
+                ...channelInfo
+            });
+        }
+
+        if (!q) {
+            return await sock.sendMessage(chatId, {
+                text: style.invalidInput('Provide a valid WhatsApp number.', '.pair 91702395XXXX', { box: false }),
+                ...channelInfo
+            });
+        }
+
+        const numbers = q.split(',')
+            .map((v) => v.replace(/[^0-9]/g, ''))
+            .filter((v) => v.length > 5 && v.length < 20);
+
+        if (numbers.length === 0) {
+            return await sock.sendMessage(chatId, {
+                text: style.invalidInput('Invalid number. Please use the correct format.', '.pair 91702395XXXX', { box: false }),
+                ...channelInfo
+            });
+        }
+
+        for (const number of numbers) {
+            const whatsappID = number + '@s.whatsapp.net';
+            const result = await sock.onWhatsApp(whatsappID);
+
+            if (!result[0]?.exists) {
+                return await sock.sendMessage(chatId, {
+                    text: style.error('That number is not registered on WhatsApp.'),
+                    ...channelInfo
+                });
+            }
+
+            await sock.sendMessage(chatId, {
+                text: style.processing('Fetching your pairing code'),
+                ...channelInfo
+            });
+
+            try {
+                const base = settings.pairCodeService.replace(/\/$/, '');
+                const response = await axios.get(`${base}/code?number=${number}`);
+
+                if (response.data && response.data.code) {
+                    const code = response.data.code;
+                    if (code === "Service Unavailable") {
+                        throw new Error('Service Unavailable');
+                    }
+
+                    await sleep(5000);
+                    await sock.sendMessage(chatId, {
+                        text: `Your pairing code: ${code}`,
+                        ...channelInfo
+                    });
+                } else {
+                    throw new Error('Invalid response from server');
+                }
+            } catch (apiError) {
+                console.error('API Error:', apiError);
+                const errorMessage = apiError.message === 'Service Unavailable'
+                    ? style.error('The pairing service is currently unavailable. Please try again later.')
+                    : style.error('Failed to generate the pairing code. Please try again later.');
+
+                await sock.sendMessage(chatId, {
+                    text: errorMessage,
+                    ...channelInfo
+                });
+            }
+        }
+    } catch (error) {
+        console.error(error);
+        await sock.sendMessage(chatId, {
+            text: style.error('An error occurred. Please try again later.'),
+            ...channelInfo
+        });
+    }
+}
+
+module.exports = {
+    name: 'pair',
+    aliases: [],
+    category: 'owner',
+    description: 'Get a pairing code from the pairing service',
+    usage: '.pair <number>',
+    ownerOnly: false,
+    modOnly: false,
+    groupOnly: false,
+    privateOnly: false,
+    adminOnly: false,
+    botAdminNeeded: false,
+    async execute(sock, message, args, extra) {
+        await pairCommand(sock, extra.chatId, message, extra.userMessage.split(/\s+/).slice(1).join(' '));
+    },
+
+};
