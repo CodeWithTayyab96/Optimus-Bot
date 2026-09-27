@@ -120,19 +120,20 @@ cd Optimus-Bot
 npm install
 ```
 
-Or skip the manual install and let the bot bootstrap itself. `bootstrap.js` verifies
-`node_modules` against `package.json` + `package-lock.json`, installs anything missing
-(`npm ci` on a clean clone, `npm install` otherwise), and only then starts the bot:
+Or skip the manual install and let the bot bootstrap itself. `bootstrap.js` installs
+everything the bot needs — npm dependencies, the PO token provider (clone + build), and
+yt-dlp plus its plugin — and only then starts the bot:
 
 ```bash
-node bootstrap.js                # install if needed, then start
-node bootstrap.js --deps-only    # install if needed, then exit
+node bootstrap.js                # install anything missing, then start
+node bootstrap.js --deps-only    # install anything missing, then exit
 node bootstrap.js --check        # report what would happen, change nothing
 ```
 
-`npm start` runs the same check automatically via `prestart`, so both entry points are
-safe on a fresh host. A successful run is recorded in `node_modules/.optimus-deps.json`,
-so later starts skip the install entirely.
+**On a host or panel, use `node bootstrap.js` (or `npm start`) as the startup command.**
+If the startup command is `node index.js`, none of this runs and the extras are never
+installed. Every step is idempotent and cheap once things are present, so it is safe to
+leave in place permanently.
 
 ### Configuration
 

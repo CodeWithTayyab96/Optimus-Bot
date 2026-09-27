@@ -13,9 +13,10 @@
  *   node bootstrap.js --check        report what would happen, change nothing
  *   node bootstrap.js --force-install  install even if the stamp says up to date
  *   node bootstrap.js --no-provider  skip installing the PO token provider
- *   node bootstrap.js --with-python  also pip-install yt-dlp + its plugin
+ *   node bootstrap.js --no-python    skip installing yt-dlp + its plugin
  *   node bootstrap.js --qr           extra flags are passed through to index.js
  *
+ * Running it with no flags installs everything the bot needs and then starts it.
  * It is deliberately dependency-free: it must run before node_modules exists.
  */
 'use strict'
@@ -37,9 +38,19 @@ const DEPS_ONLY = argv.includes('--deps-only')
 const CHECK_ONLY = argv.includes('--check')
 const FORCE = argv.includes('--force-install')
 const NO_PROVIDER = argv.includes('--no-provider')
-const WITH_PYTHON = argv.includes('--with-python')
+// Python/yt-dlp is installed automatically when it is missing; --no-python opts
+// out. --with-python is still accepted as a no-op so older docs keep working.
+const NO_PYTHON = argv.includes('--no-python')
 const passthrough = argv.filter(
-    (a) => !['--deps-only', '--check', '--force-install', '--no-provider', '--with-python'].includes(a)
+    (a) =>
+        ![
+            '--deps-only',
+            '--check',
+            '--force-install',
+            '--no-provider',
+            '--no-python',
+            '--with-python',
+        ].includes(a)
 )
 
 // npm is a .cmd shim on Windows; spawning it without a shell throws EINVAL.
@@ -299,34 +310,48 @@ function ensureProvider() {
     say(`PO token provider installed ✅ (${entry})`)
 }
 
-/** yt-dlp + its plugin live in python, outside npm's reach. Detect and report. */
-function reportPythonDeps() {
-    const hasYtdlp = hasCommand('yt-dlp')
-
-    if (hasYtdlp) {
+/** yt-dlp + its plugin live in python, outside npm's reach. Install if missing. */
+function ensurePythonDeps() {
+    if (hasCommand('yt-dlp')) {
         const res = spawnSync('yt-dlp', ['--version'], { encoding: 'utf8', shell: USE_SHELL })
         const version = (res.stdout || '').trim()
         // The version probe can legitimately fail (sandboxed spawn, wrapper
         // script). Report that it exists rather than printing nothing at all.
         say(version ? `yt-dlp ${version} (needs >= ${YTDLP_MIN})` : 'yt-dlp present (version unreadable)')
-    } else if (WITH_PYTHON) {
-        const pip = hasCommand('pip') ? 'pip' : hasCommand('pip3') ? 'pip3' : null
-        if (!pip) {
-            warn('pip not found — install yt-dlp manually: pip install -U yt-dlp bgutil-ytdlp-pot-provider')
-            return
-        }
-        say('installing yt-dlp + the PO token plugin via pip…')
-        const res = spawnSync(pip, ['install', '-U', 'yt-dlp', 'bgutil-ytdlp-pot-provider'], {
-            stdio: 'inherit',
-            shell: USE_SHELL,
-        })
-        if (res.status === 0) say('yt-dlp installed ✅')
-        else warn('pip install failed — .song/.video will not work until yt-dlp is present.')
+        return
+    }
+
+    if (NO_PYTHON) {
+        warn('yt-dlp is missing and --no-python was given — .song/.video will not work.')
+        return
+    }
+
+    const pip = hasCommand('pip') ? 'pip' : hasCommand('pip3') ? 'pip3' : null
+    if (!pip) {
+        warn(
+            'yt-dlp is missing and pip was not found to install it.\n' +
+                '            install python + pip, then: pip install -U yt-dlp bgutil-ytdlp-pot-provider'
+        )
+        return
+    }
+
+    say('yt-dlp not found — installing it and the PO token plugin via pip…')
+    const pipArgs = ['install', '-U', 'yt-dlp', 'bgutil-ytdlp-pot-provider']
+    let res = spawnSync(pip, pipArgs, { stdio: 'inherit', shell: USE_SHELL })
+
+    // Externally-managed or permission-restricted pythons (PEP 668, system
+    // python) reject a global install — retry into the user site instead.
+    if (res.status !== 0) {
+        say('global install refused — retrying with --user…')
+        res = spawnSync(pip, [...pipArgs, '--user'], { stdio: 'inherit', shell: USE_SHELL })
+    }
+
+    if (res.status === 0 && hasCommand('yt-dlp')) {
+        say('yt-dlp installed ✅')
     } else {
         warn(
-            'yt-dlp not found — .song/.video need it.\n' +
-                '            pip install -U yt-dlp bgutil-ytdlp-pot-provider\n' +
-                '            (or re-run with --with-python to do it automatically)'
+            'could not install yt-dlp automatically — .song/.video will not work.\n' +
+                '            try: pip install -U --user yt-dlp bgutil-ytdlp-pot-provider'
         )
     }
 }
@@ -339,7 +364,7 @@ function preflight() {
     }
 
     ensureProvider()
-    reportPythonDeps()
+    ensurePythonDeps()
 
     try {
         require.resolve('ffmpeg-static', { paths: [ROOT] })

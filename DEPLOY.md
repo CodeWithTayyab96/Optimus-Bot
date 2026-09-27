@@ -62,24 +62,40 @@ node index.js
 
 ### Doing it in one command instead
 
-`bootstrap.js` performs steps 1 and 3 for you — it installs the bot's npm
-dependencies, then clones and compiles the PO token provider if it is missing,
-and reports the state of the python side:
+`bootstrap.js` performs steps 1–3 for you: it installs the bot's npm dependencies,
+clones and compiles the PO token provider if it is missing, and pip-installs yt-dlp
+plus its plugin if that is missing. Then it starts the bot.
 
 ```bash
-node bootstrap.js                # deps + provider, then start
+node bootstrap.js                # install anything missing, then start
 node bootstrap.js --deps-only    # the same, then exit
-node bootstrap.js --no-provider  # skip the provider (leave it to you)
-node bootstrap.js --with-python  # also pip-install yt-dlp + the plugin
+node bootstrap.js --no-provider  # skip the PO token provider
+node bootstrap.js --no-python    # skip yt-dlp + its plugin
+node bootstrap.js --check        # report the npm-dependency decision only
 ```
+
+**⚠️ Make the host actually use it.** This is the step that catches people: if the
+panel's startup command is `node index.js`, bootstrap never runs and nothing is
+ever installed. Set the startup command to one of:
+
+| Startup command | What happens |
+|---|---|
+| `node bootstrap.js` | installs anything missing, then starts the bot |
+| `npm start` | runs `prestart` (bootstrap `--deps-only`), then `node index.js` |
+| `node index.js` | **nothing is installed** — only use once the host is fully provisioned |
+
+Every step is idempotent and cheap when things are already present, so it is safe
+to leave the bootstrap in the startup command permanently.
 
 Notes:
 
 - The provider's default branch is **`master`**, not `main`.
 - Upstream has no `build` script — the build step is `tsc`, run from
   `server/node_modules/.bin/tsc` so it does not depend on `npx` being on `PATH`.
-- The provider is optional: if the clone or build fails, bootstrap warns and
+- The provider and yt-dlp are both optional: if either fails, bootstrap warns and
   starts the bot anyway. Only `.song`/`.video` degrade.
+- `pip install` is retried with `--user` automatically when a global install is
+  refused (PEP 668 externally-managed environments).
 - Point `POT_PROVIDER_DIR` at a different location to skip the default
   `~/bgutil-ytdlp-pot-provider/server`.
 
