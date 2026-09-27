@@ -4,7 +4,11 @@
   "description": "Optimus Bot — WhatsApp Bot",
   "main": "index.js",
   "scripts": {
+    "prestart": "node bootstrap.js --deps-only",
     "start": "node index.js",
+    "boot": "node bootstrap.js",
+    "deps": "node bootstrap.js --deps-only",
+    "deps:check": "node bootstrap.js --check",
     "start:optimized": "node --max-old-space-size=512 --optimize-for-size --gc-interval=100 index.js",
     "cleanup": "node cleanup.js",
     "reset-session": "node reset-session.js",
@@ -79,5 +83,14 @@
   },
   "devDependencies": {
     "jest": "^30.4.2"
+  },
+  "allowScripts": {
+    "@whiskeysockets/baileys@7.0.0-rc13": true,
+    "es5-ext@0.10.64": true,
+    "ffmpeg-static@5.3.0": true,
+    "protobufjs@6.8.8": true,
+    "protobufjs@7.6.1": true,
+    "sharp@0.32.6": true,
+    "unrs-resolver@1.12.2": true
   }
 }

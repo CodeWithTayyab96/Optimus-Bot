@@ -108,8 +108,8 @@ To change a model, edit `lib/aiConfig.js` directly. Run `.aistatus` as the bot o
 
 ### Prerequisites
 
-- **Node.js** ≥ 18.0.0
-- **FFmpeg** installed and available in PATH
+- **Node.js** ≥ 22.0.0
+- **FFmpeg** — bundled via `ffmpeg-static`; a system install is optional (see `DEPLOY.md` §5)
 - A WhatsApp account for pairing
 
 ### Installation
@@ -119,6 +119,20 @@ git clone https://github.com/CodeWithTayyab96/Optimus-Bot.git
 cd Optimus-Bot
 npm install
 ```
+
+Or skip the manual install and let the bot bootstrap itself. `bootstrap.js` verifies
+`node_modules` against `package.json` + `package-lock.json`, installs anything missing
+(`npm ci` on a clean clone, `npm install` otherwise), and only then starts the bot:
+
+```bash
+node bootstrap.js                # install if needed, then start
+node bootstrap.js --deps-only    # install if needed, then exit
+node bootstrap.js --check        # report what would happen, change nothing
+```
+
+`npm start` runs the same check automatically via `prestart`, so both entry points are
+safe on a fresh host. A successful run is recorded in `node_modules/.optimus-deps.json`,
+so later starts skip the install entirely.
 
 ### Configuration
 

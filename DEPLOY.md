@@ -38,8 +38,11 @@ then needs ~15–25 s to warm up before it serves tokens).
 ## 3. Setup
 
 ```bash
-# 1. bot dependencies
+# 1. bot dependencies — either install them yourself…
 npm install
+#    …or let the bot do it: `node bootstrap.js` verifies node_modules against
+#    package.json + package-lock.json, installs what is missing (npm ci on a
+#    clean clone), then starts the bot. `npm start` does the same via prestart.
 
 # 2. yt-dlp + the PO token plugin (into the SAME python that runs yt-dlp)
 pip install -U yt-dlp bgutil-ytdlp-pot-provider
@@ -190,6 +193,7 @@ Last-known state is kept in `data/dlHealthState.json`.
 | `.song`/`.video` intermittent 403 | is the provider up? `.dlstatus` → "PO token provider (bgutil)" |
 | `Requested format is not available` | transient; retry — the fallback chain absorbs it |
 | `spawn ffmpeg ENOENT` | ffmpeg missing — `npm install` (ffmpeg-static) or set `FFMPEG_PATH` |
+| `Cannot find module 'sharp'` / `Could not load the sharp module` after a clean install | **npm ≥ 12 blocks unreviewed install scripts by default**, so `sharp` and `ffmpeg-static` never build. Check the `allowScripts` field in `package.json` covers them; re-approve with `npm approve-scripts --all` (npm ≥ 11.16). |
 | `.threads` / `.capcut` say "not available" | expected — no working free source exists (see the command comments) |
 | Slow downloads | a configured proxy is slow — check `.dlstatus` proxy lines |
 
