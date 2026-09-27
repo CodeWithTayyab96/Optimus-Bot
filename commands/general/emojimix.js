@@ -3,6 +3,7 @@ const fs = require('fs');
 const { exec } = require('child_process');
 const path = require('path');
 const { ffmpegBin } = require('../../lib/ffmpegPath');
+const settings = require('../../settings');
 
 async function emojimixCommand(sock, chatId, msg) {
     try {
@@ -26,8 +27,8 @@ async function emojimixCommand(sock, chatId, msg) {
 
         let [emoji1, emoji2] = args[0].split('+').map(e => e.trim());
 
-        // Using Tenor API endpoint
-        const url = `https://tenor.googleapis.com/v2/featured?key=AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCYQ&contentfilter=high&media_filter=png_transparent&component=proactive&collection=emoji_kitchen_v5&q=${encodeURIComponent(emoji1)}_${encodeURIComponent(emoji2)}`;
+        // Using Tenor API endpoint (key lives in settings.js, never committed)
+        const url = `https://tenor.googleapis.com/v2/featured?key=${settings.tenorApiKey}&contentfilter=high&media_filter=png_transparent&component=proactive&collection=emoji_kitchen_v5&q=${encodeURIComponent(emoji1)}_${encodeURIComponent(emoji2)}`;
 
         const response = await fetch(url);
         const data = await response.json();

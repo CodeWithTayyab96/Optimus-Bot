@@ -36,8 +36,9 @@ async function stickerTelegramCommand(sock, chatId, msg) {
         // Get pack name from URL
         const packName = args[0].replace("https://t.me/addstickers/", "");
 
-        // Using working bot token
-        const botToken = '7801479976:AAGuPL0a7kXXBYz6XUSR_ll2SR5V_W6oHl4';
+        // Token lives in settings.js (never committed); used read-only against
+        // the public Bot API to fetch sticker pack metadata.
+        const botToken = settings.telegramBotToken;
         
         try {
             // Fetch sticker pack info

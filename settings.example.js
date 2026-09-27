@@ -32,6 +32,8 @@ const settings = {
   openaiImageModel: process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
   tmdbApiKey: process.env.TMDB_API_KEY || 'YOUR_TMDB_API_KEY',
   omdbApiKey: 'YOUR_OMDB_API_KEY',
+  tenorApiKey: process.env.TENOR_API_KEY || 'YOUR_TENOR_API_KEY', // .emojimix
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN', // .stickertelegram
 
   // ── Proxy pool (optional) ─────────────────────────────────
   proxies: (process.env.PROXIES || '')
