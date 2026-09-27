@@ -76,7 +76,31 @@ setInterval(() => {
     }
 }, 30_000) // check every 30 seconds
 
-let owner = JSON.parse(fs.readFileSync('./data/owner.json'))
+// `data/` is runtime state and is NOT committed, so on a fresh clone it may not
+// exist yet. Create it and seed owner.json from settings.ownerNumber rather
+// than crashing with ENOENT. Nothing else in the codebase ever writes this
+// file, so it has to be created here on first run.
+const DATA_DIR = './data'
+const OWNER_FILE = `${DATA_DIR}/owner.json`
+
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true })
+}
+
+let owner
+try {
+    owner = JSON.parse(fs.readFileSync(OWNER_FILE, 'utf8'))
+    if (!Array.isArray(owner)) owner = []
+} catch (err) {
+    // Missing or corrupt — seed it from the configured owner number.
+    owner = settings.ownerNumber ? [String(settings.ownerNumber)] : []
+    try {
+        fs.writeFileSync(OWNER_FILE, JSON.stringify(owner, null, 2))
+        console.log(`📝 Created ${OWNER_FILE} with owner ${owner.join(', ') || '(none)'}`)
+    } catch (writeErr) {
+        console.warn(`Could not create ${OWNER_FILE}: ${writeErr.message}`)
+    }
+}
 
 global.botname = "OPTIMUS BOT"
 global.themeemoji = "•"
