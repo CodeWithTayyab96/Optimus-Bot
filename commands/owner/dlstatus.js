@@ -9,6 +9,7 @@ const style = require('../../lib/messageStyle');
 const dlHealth = require('../../lib/dlHealth');
 const proxyPool = require('../../lib/proxyPool');
 const potSupervisor = require('../../lib/potSupervisor');
+const ytdlp = require('../../lib/ytdlp');
 
 /** Hide proxy credentials when displaying them. */
 function maskProxy(u) {
@@ -61,6 +62,29 @@ module.exports = {
             const healthy = pool.filter(p => p.healthy).length;
             lines.push(`🌐 Proxy pool: ${healthy}/${pool.length} healthy · last used: ${maskProxy(proxyPool.getLastUsed()) || 'direct'}`);
             for (const p of pool.slice(0, 5)) lines.push(`   ${p.healthy ? '✅' : '⚠️'} ${maskProxy(p.url)}`);
+        }
+
+        // yt-dlp runtime diagnosis. Owner-only, so paths are safe to show here;
+        // this is what distinguishes "missing" from "present but won't run".
+        try {
+            const d = await ytdlp.diagnose();
+            lines.push('', '🔧 yt-dlp runtime');
+            lines.push(`   binary: ${d.bin}`);
+            lines.push(
+                d.exists
+                    ? `   ✅ file exists (${(d.sizeBytes / 1048576).toFixed(1)} MB)`
+                    : '   ❌ file MISSING'
+            );
+            if (d.exists) lines.push(`   ${d.executable ? '✅ execute bit set' : '❌ execute bit NOT set'}`);
+            lines.push(`   host: ${d.platform}${d.libc !== 'n/a' ? ` · ${d.libc}` : ''}`);
+            lines.push(`   TMPDIR: ${d.tmpdir}${d.tmpdirOverridden ? ' (project-local)' : ' (system default)'}`);
+            lines.push(d.ok ? `   ✅ runs: v${d.version}` : `   ❌ will not run: ${d.error}`);
+            if (!d.ok && d.stderr) {
+                const last = d.stderr.split('\n').filter(Boolean).pop() || '';
+                if (last) lines.push(`   stderr: ${last.slice(0, 140)}`);
+            }
+        } catch (e) {
+            lines.push('', `🔧 yt-dlp diagnosis unavailable: ${e.message}`);
         }
 
         lines.push('ℹ️ Dead sources fail fast; the affected command shows an honest error.');

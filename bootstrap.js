@@ -371,6 +371,28 @@ function sleepSync(ms) {
     }
 }
 
+/**
+ * Environment for spawning yt-dlp. PyInstaller onefile builds unpack themselves
+ * into the temp dir on every run, so a noexec / read-only / tiny /tmp breaks the
+ * binary while everything else works. Point TMPDIR at a writable dir inside the
+ * project; keep the system default if that fails.
+ */
+const TMP_DIR = process.env.OPTIMUS_TMP_DIR || path.join(STANDALONE_DIR, 'tmp')
+
+function tempEnv() {
+    const env = { ...process.env }
+    try {
+        fs.mkdirSync(TMP_DIR, { recursive: true })
+        fs.accessSync(TMP_DIR, fs.constants.W_OK)
+        env.TMPDIR = TMP_DIR
+        env.TEMP = TMP_DIR
+        env.TMP = TMP_DIR
+    } catch {
+        /* fall back to the system temp dir */
+    }
+    return env
+}
+
 /** Run a command and capture its output. Async on purpose: `spawnSync` is
  *  blocked outright in some sandboxed environments (EBUSY), and blocking the
  *  event loop for a 90s probe buys nothing here. */
@@ -389,7 +411,7 @@ function runCapture(cmd, args, timeout) {
         // when the target is not a valid executable). Without this guard that
         // becomes an unhandled rejection and takes bootstrap down.
         try {
-            execFile(cmd, args, { timeout, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }, done)
+            execFile(cmd, args, { timeout, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024, env: tempEnv() }, done)
         } catch (err) {
             resolve({ failed: true, code: err.code, stdout: '', stderr: '', message: err.message })
         }
@@ -428,13 +450,42 @@ function pipInvocations() {
     return out
 }
 
+/**
+ * Print everything needed to explain why a yt-dlp binary will not run.
+ *
+ * Without this the console only said "version unreadable", which is
+ * indistinguishable between: file missing, file not executable, wrong
+ * architecture/libc, and an unwritable temp dir.
+ */
+function describeYtdlpFailure(bin, check) {
+    const lines = [`path      : ${bin}`]
+    try {
+        const st = fs.statSync(bin)
+        lines.push(`exists    : yes (${(st.size / 1048576).toFixed(1)} MB)`)
+        const execBit = process.platform === 'win32' || Boolean(st.mode & 0o111)
+        lines.push(`executable: ${execBit ? 'yes' : 'NO — the execute bit is not set'}`)
+    } catch (err) {
+        lines.push(`exists    : NO (${err.code || err.message})`)
+    }
+    const libc = process.platform === 'linux' ? ` (${isMusl() ? 'musl' : 'glibc'})` : ''
+    lines.push(`platform  : ${process.platform}/${process.arch}${libc}`)
+    lines.push(`TMPDIR    : ${tempEnv().TMPDIR || '(system default)'}`)
+    if (check && check.why) lines.push(`error     : ${check.why}`)
+
+    warn('yt-dlp could not be run — diagnosis:')
+    for (const line of lines) say(`  ${line}`)
+}
+
 async function reportYtdlp() {
     const bin = ytdlpOverride || 'yt-dlp'
     const check = await verifyYtdlp(bin)
     // Say WHY it failed rather than a bare "version unreadable" — a wrong-libc
     // build is the common cause and the loader message names it.
-    if (check.ok) say(`yt-dlp ${check.version} (needs >= ${YTDLP_MIN})`)
-    else warn(`yt-dlp at ${bin} will not run: ${check.why}`)
+    if (check.ok) {
+        say(`yt-dlp ${check.version} (needs >= ${YTDLP_MIN})`)
+    } else {
+        describeYtdlpFailure(bin, check)
+    }
 }
 
 async function downloadStandaloneYtdlp() {
@@ -479,7 +530,7 @@ async function downloadStandaloneYtdlp() {
             return dest
         }
 
-        warn(`${asset} downloaded but will not run on this host: ${check.why}`)
+        describeYtdlpFailure(dest, check)
         try {
             fs.rmSync(dest, { force: true })
         } catch {
@@ -613,7 +664,8 @@ async function ensurePythonDeps() {
             await reportYtdlp()
             return
         }
-        warn(`the existing standalone yt-dlp will not run (${check.why}) — replacing it.`)
+        describeYtdlpFailure(standalone, check)
+        say('replacing it with a fresh download…')
         try {
             fs.rmSync(standalone, { force: true })
         } catch {
