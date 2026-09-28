@@ -21,7 +21,7 @@
  */
 'use strict'
 
-const { spawn, spawnSync } = require('child_process')
+const { spawn, spawnSync, execFile } = require('child_process')
 const crypto = require('crypto')
 const fs = require('fs')
 const os = require('os')
@@ -318,16 +318,104 @@ function ensureProvider() {
 // eggs especially — have neither, so fall back to yt-dlp's standalone binary,
 // which bundles its own interpreter.
 const STANDALONE_DIR = path.join(ROOT, '.tools')
-const YTDLP_STANDALONE_URL =
-    process.platform === 'win32'
-        ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
-        : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
+
+// yt-dlp publishes a separate build per CPU architecture AND per libc. Picking
+// the wrong one downloads a binary that downloads fine but cannot execute —
+// which is indistinguishable from "yt-dlp is not installed" at the call site.
+// Alpine-based containers are musl; nearly everything else is glibc.
+function isMusl() {
+    if (process.platform !== 'linux') return false
+    try {
+        if (fs.existsSync('/etc/alpine-release')) return true
+        return fs.readdirSync('/lib').some((f) => f.startsWith('ld-musl-'))
+    } catch {
+        return false
+    }
+}
+
+/** Candidate asset names for this host, best guess first. */
+function standaloneAssetNames() {
+    if (process.platform === 'win32') {
+        return process.arch === 'arm64' ? ['yt-dlp_arm64.exe'] : ['yt-dlp.exe']
+    }
+    if (process.platform !== 'linux') return []
+    // armv7l is published only as a .zip, so it cannot be used directly.
+    if (process.arch === 'arm') return []
+
+    const suffix = process.arch === 'arm64' ? '_aarch64' : ''
+    const glibc = `yt-dlp_linux${suffix}`
+    const musl = `yt-dlp_musllinux${suffix}`
+    return isMusl() ? [musl, glibc] : [glibc, musl]
+}
+
+function standaloneUrl(asset) {
+    return `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${asset}`
+}
 
 // Set when we fall back to the standalone binary, so the spawned bot inherits it.
 let ytdlpOverride = null
 
 function standalonePath() {
     return path.join(STANDALONE_DIR, process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp')
+}
+
+/** Synchronous sleep — used between retries of an external probe. */
+function sleepSync(ms) {
+    try {
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+    } catch {
+        const end = Date.now() + ms
+        while (Date.now() < end) {
+            /* busy wait fallback */
+        }
+    }
+}
+
+/** Run a command and capture its output. Async on purpose: `spawnSync` is
+ *  blocked outright in some sandboxed environments (EBUSY), and blocking the
+ *  event loop for a 90s probe buys nothing here. */
+function runCapture(cmd, args, timeout) {
+    return new Promise((resolve) => {
+        const done = (err, stdout, stderr) =>
+            resolve({
+                failed: Boolean(err),
+                code: err ? err.code : 0,
+                stdout: stdout || '',
+                stderr: stderr || '',
+                message: err ? err.message : '',
+            })
+
+        // execFile can THROW synchronously rather than calling back (e.g. EINVAL
+        // when the target is not a valid executable). Without this guard that
+        // becomes an unhandled rejection and takes bootstrap down.
+        try {
+            execFile(cmd, args, { timeout, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }, done)
+        } catch (err) {
+            resolve({ failed: true, code: err.code, stdout: '', stderr: '', message: err.message })
+        }
+    })
+}
+
+/**
+ * Actually RUN a candidate. A successful download proves nothing: the wrong-arch
+ * or wrong-libc build downloads perfectly and then fails to execute, which is
+ * what made a present binary look missing. Returns the version on success, or a
+ * human-readable reason on failure.
+ *
+ * Retries a couple of times — a freshly written binary can be briefly
+ * un-spawnable while antivirus or the disk catches up.
+ */
+async function verifyYtdlp(bin, attempts = 3) {
+    let last = { ok: false, why: 'never attempted' }
+    for (let i = 1; i <= attempts; i++) {
+        const res = await runCapture(bin, ['--version'], 90000)
+        const out = String(res.stdout || '').trim()
+        if (!res.failed && /^\d{4}\.\d{2}\.\d{2}/.test(out)) return { ok: true, version: out }
+        const stderr = String(res.stderr || '').trim().split('\n').filter(Boolean).pop()
+        last = { ok: false, why: stderr || res.message || `exit code ${res.code}` }
+        if (i < attempts) sleepSync(2000)
+    }
+    return last
 }
 
 /** Every way of invoking pip we can think of, in preference order. */
@@ -340,13 +428,13 @@ function pipInvocations() {
     return out
 }
 
-function reportYtdlp() {
+async function reportYtdlp() {
     const bin = ytdlpOverride || 'yt-dlp'
-    const res = spawnSync(bin, ['--version'], { encoding: 'utf8', shell: USE_SHELL })
-    const version = (res.stdout || '').trim()
-    // The version probe can legitimately fail (sandboxed spawn, wrapper script).
-    // Report that it exists rather than printing nothing at all.
-    say(version ? `yt-dlp ${version} (needs >= ${YTDLP_MIN})` : `yt-dlp present at ${bin} (version unreadable)`)
+    const check = await verifyYtdlp(bin)
+    // Say WHY it failed rather than a bare "version unreadable" — a wrong-libc
+    // build is the common cause and the loader message names it.
+    if (check.ok) say(`yt-dlp ${check.version} (needs >= ${YTDLP_MIN})`)
+    else warn(`yt-dlp at ${bin} will not run: ${check.why}`)
 }
 
 async function downloadStandaloneYtdlp() {
@@ -361,77 +449,92 @@ async function downloadStandaloneYtdlp() {
         /* the download below will report the real failure */
     }
 
-    say(`downloading the standalone yt-dlp binary → ${dest}`)
-    const MIN_BYTES = 1024 * 1024 // the real binary is 17-30 MB; anything less is an error page
+    const MIN_BYTES = 1024 * 1024 // the real binary is 17-38 MB; anything less is an error page
+    const assets = standaloneAssetNames()
 
-    const ok = () => {
+    if (assets.length === 0) {
+        warn(`no standalone yt-dlp build for ${process.platform}/${process.arch} — .song/.video need python here.`)
+        return null
+    }
+
+    for (const asset of assets) {
+        say(`downloading ${asset} → ${dest}`)
+
+        if (!(await fetchToFile(standaloneUrl(asset), dest, MIN_BYTES))) {
+            warn(`could not download ${asset}`)
+            continue
+        }
         try {
-            if (!fs.existsSync(dest)) return false
-            const size = fs.statSync(dest).size
-            if (size < MIN_BYTES) return false
-            try {
-                fs.chmodSync(dest, 0o755)
-            } catch {
-                /* no chmod on this platform */
-            }
-            say(`standalone yt-dlp downloaded ✅ (${(size / 1048576).toFixed(1)} MB)`)
-            return true
+            fs.chmodSync(dest, 0o755)
+        } catch {
+            /* no chmod on this platform */
+        }
+
+        // A successful download proves nothing — the wrong-arch or wrong-libc
+        // build downloads perfectly and then fails to execute. Run it.
+        const check = await verifyYtdlp(dest)
+        if (check.ok) {
+            const mb = (fs.statSync(dest).size / 1048576).toFixed(1)
+            say(`standalone yt-dlp ${check.version} ready ✅ (${asset}, ${mb} MB)`)
+            return dest
+        }
+
+        warn(`${asset} downloaded but will not run on this host: ${check.why}`)
+        try {
+            fs.rmSync(dest, { force: true })
+        } catch {
+            /* try the next candidate regardless */
+        }
+    }
+
+    warn('no usable standalone yt-dlp build for this host — .song/.video will not work.')
+    return null
+}
+
+/**
+ * Download a URL to a file. Tries curl, then wget, then node's own fetch.
+ *
+ * NOTE: curl/wget run WITHOUT a shell on purpose. With `shell: true` the
+ * argument array is flattened into a command line and never quoted, so a
+ * destination path containing spaces gets split into several arguments and curl
+ * fetches a fragment of the path instead of the file.
+ */
+async function fetchToFile(url, dest, minBytes) {
+    const usable = () => {
+        try {
+            return fs.existsSync(dest) && fs.statSync(dest).size >= minBytes
         } catch {
             return false
         }
     }
 
-    // NOTE: these run WITHOUT a shell on purpose. With `shell: true` the
-    // argument array is flattened into a command line and never quoted, so a
-    // destination path containing spaces gets split into several arguments and
-    // curl fetches a fragment of the path instead of the binary.
     const downloaders = [
         {
             label: 'curl',
             cmd: process.platform === 'win32' ? 'curl.exe' : 'curl',
-            args: [
-                '-L',
-                '--fail',
-                '--silent',
-                '--show-error',
-                '--max-time',
-                '600',
-                '-o',
-                dest,
-                YTDLP_STANDALONE_URL,
-            ],
+            args: ['-L', '--fail', '--silent', '--show-error', '--max-time', '600', '-o', dest, url],
         },
-        {
-            label: 'wget',
-            cmd: 'wget',
-            args: ['-q', '--timeout=600', '-O', dest, YTDLP_STANDALONE_URL],
-        },
+        { label: 'wget', cmd: 'wget', args: ['-q', '--timeout=600', '-O', dest, url] },
     ]
+
     for (const { label, cmd, args } of downloaders) {
         if (!hasCommand(label)) continue
         say(`trying ${label}…`)
         spawnSync(cmd, args, { stdio: 'inherit' })
-        if (ok()) return dest
+        if (usable()) return true
     }
 
-    // Last resort: node's own fetch (no external tool needed).
     try {
         say('trying node fetch…')
-        const res = await fetch(YTDLP_STANDALONE_URL, { redirect: 'follow' })
+        const res = await fetch(url, { redirect: 'follow' })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const buf = Buffer.from(await res.arrayBuffer())
-        if (buf.length < MIN_BYTES) throw new Error(`suspiciously small download (${buf.length} bytes)`)
+        if (buf.length < minBytes) throw new Error(`suspiciously small (${buf.length} bytes)`)
         fs.writeFileSync(dest, buf)
-        if (ok()) return dest
-        throw new Error('downloaded file did not verify')
+        return usable()
     } catch (err) {
-        warn(`could not download the standalone yt-dlp binary: ${err.message}`)
-        try {
-            fs.rmSync(dest, { force: true })
-        } catch {
-            /* nothing to clean up */
-        }
-        return null
+        warn(`fetch failed: ${err.message}`)
+        return false
     }
 }
 
@@ -494,16 +597,28 @@ async function ensurePythonDeps() {
                 /* not fatal */
             }
         }
-        reportYtdlp()
+        await reportYtdlp()
         return
     }
 
-    // A standalone binary downloaded on an earlier run counts as installed.
+    // A standalone binary from an earlier run counts as installed — but only if
+    // it actually RUNS. A wrong-libc or wrong-arch build must be replaced, not
+    // trusted, or a host that once downloaded the wrong one stays broken
+    // forever (this is exactly how the panel got stuck on "version unreadable").
     const standalone = standalonePath()
     if (fs.existsSync(standalone)) {
-        ytdlpOverride = standalone
-        reportYtdlp()
-        return
+        const check = await verifyYtdlp(standalone)
+        if (check.ok) {
+            ytdlpOverride = standalone
+            await reportYtdlp()
+            return
+        }
+        warn(`the existing standalone yt-dlp will not run (${check.why}) — replacing it.`)
+        try {
+            fs.rmSync(standalone, { force: true })
+        } catch {
+            /* the download below overwrites it anyway */
+        }
     }
 
     if (NO_PYTHON) {
