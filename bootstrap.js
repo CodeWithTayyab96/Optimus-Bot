@@ -438,6 +438,18 @@ async function downloadStandaloneYtdlp() {
 /** yt-dlp + its plugin live in python, outside npm's reach. Install if missing. */
 async function ensurePythonDeps() {
     if (hasCommand('yt-dlp')) {
+        // A PATH yt-dlp (pip-installed) can load the bgutil PO-token plugin, so
+        // prefer it and drop any standalone binary downloaded on an earlier run.
+        // Otherwise both exist and lib/ytdlp.js would pick the lesser one.
+        const stale = standalonePath()
+        if (fs.existsSync(stale)) {
+            try {
+                fs.rmSync(stale, { force: true })
+                say('a full yt-dlp install is available — removed the standalone binary.')
+            } catch {
+                /* not fatal */
+            }
+        }
         reportYtdlp()
         return
     }
