@@ -290,12 +290,13 @@ function ensureProvider() {
         }
     }
 
-    // Upstream has no "build" script; compiling with the local tsc is the
-    // documented step and produces build/main.js. Resolve the local binary
-    // rather than relying on npx being on PATH.
-    const localTsc = path.join(serverDir, 'node_modules', '.bin', process.platform === 'win32' ? 'tsc.cmd' : 'tsc')
-    const build = fs.existsSync(localTsc)
-        ? spawnSync(localTsc, [], { cwd: serverDir, stdio: 'inherit', shell: USE_SHELL })
+    // Upstream has no "build" script; compiling with tsc is the documented step
+    // and produces build/main.js. Run typescript's own entry point through node
+    // rather than the .bin shim: the shim is a .cmd on Windows (needs a shell)
+    // and shell spawning mangles paths containing spaces.
+    const tscJs = path.join(serverDir, 'node_modules', 'typescript', 'bin', 'tsc')
+    const build = fs.existsSync(tscJs)
+        ? spawnSync(process.execPath, [tscJs], { cwd: serverDir, stdio: 'inherit' })
         : spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsc'], {
               cwd: serverDir,
               stdio: 'inherit',
@@ -310,14 +311,142 @@ function ensureProvider() {
     say(`PO token provider installed ✅ (${entry})`)
 }
 
+// ── yt-dlp ────────────────────────────────────────────────────
+// yt-dlp is a *python* program, so npm cannot install it (putting it in the
+// panel's NODE_PACKAGES field produces EUNKNOWNCONFIG). Most hosts have
+// python + pip and the normal path works. Some containers — Pterodactyl node
+// eggs especially — have neither, so fall back to yt-dlp's standalone binary,
+// which bundles its own interpreter.
+const STANDALONE_DIR = path.join(ROOT, '.tools')
+const YTDLP_STANDALONE_URL =
+    process.platform === 'win32'
+        ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
+        : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux'
+
+// Set when we fall back to the standalone binary, so the spawned bot inherits it.
+let ytdlpOverride = null
+
+function standalonePath() {
+    return path.join(STANDALONE_DIR, process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp')
+}
+
+/** Every way of invoking pip we can think of, in preference order. */
+function pipInvocations() {
+    const out = []
+    if (hasCommand('pip')) out.push(['pip'])
+    if (hasCommand('pip3')) out.push(['pip3'])
+    if (hasCommand('python3')) out.push(['python3', '-m', 'pip'])
+    if (hasCommand('python')) out.push(['python', '-m', 'pip'])
+    return out
+}
+
+function reportYtdlp() {
+    const bin = ytdlpOverride || 'yt-dlp'
+    const res = spawnSync(bin, ['--version'], { encoding: 'utf8', shell: USE_SHELL })
+    const version = (res.stdout || '').trim()
+    // The version probe can legitimately fail (sandboxed spawn, wrapper script).
+    // Report that it exists rather than printing nothing at all.
+    say(version ? `yt-dlp ${version} (needs >= ${YTDLP_MIN})` : `yt-dlp present at ${bin} (version unreadable)`)
+}
+
+async function downloadStandaloneYtdlp() {
+    const dest = standalonePath()
+    if (fs.existsSync(dest)) {
+        say(`standalone yt-dlp already present (${dest})`)
+        return dest
+    }
+    try {
+        fs.mkdirSync(STANDALONE_DIR, { recursive: true })
+    } catch {
+        /* the download below will report the real failure */
+    }
+
+    say(`downloading the standalone yt-dlp binary → ${dest}`)
+    const MIN_BYTES = 1024 * 1024 // the real binary is 17-30 MB; anything less is an error page
+
+    const ok = () => {
+        try {
+            if (!fs.existsSync(dest)) return false
+            const size = fs.statSync(dest).size
+            if (size < MIN_BYTES) return false
+            try {
+                fs.chmodSync(dest, 0o755)
+            } catch {
+                /* no chmod on this platform */
+            }
+            say(`standalone yt-dlp downloaded ✅ (${(size / 1048576).toFixed(1)} MB)`)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    // NOTE: these run WITHOUT a shell on purpose. With `shell: true` the
+    // argument array is flattened into a command line and never quoted, so a
+    // destination path containing spaces gets split into several arguments and
+    // curl fetches a fragment of the path instead of the binary.
+    const downloaders = [
+        {
+            label: 'curl',
+            cmd: process.platform === 'win32' ? 'curl.exe' : 'curl',
+            args: [
+                '-L',
+                '--fail',
+                '--silent',
+                '--show-error',
+                '--max-time',
+                '600',
+                '-o',
+                dest,
+                YTDLP_STANDALONE_URL,
+            ],
+        },
+        {
+            label: 'wget',
+            cmd: 'wget',
+            args: ['-q', '--timeout=600', '-O', dest, YTDLP_STANDALONE_URL],
+        },
+    ]
+    for (const { label, cmd, args } of downloaders) {
+        if (!hasCommand(label)) continue
+        say(`trying ${label}…`)
+        spawnSync(cmd, args, { stdio: 'inherit' })
+        if (ok()) return dest
+    }
+
+    // Last resort: node's own fetch (no external tool needed).
+    try {
+        say('trying node fetch…')
+        const res = await fetch(YTDLP_STANDALONE_URL, { redirect: 'follow' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const buf = Buffer.from(await res.arrayBuffer())
+        if (buf.length < MIN_BYTES) throw new Error(`suspiciously small download (${buf.length} bytes)`)
+        fs.writeFileSync(dest, buf)
+        if (ok()) return dest
+        throw new Error('downloaded file did not verify')
+    } catch (err) {
+        warn(`could not download the standalone yt-dlp binary: ${err.message}`)
+        try {
+            fs.rmSync(dest, { force: true })
+        } catch {
+            /* nothing to clean up */
+        }
+        return null
+    }
+}
+
 /** yt-dlp + its plugin live in python, outside npm's reach. Install if missing. */
-function ensurePythonDeps() {
+async function ensurePythonDeps() {
     if (hasCommand('yt-dlp')) {
-        const res = spawnSync('yt-dlp', ['--version'], { encoding: 'utf8', shell: USE_SHELL })
-        const version = (res.stdout || '').trim()
-        // The version probe can legitimately fail (sandboxed spawn, wrapper
-        // script). Report that it exists rather than printing nothing at all.
-        say(version ? `yt-dlp ${version} (needs >= ${YTDLP_MIN})` : 'yt-dlp present (version unreadable)')
+        reportYtdlp()
+        return
+    }
+
+    // A standalone binary downloaded on an earlier run counts as installed.
+    const standalone = standalonePath()
+    if (fs.existsSync(standalone)) {
+        ytdlpOverride = standalone
+        reportYtdlp()
         return
     }
 
@@ -326,45 +455,59 @@ function ensurePythonDeps() {
         return
     }
 
-    const pip = hasCommand('pip') ? 'pip' : hasCommand('pip3') ? 'pip3' : null
-    if (!pip) {
+    let pips = pipInvocations()
+
+    // python present but pip missing → try to bootstrap pip with ensurepip.
+    if (pips.length === 0 && (hasCommand('python3') || hasCommand('python'))) {
+        const py = hasCommand('python3') ? 'python3' : 'python'
+        say('python found but pip is missing — trying `ensurepip`…')
+        spawnSync(py, ['-m', 'ensurepip', '--upgrade'], { stdio: 'inherit', shell: USE_SHELL })
+        pips = pipInvocations()
+    }
+
+    if (pips.length > 0) {
+        const base = ['install', '-U', 'yt-dlp', 'bgutil-ytdlp-pot-provider']
+        for (const inv of pips) {
+            const [cmd, ...pre] = inv
+            say(`installing yt-dlp + its plugin via ${inv.join(' ')}…`)
+            let res = spawnSync(cmd, [...pre, ...base], { stdio: 'inherit', shell: USE_SHELL })
+
+            // Externally-managed or permission-restricted pythons (PEP 668,
+            // system python) reject a global install — retry into the user site.
+            if (res.status !== 0) {
+                say('global install refused — retrying with --user…')
+                res = spawnSync(cmd, [...pre, ...base, '--user'], { stdio: 'inherit', shell: USE_SHELL })
+            }
+            if (res.status === 0 && hasCommand('yt-dlp')) {
+                say('yt-dlp installed ✅')
+                return
+            }
+        }
+    }
+
+    // No usable python at all → standalone binary (bundles its own interpreter).
+    warn('no usable python/pip on this host — falling back to the standalone yt-dlp binary.')
+    const got = await downloadStandaloneYtdlp()
+    if (got) {
+        ytdlpOverride = got
         warn(
-            'yt-dlp is missing and pip was not found to install it.\n' +
-                '            install python + pip, then: pip install -U yt-dlp bgutil-ytdlp-pot-provider'
+            'using the standalone binary. NOTE: the bgutil PO-token plugin is a PYTHON\n' +
+                '            plugin, so without python some YouTube videos may still fail.'
         )
-        return
-    }
-
-    say('yt-dlp not found — installing it and the PO token plugin via pip…')
-    const pipArgs = ['install', '-U', 'yt-dlp', 'bgutil-ytdlp-pot-provider']
-    let res = spawnSync(pip, pipArgs, { stdio: 'inherit', shell: USE_SHELL })
-
-    // Externally-managed or permission-restricted pythons (PEP 668, system
-    // python) reject a global install — retry into the user site instead.
-    if (res.status !== 0) {
-        say('global install refused — retrying with --user…')
-        res = spawnSync(pip, [...pipArgs, '--user'], { stdio: 'inherit', shell: USE_SHELL })
-    }
-
-    if (res.status === 0 && hasCommand('yt-dlp')) {
-        say('yt-dlp installed ✅')
     } else {
-        warn(
-            'could not install yt-dlp automatically — .song/.video will not work.\n' +
-                '            try: pip install -U --user yt-dlp bgutil-ytdlp-pot-provider'
-        )
+        warn('yt-dlp is unavailable — .song/.video will not work on this host.')
     }
 }
 
 /** Non-fatal checks for things npm cannot provide. */
-function preflight() {
+async function preflight() {
     const major = Number(process.versions.node.split('.')[0])
     if (major < 22) {
         warn(`Node ${process.version} detected — this bot expects Node >= 22.`)
     }
 
     ensureProvider()
-    ensurePythonDeps()
+    await ensurePythonDeps()
 
     try {
         require.resolve('ffmpeg-static', { paths: [ROOT] })
@@ -380,10 +523,17 @@ function startBot() {
         process.exit(1)
     }
 
+    // Hand the bot the yt-dlp we actually resolved. lib/ytdlp.js reads
+    // YTDLP_BIN at module load, so the standalone fallback only works if the
+    // child inherits it.
+    const env = { ...process.env }
+    if (ytdlpOverride) env.YTDLP_BIN = ytdlpOverride
+
     const child = spawn(process.execPath, [entry, ...passthrough], {
         cwd: ROOT,
         stdio: 'inherit',
         windowsHide: false,
+        env,
     })
 
     child.on('error', (err) => {
@@ -410,7 +560,7 @@ function startBot() {
     }
 }
 
-function main() {
+async function main() {
     const p = plan()
 
     if (CHECK_ONLY) {
@@ -440,7 +590,7 @@ function main() {
         if (p.lockHash) writeStamp(p.lockHash, p.pkgHash)
     }
 
-    preflight()
+    await preflight()
 
     if (DEPS_ONLY) return
 
@@ -448,4 +598,7 @@ function main() {
     startBot()
 }
 
-main()
+main().catch((err) => {
+    console.error(`[bootstrap] unexpected failure: ${err && err.stack ? err.stack : err}`)
+    process.exit(1)
+})

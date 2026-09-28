@@ -90,12 +90,18 @@ to leave the bootstrap in the startup command permanently.
 Notes:
 
 - The provider's default branch is **`master`**, not `main`.
-- Upstream has no `build` script — the build step is `tsc`, run from
-  `server/node_modules/.bin/tsc` so it does not depend on `npx` being on `PATH`.
+- Upstream has no `build` script — the build step is `tsc`, invoked as
+  `node server/node_modules/typescript/bin/tsc` so it does not depend on `npx`
+  being on `PATH` (and survives install paths containing spaces).
 - The provider and yt-dlp are both optional: if either fails, bootstrap warns and
   starts the bot anyway. Only `.song`/`.video` degrade.
 - `pip install` is retried with `--user` automatically when a global install is
   refused (PEP 668 externally-managed environments).
+- **If the host has no python at all** — common on Pterodactyl *node* eggs —
+  bootstrap downloads yt-dlp's **standalone binary** into `.tools/` and points the
+  bot at it via `YTDLP_BIN`. That needs no python. Be aware, though, that the
+  bgutil PO-token plugin *is* a python plugin, so without python some YouTube
+  videos may still fail. A container that ships python remains the better option.
 - Point `POT_PROVIDER_DIR` at a different location to skip the default
   `~/bgutil-ytdlp-pot-provider/server`.
 
