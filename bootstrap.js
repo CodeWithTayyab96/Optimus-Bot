@@ -435,6 +435,50 @@ async function downloadStandaloneYtdlp() {
     }
 }
 
+/**
+ * Locate a usable yt-dlp executable.
+ * `pip install --user` drops the script in ~/.local/bin, which is usually NOT on
+ * the container's PATH — so a successful install can still look like a failure
+ * if you only test `hasCommand('yt-dlp')`.
+ */
+function findYtdlpBinary() {
+    if (hasCommand('yt-dlp')) return 'yt-dlp'
+    const exe = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
+    const candidate = path.join(os.homedir(), '.local', 'bin', exe)
+    try {
+        if (fs.existsSync(candidate)) return candidate
+    } catch {
+        /* fall through */
+    }
+    return null
+}
+
+/**
+ * Debian and Ubuntu build python without pip AND disable `ensurepip`, so the
+ * only way to get pip is the official bootstrap script.
+ */
+async function bootstrapPipWithScript(pythonCmd) {
+    const script = path.join(os.tmpdir(), 'optimus-get-pip.py')
+    try {
+        const res = await fetch('https://bootstrap.pypa.io/get-pip.py', { redirect: 'follow' })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const buf = Buffer.from(await res.arrayBuffer())
+        if (buf.length < 1024) throw new Error(`suspiciously small (${buf.length} bytes)`)
+        fs.writeFileSync(script, buf)
+    } catch (err) {
+        warn(`could not download get-pip.py: ${err.message}`)
+        return false
+    }
+
+    const res = spawnSync(pythonCmd, [script, '--user'], { stdio: 'inherit', shell: USE_SHELL })
+    try {
+        fs.rmSync(script, { force: true })
+    } catch {
+        /* leave it if it cannot be removed */
+    }
+    return res.status === 0
+}
+
 /** yt-dlp + its plugin live in python, outside npm's reach. Install if missing. */
 async function ensurePythonDeps() {
     if (hasCommand('yt-dlp')) {
@@ -467,14 +511,30 @@ async function ensurePythonDeps() {
         return
     }
 
-    let pips = pipInvocations()
+    // Building an invocation is not the same as it working: Debian/Ubuntu often
+    // ship `python3` with NO pip module at all, and `python3 -m pip` then exits
+    // with "No module named pip". Probe before trusting a candidate — the old
+    // check only tested whether the command existed, so ensurepip never ran.
+    const pipWorks = (inv) => {
+        const [cmd, ...pre] = inv
+        return spawnSync(cmd, [...pre, '--version'], { stdio: 'ignore', shell: USE_SHELL }).status === 0
+    }
 
-    // python present but pip missing → try to bootstrap pip with ensurepip.
-    if (pips.length === 0 && (hasCommand('python3') || hasCommand('python'))) {
-        const py = hasCommand('python3') ? 'python3' : 'python'
-        say('python found but pip is missing — trying `ensurepip`…')
-        spawnSync(py, ['-m', 'ensurepip', '--upgrade'], { stdio: 'inherit', shell: USE_SHELL })
-        pips = pipInvocations()
+    const pythonCmd = hasCommand('python3') ? 'python3' : hasCommand('python') ? 'python' : null
+    let pips = pipInvocations().filter(pipWorks)
+
+    // No *working* pip, but python is present → try to create one.
+    if (pips.length === 0 && pythonCmd) {
+        say('python found but pip is unavailable — trying `ensurepip`…')
+        spawnSync(pythonCmd, ['-m', 'ensurepip', '--upgrade'], { stdio: 'inherit', shell: USE_SHELL })
+        pips = pipInvocations().filter(pipWorks)
+    }
+
+    // Debian/Ubuntu disable ensurepip in their python builds, so fall back to
+    // the official get-pip bootstrap script.
+    if (pips.length === 0 && pythonCmd) {
+        say('`ensurepip` did not work — trying the official get-pip.py bootstrap…')
+        if (await bootstrapPipWithScript(pythonCmd)) pips = pipInvocations().filter(pipWorks)
     }
 
     if (pips.length > 0) {
@@ -490,8 +550,13 @@ async function ensurePythonDeps() {
                 say('global install refused — retrying with --user…')
                 res = spawnSync(cmd, [...pre, ...base, '--user'], { stdio: 'inherit', shell: USE_SHELL })
             }
-            if (res.status === 0 && hasCommand('yt-dlp')) {
-                say('yt-dlp installed ✅')
+
+            // A --user install lands in ~/.local/bin, which is usually NOT on
+            // PATH — so `hasCommand` alone would wrongly report failure.
+            const found = findYtdlpBinary()
+            if (found) {
+                if (found !== 'yt-dlp') ytdlpOverride = found
+                say(`yt-dlp installed ✅ with the PO-token plugin (${found})`)
                 return
             }
         }
