@@ -2,6 +2,38 @@
 
 All notable changes to Optimus Bot are documented here.
 
+## [Unreleased]
+
+### 🎬 YouTube downloads on hosts without Python
+
+- **Fixed: `.video` / `.song` failing with "Sign in to confirm you're not a bot" on a host with no Python.**
+  The bot pinned `youtube:player_client=mweb`, which *requires* a PO token. That token is produced by a
+  **Python** plugin, so on a Python-less host the client was pinned with no way to satisfy it, and YouTube
+  returned no usable formats at all. Measured with the standalone yt-dlp against a real video: `mweb` →
+  `Requested format is not available`; yt-dlp's own default clients → a working `googlevideo` URL. mweb is
+  now only pinned when a PO-token plugin can actually serve it (`ytdlp.potPluginPossible()`), with
+  `YTDLP_FORCE_MWEB=1` / `YTDLP_NO_POT_PLUGIN=1` overrides.
+- **New `ytdlp.diagnose()`** — reports the resolved binary path (PATH entries resolved to a real file),
+  existence, size, execute bit, platform/arch, libc, TMPDIR, exit code and full stderr. This is what turns
+  a bare "yt-dlp is not installed" into an actual reason.
+- **TMPDIR is now set for every yt-dlp spawn.** PyInstaller onefile builds — which the standalone yt-dlp
+  is — unpack into the temp dir on *every* run, so a noexec / read-only / tiny `/tmp` breaks the binary
+  while the rest of the bot keeps working. `TMPDIR`/`TEMP`/`TMP` point at `<repo>/.tools/tmp`
+  (override with `OPTIMUS_TMP_DIR`).
+- **`bootstrap.js`** prints a full diagnosis block whenever a yt-dlp binary will not run, and verifies an
+  existing binary before trusting it.
+- **`.dlstatus`** renders the yt-dlp diagnosis (owner-only). **`lib/dlHealth.js`**'s yt-dlp probe now runs
+  the full diagnosis — its old 20s ceiling could report a working binary as dead.
+- **Tests:** `__tests__/ytdlp-helpers.test.js`.
+
+### 🚀 Deploy / bootstrap
+
+- `bootstrap.js` installs yt-dlp automatically: pip variants → `ensurepip` → the official `get-pip.py`
+  → a **verified** standalone binary chosen by CPU architecture *and* libc (glibc vs musl).
+- `settings.js` is committed with placeholders only; real credentials live in `.env` (gitignored).
+- A fresh clone no longer crashes on a missing `data/owner.json`.
+- On a panel, the startup **Main File** must be `bootstrap.js` — with `node index.js` nothing is installed.
+
 ## [v2.0.0] — 2026-09-27
 
 ### 🌐 Free Keyless APIs (no signup, no API key)
