@@ -26,6 +26,17 @@ All notable changes to Optimus Bot are documented here.
   the full diagnosis — its old 20s ceiling could report a working binary as dead.
 - **Tests:** `__tests__/ytdlp-helpers.test.js`.
 
+### 🍪 Optional cookie support (off by default)
+
+- yt-dlp is now passed `--cookies <file>` when a cookie jar exists at `.tools/cookies.txt` (or at the
+  path in `YTDLP_COOKIES`). `.tools/` is gitignored, so a jar can never be committed.
+- **A single cookie value is not enough** — yt-dlp needs a whole Netscape-format cookie file.
+- Only useful for age-restricted or "confirm you're not a bot" content, and it carries real risk: driving
+  a logged-in account from a datacenter IP is exactly what gets accounts flagged. Prefer a throwaway
+  account, and expect the jar to expire within days. **Try the client fallback first** — most of the time
+  it makes cookies unnecessary.
+- `.dlstatus` reports whether cookies are configured (never the contents).
+
 ### 🚀 Deploy / bootstrap
 
 - `bootstrap.js` installs yt-dlp automatically: pip variants → `ensurepip` → the official `get-pip.py`

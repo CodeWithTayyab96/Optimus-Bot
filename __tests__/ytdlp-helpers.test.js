@@ -10,7 +10,13 @@
  */
 const path = require('path');
 
-const ENV_KEYS = ['YTDLP_BIN', 'YTDLP_FORCE_MWEB', 'YTDLP_NO_POT_PLUGIN', 'OPTIMUS_TMP_DIR'];
+const ENV_KEYS = [
+    'YTDLP_BIN',
+    'YTDLP_FORCE_MWEB',
+    'YTDLP_NO_POT_PLUGIN',
+    'OPTIMUS_TMP_DIR',
+    'YTDLP_COOKIES',
+];
 
 /**
  * Set the given env, re-require lib/ytdlp with a clean registry, run `fn`, then
@@ -112,6 +118,31 @@ describe('ytdlp.tempDirOverride', () => {
             const dir = ytdlp.tempDirOverride();
             if (dir !== null) expect(dir).toBe(custom);
         });
+    });
+});
+
+describe('ytdlp.cookieArgs', () => {
+    const fs = require('fs');
+    const os = require('os');
+
+    test('is empty when no cookie file is configured', () => {
+        // A single cookie VALUE is not enough — yt-dlp needs a whole jar, so
+        // nothing is passed unless a real file exists.
+        withEnv({ YTDLP_COOKIES: path.join(os.tmpdir(), 'optimus-no-such-cookies.txt') }, (ytdlp) =>
+            expect(ytdlp.cookieArgs()).toEqual([])
+        );
+    });
+
+    test('passes --cookies when the file exists', () => {
+        const file = path.join(os.tmpdir(), `optimus-cookies-${process.pid}.txt`);
+        fs.writeFileSync(file, '# Netscape HTTP Cookie File\n');
+        try {
+            withEnv({ YTDLP_COOKIES: file }, (ytdlp) =>
+                expect(ytdlp.cookieArgs()).toEqual(['--cookies', file])
+            );
+        } finally {
+            fs.rmSync(file, { force: true });
+        }
     });
 });
 

@@ -78,6 +78,7 @@ module.exports = {
             if (d.exists) lines.push(`   ${d.executable ? '✅ execute bit set' : '❌ execute bit NOT set'}`);
             lines.push(`   host: ${d.platform}${d.libc !== 'n/a' ? ` · ${d.libc}` : ''}`);
             lines.push(`   TMPDIR: ${d.tmpdir}${d.tmpdirOverridden ? ' (project-local)' : ' (system default)'}`);
+            lines.push(`   cookies: ${d.cookies ? '✅ configured' : '— not configured'}`);
             lines.push(d.ok ? `   ✅ runs: v${d.version}` : `   ❌ will not run: ${d.error}`);
             if (!d.ok && d.stderr) {
                 const last = d.stderr.split('\n').filter(Boolean).pop() || '';
