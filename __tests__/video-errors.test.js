@@ -19,9 +19,27 @@ describe('video.explainYtdlpFailure', () => {
         // for the literal "not a bot" while the message says "isn't a bot", so it
         // failed against correct code.
         expect(out).toMatch(/IP address/i);
-        expect(out).toMatch(/PO-token/i);
         // Must NOT be mistaken for a private/region problem.
         expect(out).not.toMatch(/private, age-restricted, or region-locked/);
+    });
+
+    test('gives a non-technical user the actual setup steps when nothing is configured', () => {
+        // Without this, the only guidance was "run .dlstatus" — useless to someone
+        // who does not know what RapidAPI or an .env file is.
+        const out = _test.explainYtdlpFailure("Sign in to confirm you're not a bot", {
+            fallbackConfigured: false,
+        });
+        expect(out).toMatch(/rapidapi\.com/i);
+        expect(out).toMatch(/RAPIDAPI_KEY/);
+        expect(out).toMatch(/\.env/i);
+    });
+
+    test('says so when a fallback IS configured, since the error is then unexpected', () => {
+        const out = _test.explainYtdlpFailure("Sign in to confirm you're not a bot", {
+            fallbackConfigured: true,
+        });
+        expect(out).toMatch(/unexpected/i);
+        expect(out).not.toMatch(/rapidapi\.com/i);
     });
 
     test('also matches the ASCII apostrophe variant', () => {

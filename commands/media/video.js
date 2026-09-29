@@ -26,15 +26,31 @@ const AXIOS_DEFAULTS = {
  * private". It actually means YouTube does not trust THIS SERVER'S IP, which is
  * the normal state of affairs on a datacenter host — naming that is the
  * difference between "try another link" and a problem with a known fix.
+ *
+ * When the bot-check happens and no fallback is configured, the message has to
+ * carry the setup steps too: a non-technical user will never guess that the fix
+ * is a signup at rapidapi.com and one line in .env.
+ *
+ * @param {string} raw  the yt-dlp stderr
+ * @param {{fallbackConfigured?: boolean}} [opts]
  */
-function explainYtdlpFailure(raw) {
+function explainYtdlpFailure(raw, opts = {}) {
     const msg = String(raw || '');
     // YouTube's message uses a typographic apostrophe (you’re), not ASCII.
     if (/confirm you['\u2019]?re not a bot/i.test(msg)) {
+        const base =
+            "YouTube is asking this server to prove it isn't a bot. That is about this host's IP " +
+            'address, not the video — and no player client, cookie or plugin fixes it.';
+        if (opts.fallbackConfigured) {
+            return `${base} A fallback IS configured, so this is unexpected — run .dlstatus.`;
+        }
         return (
-            "YouTube is asking this server to prove it isn't a bot — that is about the host's IP " +
-            'address, not the video. The usual fix is the PO-token plugin (needs python + pip; ' +
-            'run .dlstatus to check), or routing through a proxy.'
+            `${base}\n\nTo fix it, either:\n` +
+            '1. FREE — go to rapidapi.com, search "YouTube Media Downloader", subscribe to the free ' +
+            'plan, then add this line to the bot\'s .env file and restart:\n' +
+            '   RAPIDAPI_KEY=your-key-here\n' +
+            '2. PAID, but better — a residential proxy: set PROXIES in .env.\n' +
+            'Run .ytdiag to see what works from this host.'
         );
     }
     if (/Requested format is not available/i.test(msg)) {
@@ -191,7 +207,11 @@ async function videoCommand(sock, chatId, message) {
                         'Install it with: pip install -U yt-dlp bgutil-ytdlp-pot-provider'
                 );
             }
-            throw new Error(`yt-dlp could not fetch this video. ${explainYtdlpFailure(ytdlpFailure)}`);
+            throw new Error(
+                `yt-dlp could not fetch this video. ${explainYtdlpFailure(ytdlpFailure, {
+                    fallbackConfigured: rapidApi.isConfigured(),
+                })}`
+            );
         }
 
         const srcUrl = videoData.download || videoData.dl || videoData.url;

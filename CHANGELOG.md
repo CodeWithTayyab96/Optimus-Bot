@@ -65,10 +65,13 @@ All notable changes to Optimus Bot are documented here.
 - **The bot-check error is now explained instead of misdiagnosed.** `Sign in to confirm you're not a bot`
   was reported to users as *"it may be private, age-restricted, or region-locked"* — three things it is
   not. It means **YouTube distrusts this server's IP**, which is normal on a datacenter host and has a
-  known fix. The command now says so, and points at the PO-token plugin (or a proxy). Other yt-dlp
-  failures — no formats, unavailable, private, age-restricted, not installed — get their own messages
-  too, and the raw yt-dlp reason is captured rather than discarded.
-- **Tests:** `__tests__/video-errors.test.js`.
+  known fix. Other yt-dlp failures — no formats, unavailable, private, age-restricted, not installed —
+  get their own messages too, and the raw yt-dlp reason is captured rather than discarded.
+- **The bot-check error now carries the setup steps, for people who are not technical.** "Run .dlstatus" is
+  useless advice to someone who does not know what RapidAPI or an `.env` file is. The message now names
+  `rapidapi.com`, the free plan, the exact line to add (`RAPIDAPI_KEY=…`) and where to put it — and when a
+  fallback *is* configured it says the failure is unexpected instead, so nobody is sent on a pointless
+  signup. 17 assertions cover it.
 
 - **Fixed: `.video` / `.song` failing with "Sign in to confirm you're not a bot" on a host with no Python.**
   The bot pinned `youtube:player_client=mweb`, which *requires* a PO token. That token is produced by a
