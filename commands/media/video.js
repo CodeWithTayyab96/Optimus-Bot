@@ -18,6 +18,42 @@ const AXIOS_DEFAULTS = {
 // 402 payment-required respectively). yt-dlp is now the only download source,
 // and when it is unavailable the command says so instead of blaming the region.
 
+/**
+ * Turn a raw yt-dlp error into something the user can act on.
+ *
+ * The bot-check message especially is routinely mistaken for "the video is
+ * private". It actually means YouTube does not trust THIS SERVER'S IP, which is
+ * the normal state of affairs on a datacenter host — naming that is the
+ * difference between "try another link" and a problem with a known fix.
+ */
+function explainYtdlpFailure(raw) {
+    const msg = String(raw || '');
+    // YouTube's message uses a typographic apostrophe (you’re), not ASCII.
+    if (/confirm you['\u2019]?re not a bot/i.test(msg)) {
+        return (
+            "YouTube is asking this server to prove it isn't a bot — that is about the host's IP " +
+            'address, not the video. The usual fix is the PO-token plugin (needs python + pip; ' +
+            'run .dlstatus to check), or routing through a proxy.'
+        );
+    }
+    if (/Requested format is not available/i.test(msg)) {
+        return 'YouTube returned no usable format for this video.';
+    }
+    if (/This video is unavailable|Video unavailable/i.test(msg)) {
+        return 'YouTube says this video is unavailable — deleted, or blocked in this region.';
+    }
+    if (/Private video|this video is private/i.test(msg)) {
+        return 'This video is private.';
+    }
+    if (/age.?restricted|Sign in to confirm your age/i.test(msg)) {
+        return 'This video is age-restricted and needs an authenticated session.';
+    }
+    if (/not installed/i.test(msg)) {
+        return 'yt-dlp is not installed on this host.';
+    }
+    return 'yt-dlp could not fetch this video — it may be private, age-restricted, or region-locked.';
+}
+
 async function videoCommand(sock, chatId, message) {
     try {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
@@ -70,6 +106,9 @@ async function videoCommand(sock, chatId, message) {
 
         // Primary: let yt-dlp fetch the media itself. Session-bound GVS URLs 403
         // when fetched by a bare HTTP client, so yt-dlp does the transfer.
+        // Remember why it failed so the final message can name the real cause
+        // rather than guessing "private / age-restricted / region-locked".
+        let ytdlpFailure = '';
         if (await ytdlp.isAvailable()) {
             try {
                 const tempDir = path.join(__dirname, '../../temp');
@@ -85,6 +124,7 @@ async function videoCommand(sock, chatId, message) {
                 }
             } catch (e) {
                 console.error('[video] yt-dlp download failed:', e.message);
+                ytdlpFailure = e.message;
             }
         }
 
@@ -118,6 +158,7 @@ async function videoCommand(sock, chatId, message) {
             } catch (apiErr) {
                 // API call failed, try next API
                 console.log(`${apiMethod.name} API failed:`, apiErr.message);
+                ytdlpFailure = apiErr.message;
                 continue;
             }
         }
@@ -130,9 +171,7 @@ async function videoCommand(sock, chatId, message) {
                         'Install it with: pip install -U yt-dlp bgutil-ytdlp-pot-provider'
                 );
             }
-            throw new Error(
-                'yt-dlp could not fetch this video — it may be private, age-restricted, or region-locked.'
-            );
+            throw new Error(`yt-dlp could not fetch this video. ${explainYtdlpFailure(ytdlpFailure)}`);
         }
 
         const srcUrl = videoData.download || videoData.dl || videoData.url;
@@ -214,5 +253,6 @@ module.exports = {
     async execute(sock, message, args, extra) {
         await videoCommand(sock, extra.chatId, message);
     },
-
+    // Exported for tests.
+    _test: { explainYtdlpFailure },
 };
