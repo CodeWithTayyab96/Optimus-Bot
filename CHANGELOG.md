@@ -4,6 +4,23 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🩺 RapidAPI fallback for IP-blocked hosts
+
+- **New `lib/rapidApi.js`** — a **last-resort** YouTube fallback for hosts whose IP is blocked. yt-dlp
+  fetches from *this* host's IP; on a flagged datacenter IP every client is refused, and no client, cookie
+  or plugin choice fixes that. This service fetches from **its own** IPs, so it works where yt-dlp cannot —
+  it even returned a video yt-dlp reported as *"unavailable"* (region-restricted).
+- Wired in **only after yt-dlp fails**, in both `lib/ytAudio.js` (`.song`, `.music`) and
+  `commands/media/video.js` (`.video`). Verified against a live response: 21 video tracks and 12 audio
+  tracks for a real video.
+- **Video is capped at the best *muxed* mp4** (often 360p) because that path has no ffmpeg merge step, and
+  WhatsApp cannot play a video-only stream. Audio prefers an m4a track for a clean mp3 transcode.
+- **Configured via `RAPIDAPI_KEY`** (in `.env`, never the repo). `RAPIDAPI_HOST` is optional.
+- **The caveats are documented rather than hidden:** the free tier is **100 requests/month** (about three a
+  day), so this is a safety net and not a primary source; it is a third-party dependency and will
+  eventually rot, as the three before it did; and it only exists because a proxy costs money.
+- **Tests:** `__tests__/rapidapi.test.js`, 15 assertions against a captured-response fixture.
+
 ### 🎵 TikTok
 
 - **Expired short links now say so.** A TikTok short link (`vt.`/`vm.`) that has expired 302-redirects to

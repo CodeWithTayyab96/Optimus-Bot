@@ -4,6 +4,7 @@ const yts = require('yt-search');
 const settings = require('../../settings');
 const style = require('../../lib/messageStyle');
 const ytdlp = require('../../lib/ytdlp');
+const rapidApi = require('../../lib/rapidApi');
 
 const AXIOS_DEFAULTS = {
     timeout: 60000,
@@ -140,6 +141,25 @@ async function videoCommand(sock, chatId, message) {
             });
         }
         // (removed: EliteProTech / Yupra / Okatsu — all three are dead)
+
+        // Fallback for hosts YouTube blocks by IP: this API fetches from its own
+        // IPs, so it works where yt-dlp cannot. Reached only after yt-dlp fails,
+        // because the free tier is 100 calls/month.
+        if (rapidApi.isConfigured()) {
+            apiMethods.push({
+                name: 'rapidapi',
+                method: async () => {
+                    const id = rapidApi.videoIdFrom(videoUrl);
+                    if (!id) throw new Error('could not read a video id from that URL');
+                    const details = await rapidApi.getDetails(id);
+                    const pick = rapidApi.pickMuxedVideo(details);
+                    // Muxed only: WhatsApp cannot play a video-only stream, and
+                    // this path has no ffmpeg merge step.
+                    if (!pick) throw new Error('no muxed mp4 available');
+                    return { download: pick.url, title: details.title || videoTitle };
+                },
+            });
+        }
         
         // Try each API until we successfully get video data
         for (const apiMethod of apiMethods) {
