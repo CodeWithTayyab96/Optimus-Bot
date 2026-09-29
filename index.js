@@ -257,11 +257,18 @@ async function startXeonBotInc() {
         // Clean the phone number - remove any non-digit characters
         phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
 
-        // Validate the phone number using awesome-phonenumber
+        // Validate the phone number using awesome-phonenumber — but only warn.
+        //
+        // Its metadata lags reality: +923701609799 is a working Pakistani number
+        // whose 370 prefix the library does not recognise, so isValid() is false
+        // and a hard exit here would block linking entirely. WhatsApp is the
+        // real authority — if the number is wrong the pairing request fails with
+        // a clear error, so do not gate on a third-party table.
         const pn = require('awesome-phonenumber');
-        if (!pn('+' + phoneNumber).isValid()) {
-            console.log(chalk.red('Invalid phone number. Please enter your full international number (e.g., 15551234567 for US, 447911123456 for UK, etc.) without + or spaces.'));
-            process.exit(1);
+        const parsedNumber = pn('+' + phoneNumber);
+        if (!parsedNumber.isValid()) {
+            console.log(chalk.yellow(`⚠️  ${phoneNumber} is not recognised as a valid number (region: ${parsedNumber.getRegionCode() || 'unknown'}).`));
+            console.log(chalk.gray('   Continuing — WhatsApp will reject it if it is wrong.'));
         }
 
         setTimeout(async () => {
@@ -282,7 +289,16 @@ async function startXeonBotInc() {
         const { connection, lastDisconnect, qr } = s
         
         if (qr) {
-            console.log(chalk.yellow('📱 QR Code generated. Please scan with WhatsApp.'))
+            // Baileys v7 deprecated `printQRInTerminal` and no longer prints the
+            // QR for us — it only warns and emits nothing. The QR string arrives
+            // here and must be rendered, or `--qr` shows an unscannable message.
+            console.log(chalk.yellow('📱 Scan this QR code with WhatsApp (Settings > Linked Devices):'))
+            try {
+                require('qrcode-terminal').generate(qr, { small: true })
+            } catch (qrErr) {
+                console.log(chalk.red('Could not render the QR code:'), qrErr.message)
+                console.log(chalk.gray('Run without --qr to use a pairing code instead.'))
+            }
         }
         
         if (connection === 'connecting') {

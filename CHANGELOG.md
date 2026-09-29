@@ -44,6 +44,25 @@ All notable changes to Optimus Bot are documented here.
   — never exited. Now unref'd.
 - **Tests:** `__tests__/antidelete-media.test.js`.
 
+### 🔗 Linking WhatsApp without the panel
+
+- **New `scripts/pair.js`** (`npm run pair`) — links WhatsApp on your own machine and writes
+  `./session/creds.json`, the exact directory the bot reads at startup. Copy that folder to the host and
+  the bot connects **with no phone number in `settings.js` and nothing typed into a panel console**.
+  Pairing code by default, or `npm run pair:qr` for a QR. If the session is already linked it says so and
+  exits without touching anything.
+- **Fixed: `--qr` never actually showed a QR.** Baileys v7 deprecated `printQRInTerminal` — it only logs a
+  warning and emits nothing — so `index.js` received the `qr` string, printed *"QR Code generated"*, and
+  rendered nothing scannable. It now renders the QR with `qrcode-terminal` (already a dependency, unused).
+- **Fixed: pairing rejected valid numbers.** `awesome-phonenumber`'s `isValid()` was a hard gate with
+  `process.exit(1)`, but its metadata lags reality: `+923701609799` is a working Pakistani number whose
+  `370` prefix it does not recognise, so linking with it failed immediately. Validation is now a warning —
+  WhatsApp is the authority and rejects a genuinely wrong number with a clear error.
+- **Security:** generate `creds.json` on your own machine. Pairing is cryptographically bound to the
+  instance that calls `requestPairingCode`, so a `creds.json` produced by a third-party "pair code"
+  service is a copy of *their* session — they keep working access to the account. There is no safe way to
+  have someone else mint one for you. Details in the header comment of `scripts/pair.js`.
+
 ### 🍪 Optional cookie support (off by default)
 
 - yt-dlp is now passed `--cookies <file>` when a cookie jar exists at `.tools/cookies.txt` (or at the
