@@ -23,6 +23,50 @@ async function viaYtdlp(url) {
     return downloadBuffer(direct);
 }
 
+const SHORT_LINK_RE = /^https?:\/\/(?:vt|vm)\.tiktok\.com\//i;
+const VIDEO_PATH_RE = /\/video\/\d+/;
+
+/**
+ * Resolve a TikTok short link, and detect one that has expired.
+ *
+ * Short links expire, and an expired one 302s to the homepage. yt-dlp then fails
+ * with "Unexpected response from webpage request", which tells the user nothing
+ * useful. Resolving it here means we can say what actually happened — and yt-dlp
+ * gets the canonical URL instead of having to follow a redirect itself.
+ *
+ * @returns {Promise<{url: string, expired: boolean}>} `url` is the best URL to use.
+ */
+async function resolveShortLink(url) {
+    if (!SHORT_LINK_RE.test(url)) return { url, expired: false };
+
+    let current = url;
+    for (let hop = 0; hop < 3; hop++) {
+        let res;
+        try {
+            res = await proxyPool.get(current, {
+                maxRedirects: 0,
+                validateStatus: () => true, // we want the 302 itself, not an exception
+                timeout: 20000,
+                headers: { 'User-Agent': UA, Accept: 'text/html,*/*' },
+            });
+        } catch {
+            return { url, expired: false }; // can't tell — let yt-dlp try
+        }
+
+        const next = res.headers?.location;
+        if (!next) break;
+        try {
+            current = new URL(next, current).toString();
+        } catch {
+            break;
+        }
+        if (VIDEO_PATH_RE.test(current)) return { url: current, expired: false };
+    }
+
+    // Ended up somewhere that is not a video page → the short link is dead.
+    return { url, expired: !VIDEO_PATH_RE.test(current) };
+}
+
 /** Fallback: ruhend-scraper ttdl (no key). */
 async function viaTtdl(url) {
     const { ttdl } = require('ruhend-scraper');
@@ -63,16 +107,27 @@ module.exports = {
 
             await sock.sendMessage(extra.chatId, { react: { text: '🔄', key: message.key } });
 
+            // Short links expire and then 302 to the homepage. Check first, so the
+            // user gets "this link is dead" rather than yt-dlp's opaque
+            // "Unexpected response from webpage request".
+            const resolved = await resolveShortLink(url);
+            if (resolved.expired) {
+                return await extra.reply(style.error(
+                    "That TikTok link is invalid or has expired — it redirects to TikTok's homepage instead of a video. Please send a fresh link."
+                ));
+            }
+            const target = resolved.url;
+
             let videoBuffer = null;
             let slideshowImages = null;
 
             // 1) yt-dlp (verified working)
             if (await ytdlp.isAvailable()) {
-                try { videoBuffer = await viaYtdlp(url); } catch (e) { console.error('[tiktok] yt-dlp:', e.message); }
+                try { videoBuffer = await viaYtdlp(target); } catch (e) { console.error('[tiktok] yt-dlp:', e.message); }
             }
             // 2) ruhend-scraper ttdl (verified working)
             if (!videoBuffer || !videoBuffer.length) {
-                try { videoBuffer = await viaTtdl(url); } catch (e) {
+                try { videoBuffer = await viaTtdl(target); } catch (e) {
                     console.error('[tiktok] ttdl:', e.message);
                     if (e.images && e.images.length) slideshowImages = e.images;
                 }
@@ -102,4 +157,6 @@ module.exports = {
             return await extra.reply(style.error('Failed to download the TikTok video. Please try another link.'));
         }
     },
+    // Exported for tests.
+    _test: { resolveShortLink, SHORT_LINK_RE, VIDEO_PATH_RE },
 };

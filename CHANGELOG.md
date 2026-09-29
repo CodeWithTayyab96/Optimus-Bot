@@ -4,6 +4,16 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🎵 TikTok
+
+- **Expired short links now say so.** A TikTok short link (`vt.`/`vm.`) that has expired 302-redirects to
+  **`https://www.tiktok.com/?_r=1`** — the homepage. yt-dlp then fails with
+  `Unexpected response from webpage request`, which tells the user nothing. `.tiktok` now resolves the
+  redirect itself first: an expired link gets a plain *"that link is invalid or has expired"*, and a valid
+  one is handed to yt-dlp as the canonical URL so it skips a redirect hop. Non-short URLs are passed
+  through untouched with no extra request.
+- **Tests:** `__tests__/tiktok-link.test.js`.
+
 ### 🎬 YouTube downloads on hosts without Python
 
 - **Fixed: `.video` / `.song` failing with "Sign in to confirm you're not a bot" on a host with no Python.**
