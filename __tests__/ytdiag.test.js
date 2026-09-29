@@ -42,3 +42,12 @@ describe('ytdiag.PER_CLIENT_TIMEOUT_MS', () => {
         expect(_test.PER_CLIENT_TIMEOUT_MS).toBeGreaterThanOrEqual(40000);
     });
 });
+
+describe('ytdiag.probeClient', () => {
+    test('accepts an optional proxy, so a proxy can be tested from the same sweep', () => {
+        // (client, url, proxy) — the proxy argument is what lets .ytdiag answer
+        // "does a proxy actually unblock YouTube here?" rather than only
+        // "does anything work directly?".
+        expect(_test.probeClient.length).toBeGreaterThanOrEqual(3);
+    });
+});

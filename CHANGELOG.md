@@ -23,6 +23,14 @@ All notable changes to Optimus Bot are documented here.
   a PO-token plugin is available.
 - **The answer is decisive:** if some client works, pin it and the bot works with no proxy; if nothing
   works — not even the default — the IP is blocked and a proxy is the only remaining fix.
+- **`.ytdiag` also tests a configured proxy.** When the direct sweep fails, the question becomes "would
+  a proxy fix this?" — so if `PROXIES` is set, one probe is run through it and reported (credentials
+  masked). The conclusion now distinguishes three cases: a client works directly / the proxy works / neither
+  works, in which case it says plainly that a **datacenter** proxy won't help either and a residential one
+  is needed.
+- **`PROXIES` is now properly documented in `.env.example`**, including the part that costs people money:
+  free and cheap proxy lists are datacenter IPs, already abused and already blocked — residential or mobile
+  is what works.
 - `.ytdiag <url>` probes a specific video instead of the built-in stable one.
 - **Measured while building it:** the default client took **6.9s** and `mweb` **33.7s** on the same video
   (mweb round-trips to the PO-token provider). Worth knowing on a slow panel, and why the per-client
