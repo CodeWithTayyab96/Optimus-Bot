@@ -20,6 +20,8 @@ data/*
 /session/
 # Test pairing session (also real credentials — scripts/test-pairing.js writes here)
 /.pairtest/
+# Session produced by the .pair command (real credentials too)
+/session-pair/
 # Belt and braces: a stray creds.json anywhere must never be committed.
 creds.json
 
