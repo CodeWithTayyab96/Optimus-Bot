@@ -19,6 +19,7 @@ const axios = require('axios')
 const { handleMessages, handleGroupParticipantUpdate, handleStatus } = require('./main');
 const PhoneNumber = require('awesome-phonenumber')
 const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./lib/exif')
+const { describeSession, sessionSummary, needsPairing } = require('./lib/sessionInfo')
 const { smsg, isUrl, generateMessageTag, getBuffer, getSizeMedia, fetch, await, sleep, reSize } = require('./lib/myfunc')
 const {
     default: makeWASocket,
@@ -115,8 +116,38 @@ const question = (text) => {
     if (rl) {
         return new Promise((resolve) => rl.question(text, resolve))
     } else {
-        // In non-interactive environment, use ownerNumber from settings
-        return Promise.resolve(settings.ownerNumber || null)
+        // In a non-interactive environment (a panel) there is no prompt to answer,
+        // so fall back to settings. Prefer botNumber: that is the account the BOT
+        // runs on, whereas ownerNumber is the person who COMMANDS it — pairing
+        // with the wrong one links the wrong WhatsApp account.
+        return Promise.resolve(settings.botNumber || settings.ownerNumber || null)
+    }
+}
+
+// A pairing code is single-use and each new request INVALIDATES the previous
+// one. startXeonBotInc() runs again on every reconnect, so without this guard a
+// flapping connection re-prompts and re-issues codes forever, and the code you
+// are trying to type is always the one that just got replaced.
+let pairingCodeIssued = false
+
+/**
+ * Say plainly what the session on disk actually is.
+ *
+ * "It has creds.json but still asks for a number" is the single most confusing
+ * thing about linking: a creds.json FILE is not a LINKED session. Baileys writes
+ * one with freshly generated keys as soon as the socket connects, so the file
+ * can exist — and be rewritten — while `registered` is still false.
+ */
+function reportSessionState(creds) {
+    const info = describeSession(creds, './session/creds.json')
+    console.log(chalk.cyan(`[session] ${sessionSummary(info)}`))
+    if (needsPairing(info)) {
+        console.log(chalk.yellow('[session] Not linked — the bot will ask for a phone number to pair.'))
+        console.log(
+            chalk.gray(
+                '[session] A creds.json that EXISTS is not necessarily a linked one; it is rewritten on every connect.'
+            )
+        )
     }
 }
 
@@ -125,6 +156,7 @@ async function startXeonBotInc() {
     try {
         let { version, isLatest } = await fetchLatestBaileysVersion()
         const { state, saveCreds } = await useMultiFileAuthState(`./session`)
+        reportSessionState(state.creds)
         const msgRetryCounterCache = new NodeCache()
 
         const XeonBotInc = makeWASocket({
@@ -246,42 +278,56 @@ async function startXeonBotInc() {
     if (pairingCode && !XeonBotInc.authState.creds.registered) {
         if (useMobile) throw new Error('Cannot use pairing code with mobile api')
 
-        // Number comes from settings.ownerNumber (non-interactive) or is typed
-        // by the user in an interactive terminal.
-        let phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Please type your WhatsApp number 😍\nFormat: 6281376552730 (without + or spaces) : `)))
-        if (!phoneNumber) {
-            console.log(chalk.red('No phone number available. Set ownerNumber in settings.js (or type it when prompted).'));
-            process.exit(1);
-        }
+        if (pairingCodeIssued) {
+            // A reconnect must NOT request another code. Each request invalidates
+            // the previous one, so re-asking on every reconnect guarantees the
+            // code the user is typing is already dead — pairing can never finish
+            // on a connection that flaps.
+            console.log(chalk.yellow('⚠️  A pairing code was already issued this run — not requesting a new one.'))
+            console.log(chalk.gray('   Enter the code printed above. If it has expired, restart the bot.'))
+        } else {
+            pairingCodeIssued = true
 
-        // Clean the phone number - remove any non-digit characters
-        phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
-
-        // Validate the phone number using awesome-phonenumber — but only warn.
-        //
-        // Its metadata lags reality: +923701609799 is a working Pakistani number
-        // whose 370 prefix the library does not recognise, so isValid() is false
-        // and a hard exit here would block linking entirely. WhatsApp is the
-        // real authority — if the number is wrong the pairing request fails with
-        // a clear error, so do not gate on a third-party table.
-        const pn = require('awesome-phonenumber');
-        const parsedNumber = pn('+' + phoneNumber);
-        if (!parsedNumber.isValid()) {
-            console.log(chalk.yellow(`⚠️  ${phoneNumber} is not recognised as a valid number (region: ${parsedNumber.getRegionCode() || 'unknown'}).`));
-            console.log(chalk.gray('   Continuing — WhatsApp will reject it if it is wrong.'));
-        }
-
-        setTimeout(async () => {
-            try {
-                let code = await XeonBotInc.requestPairingCode(phoneNumber)
-                code = code?.match(/.{1,4}/g)?.join("-") || code
-                console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
-                console.log(chalk.yellow(`\nPlease enter this code in your WhatsApp app:\n1. Open WhatsApp\n2. Go to Settings > Linked Devices\n3. Tap "Link a Device"\n4. Enter the code shown above`))
-            } catch (error) {
-                console.error('Error requesting pairing code:', error)
-                console.log(chalk.red('Failed to get pairing code. Please check your phone number and try again.'))
+            // Number comes from settings.ownerNumber (non-interactive) or is typed
+            // by the user in an interactive terminal.
+            let phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Please type the WhatsApp number for the BOT account 😍\n(not necessarily your personal number)\nFormat: 6281376552730 (without + or spaces) : `)))
+            if (!phoneNumber) {
+                console.log(chalk.red('No phone number available. Set ownerNumber in settings.js (or type it when prompted).'));
+                process.exit(1);
             }
-        }, 3000)
+
+            // Clean the phone number - remove any non-digit characters
+            phoneNumber = phoneNumber.replace(/[^0-9]/g, '')
+
+            // Validate the phone number using awesome-phonenumber — but only warn.
+            //
+            // Its metadata lags reality: +923701609799 is a working Pakistani number
+            // whose 370 prefix the library does not recognise, so isValid() is false
+            // and a hard exit here would block linking entirely. WhatsApp is the
+            // real authority — if the number is wrong the pairing request fails with
+            // a clear error, so do not gate on a third-party table.
+            const pn = require('awesome-phonenumber');
+            const parsedNumber = pn('+' + phoneNumber);
+            if (!parsedNumber.isValid()) {
+                console.log(chalk.yellow(`⚠️  ${phoneNumber} is not recognised as a valid number (region: ${parsedNumber.getRegionCode() || 'unknown'}).`));
+                console.log(chalk.gray('   Continuing — WhatsApp will reject it if it is wrong.'));
+            }
+
+            setTimeout(async () => {
+                try {
+                    let code = await XeonBotInc.requestPairingCode(phoneNumber)
+                    code = code?.match(/.{1,4}/g)?.join("-") || code
+                    console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
+                    console.log(chalk.yellow(`\nPlease enter this code in your WhatsApp app:\n1. Open WhatsApp\n2. Go to Settings > Linked Devices\n3. Tap "Link a Device"\n4. Enter the code shown above`))
+                } catch (error) {
+                    console.error('Error requesting pairing code:', error)
+                    console.log(chalk.red('Failed to get pairing code. Please check your phone number and try again.'))
+                    // The request failed, so no code is outstanding — let a later
+                    // reconnect try again rather than locking the bot out.
+                    pairingCodeIssued = false
+                }
+            }, 3000)
+        }
     }
 
     // Connection handling

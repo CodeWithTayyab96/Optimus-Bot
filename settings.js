@@ -24,6 +24,11 @@ const settings = {
   botName: 'Optimus Bot',
   botOwner: 'Muhammad Tayyab Imran', // Your name
   ownerNumber: '923701609799', // Set your number here without + symbol (country code + number, no spaces)
+  // The number the BOT itself runs on — used when linking/pairing.
+  // Leave blank to fall back to ownerNumber, but note they are often DIFFERENT
+  // accounts: ownerNumber is who COMMANDS the bot, botNumber is who the bot IS.
+  // Pairing with the wrong one links the wrong WhatsApp account.
+  botNumber: '', // e.g. '923417360554' — no + or spaces
 
   // ── API keys (placeholders — real values come from .env) ──
   giphyApiKey: process.env.GIPHY_API_KEY || 'YOUR_GIPHY_API_KEY',

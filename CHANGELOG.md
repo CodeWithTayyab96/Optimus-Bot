@@ -46,6 +46,22 @@ All notable changes to Optimus Bot are documented here.
 
 ### 🔗 Linking WhatsApp without the panel
 
+- **The bot now says what its session actually is, at startup:**
+  `[session] creds.json: 1889 bytes · registered: true · linked as 923417360554`. This answers the most
+  confusing question about linking — *"it has creds.json, why is it still asking for a number?"* — because
+  **a creds.json FILE is not a LINKED session.** Baileys writes one with freshly generated keys as soon as
+  the socket connects, so the file can exist (and be rewritten) while `registered` is still false. The
+  file's presence proves nothing; only `registered` matters. Logic lives in `lib/sessionInfo.js` so it is
+  testable without starting the bot.
+- **Fixed: a reconnect re-issued the pairing code, invalidating the one being typed.** The pairing block
+  sits inside `startXeonBotInc()`, and the reconnect path calls that again — so a flapping connection
+  re-prompted and requested a *new* code each time, and pairing could never complete. A code is now issued
+  once per run; a reconnect logs that the existing code still stands. If the request itself fails, the
+  guard resets so a later reconnect can retry.
+- **New `botNumber` setting.** `settings.js` had `botOwner` (a name) and `ownerNumber` (who *commands* the
+  bot) but nothing for the account the bot *is*. The pairing prompt therefore offered `ownerNumber`, so
+  pairing with it would link your personal WhatsApp as the bot. Pairing now prefers `settings.botNumber`
+  and falls back to `ownerNumber`, and the prompt says so.
 - **New `scripts/pair.js`** (`npm run pair`) — links WhatsApp on your own machine and writes
   `./session/creds.json`, the exact directory the bot reads at startup. Copy that folder to the host and
   the bot connects **with no phone number in `settings.js` and nothing typed into a panel console**.
