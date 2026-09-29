@@ -41,7 +41,7 @@ function maskProxy(u) {
     }
 }
 
-async function probeClient(client, url, proxy) {
+async function probeClient(client, url, proxy, extraArgs = []) {
     const args = [
         ...JS_ARGS,
         '--no-warnings',
@@ -49,6 +49,7 @@ async function probeClient(client, url, proxy) {
         '--simulate',
         '--print',
         '%(title)s',
+        ...extraArgs,
         url,
     ];
     if (client) args.unshift('--extractor-args', `youtube:player_client=${client}`);
@@ -118,6 +119,16 @@ module.exports = {
             lines.push(`${r.ok ? '✅' : '❌'} ${r.client.padEnd(12)} ${(r.ms / 1000).toFixed(1)}s  ${r.detail}`);
         }
 
+        // IPv4 and IPv6 are different addresses, and a host blocked on one is
+        // often fine on the other. Free to test, and cheaper than a proxy.
+        const ipv4 = await probeClient('', url, null, ['-4']);
+        const ipv6 = await probeClient('', url, null, ['-6']);
+        lines.push('');
+        lines.push('Address family:');
+        lines.push(`  IPv4 (-4): ${ipv4.ok ? '✅ ' + ipv4.detail : '❌ ' + ipv4.detail}`);
+        lines.push(`  IPv6 (-6): ${ipv6.ok ? '✅ ' + ipv6.detail : '❌ ' + ipv6.detail}`);
+        const ipv6Wins = ipv6.ok && !ipv4.ok;
+
         // If a proxy is configured, test it too — that is the whole question when
         // the direct sweep fails, and it is better answered here than after a
         // deploy. Only one probe: enough to say whether it unblocks YouTube.
@@ -133,7 +144,11 @@ module.exports = {
 
         const winners = results.filter((r) => r.ok).map((r) => r.client);
         lines.push('');
-        if (winners.length) {
+        if (ipv6Wins) {
+            lines.push('IPv6 works even though IPv4 does not — you are blocked on one');
+            lines.push('address, not the other. Add this to .env and restart:');
+            lines.push('  YTDLP_EXTRA_ARGS=-6');
+        } else if (winners.length) {
             lines.push(`Working here: ${winners.join(', ')}`);
             if (winners.includes('default')) {
                 lines.push('The bot already uses the default client, so this should be working —');
@@ -150,8 +165,9 @@ module.exports = {
             lines.push('You need a residential or mobile proxy.');
         } else {
             lines.push('Nothing works from this IP — not even the default client.');
-            lines.push('This host is blocked by YouTube. A proxy is the remaining fix;');
-            lines.push('set PROXIES in .env (residential, not datacenter).');
+            lines.push('This host is blocked by YouTube. Next options, cheapest first:');
+            lines.push('  1. a residential proxy (set PROXIES in .env)');
+            lines.push('  2. a different host');
         }
 
         await extra.reply(style.box('🔬 YOUTUBE DIAGNOSTICS', lines));

@@ -45,9 +45,17 @@ describe('ytdiag.PER_CLIENT_TIMEOUT_MS', () => {
 
 describe('ytdiag.probeClient', () => {
     test('accepts an optional proxy, so a proxy can be tested from the same sweep', () => {
-        // (client, url, proxy) — the proxy argument is what lets .ytdiag answer
-        // "does a proxy actually unblock YouTube here?" rather than only
-        // "does anything work directly?".
+        // (client, url, proxy, extraArgs) — the proxy argument is what lets
+        // .ytdiag answer "does a proxy actually unblock YouTube here?" rather
+        // than only "does anything work directly?".
         expect(_test.probeClient.length).toBeGreaterThanOrEqual(3);
+    });
+
+    test('accepts extra args, which is how IPv4 and IPv6 are compared', () => {
+        // NOTE: do not assert on Function.length here. It stops counting at the
+        // first DEFAULTED parameter, so `(client, url, proxy, extraArgs = [])`
+        // reports 3 — an earlier version of this test failed for that reason
+        // against perfectly correct code. Check the parameter exists instead.
+        expect(_test.probeClient.toString()).toMatch(/extraArgs/);
     });
 });

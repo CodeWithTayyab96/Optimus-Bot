@@ -23,6 +23,12 @@ All notable changes to Optimus Bot are documented here.
   a PO-token plugin is available.
 - **The answer is decisive:** if some client works, pin it and the bot works with no proxy; if nothing
   works — not even the default — the IP is blocked and a proxy is the only remaining fix.
+- **`.ytdiag` now compares IPv4 and IPv6, and `YTDLP_EXTRA_ARGS` exists to act on it.** A host blocked on
+  one address family is often fine on the other — they are different addresses — and that is a **free**
+  fix, so it is tested before anyone buys a proxy. If IPv6 works while IPv4 does not, the command says so
+  and tells you to set `YTDLP_EXTRA_ARGS=-6`.
+- **New `YTDLP_EXTRA_ARGS` env var** — whitespace-separated arguments applied to every yt-dlp call, so a
+  host can apply a fix without waiting for a code change. Documented in `.env.example`.
 - **`.ytdiag` also tests a configured proxy.** When the direct sweep fails, the question becomes "would
   a proxy fix this?" — so if `PROXIES` is set, one probe is run through it and reported (credentials
   masked). The conclusion now distinguishes three cases: a client works directly / the proxy works / neither
