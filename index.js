@@ -151,6 +151,47 @@ function reportSessionState(creds) {
     }
 }
 
+/**
+ * Write the pairing code to data/pairing-code.txt as well as the console.
+ *
+ * On a panel the console scrolls and can be hard to read back; missing the code
+ * means restarting, which issues a NEW code and invalidates the one you had.
+ * A file can be opened any time from the panel's Files tab.
+ * (`data/*` is gitignored, and the code is short-lived anyway.)
+ */
+function writePairingCodeFile(number, code) {
+    const file = './data/pairing-code.txt'
+    try {
+        fs.mkdirSync('./data', { recursive: true })
+        fs.writeFileSync(
+            file,
+            [
+                `Number : ${number}`,
+                `Code   : ${code}`,
+                `Issued : ${new Date().toISOString()}`,
+                '',
+                'WhatsApp → Settings → Linked Devices → Link a Device',
+                '→ "Link with phone number instead" → enter the code.',
+                '',
+                'This file is deleted automatically once the bot is linked.',
+            ].join('\n')
+        )
+        console.log(chalk.cyan(`[pair] code also written to ${file}`))
+    } catch (err) {
+        // Never let a convenience write break pairing.
+        console.log(chalk.gray(`[pair] could not write ${file}: ${err.message}`))
+    }
+}
+
+/** The link succeeded — the code is spent. */
+function clearPairingCodeFile() {
+    try {
+        fs.rmSync('./data/pairing-code.txt', { force: true })
+    } catch {
+        /* nothing to remove */
+    }
+}
+
 
 async function startXeonBotInc() {
     try {
@@ -319,6 +360,7 @@ async function startXeonBotInc() {
                     code = code?.match(/.{1,4}/g)?.join("-") || code
                     console.log(chalk.black(chalk.bgGreen(`Your Pairing Code : `)), chalk.black(chalk.white(code)))
                     console.log(chalk.yellow(`\nPlease enter this code in your WhatsApp app:\n1. Open WhatsApp\n2. Go to Settings > Linked Devices\n3. Tap "Link a Device"\n4. Enter the code shown above`))
+                    writePairingCodeFile(phoneNumber, code)
                 } catch (error) {
                     console.error('Error requesting pairing code:', error)
                     console.log(chalk.red('Failed to get pairing code. Please check your phone number and try again.'))
@@ -352,6 +394,7 @@ async function startXeonBotInc() {
         }
         
         if (connection == "open") {
+            clearPairingCodeFile() // linked — the code is spent
             console.log(chalk.magenta(` `))
             console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
 

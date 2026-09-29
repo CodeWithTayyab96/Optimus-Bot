@@ -80,6 +80,10 @@ All notable changes to Optimus Bot are documented here.
   bot) but nothing for the account the bot *is*. The pairing prompt therefore offered `ownerNumber`, so
   pairing with it would link your personal WhatsApp as the bot. Pairing now prefers `settings.botNumber`
   and falls back to `ownerNumber`, and the prompt says so.
+- **The pairing code is now also written to `data/pairing-code.txt`** (and removed once linked). On a panel
+  the console scrolls and is awkward to read back — and missing the code means restarting, which issues a
+  *new* code and invalidates the one you had. The file can be opened any time from the panel's Files tab.
+  `data/*` is gitignored.
 - **New `scripts/test-pairing.js`** (`npm run pair:test`) — an end-to-end pairing test that runs the real
   sequence in three phases: **pair** (code or `--qr`) → **persist** (the session is written and reports
   `registered: true`) → **reconnect** (a *fresh* socket opens from the on-disk session with no pairing at
