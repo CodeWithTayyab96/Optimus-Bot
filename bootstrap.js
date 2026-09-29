@@ -598,11 +598,18 @@ async function fetchToFile(url, dest, minBytes) {
 function findYtdlpBinary() {
     if (hasCommand('yt-dlp')) return 'yt-dlp'
     const exe = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp'
-    const candidate = path.join(os.homedir(), '.local', 'bin', exe)
-    try {
-        if (fs.existsSync(candidate)) return candidate
-    } catch {
-        /* fall through */
+    const candidates = [
+        path.join(os.homedir(), '.local', 'bin', exe),
+        // tryVenvInstall() puts it here — a pip --user install is not the only
+        // place a working yt-dlp can live.
+        path.join(ROOT, '.venv', process.platform === 'win32' ? 'Scripts' : 'bin', exe),
+    ]
+    for (const candidate of candidates) {
+        try {
+            if (fs.existsSync(candidate)) return candidate
+        } catch {
+            /* try the next one */
+        }
     }
     return null
 }
@@ -624,13 +631,66 @@ async function bootstrapPipWithScript(pythonCmd) {
         return false
     }
 
-    const res = spawnSync(pythonCmd, [script, '--user'], { stdio: 'inherit', shell: USE_SHELL })
+    let res = spawnSync(pythonCmd, [script, '--user'], { stdio: 'inherit', shell: USE_SHELL })
+
+    // Debian/Ubuntu mark their python "externally managed" (PEP 668), which makes
+    // get-pip.py abort with `error: externally-managed-environment`. In a
+    // container this python exists only for this bot, so the override the error
+    // message itself suggests is the right call here.
+    if (res.status !== 0) {
+        say('get-pip refused (externally managed python, PEP 668) — retrying with --break-system-packages…')
+        res = spawnSync(pythonCmd, [script, '--user', '--break-system-packages'], {
+            stdio: 'inherit',
+            shell: USE_SHELL,
+        })
+    }
+
     try {
         fs.rmSync(script, { force: true })
     } catch {
         /* leave it if it cannot be removed */
     }
     return res.status === 0
+}
+
+/**
+ * Install yt-dlp + its PO-token plugin into a venv.
+ *
+ * The cleanest answer to PEP 668: it never touches the system python, and the
+ * plugin still works because yt-dlp and the plugin live in the same environment.
+ * Needs `python3-venv`, which some minimal images omit — hence the fallback.
+ */
+async function tryVenvInstall(pythonCmd) {
+    const isWin = process.platform === 'win32';
+    const venvDir = path.join(ROOT, '.venv');
+    const venvPython = isWin
+        ? path.join(venvDir, 'Scripts', 'python.exe')
+        : path.join(venvDir, 'bin', 'python');
+    const venvYtdlp = isWin ? path.join(venvDir, 'Scripts', 'yt-dlp.exe') : path.join(venvDir, 'bin', 'yt-dlp');
+
+    if (!fs.existsSync(venvPython)) {
+        say('creating a python venv for yt-dlp (leaves the system python untouched)…');
+        const made = spawnSync(pythonCmd, ['-m', 'venv', venvDir], { stdio: 'inherit', shell: USE_SHELL });
+        if (made.status !== 0 || !fs.existsSync(venvPython)) {
+            warn('could not create a venv (is python3-venv installed?)');
+            return null;
+        }
+    }
+
+    say('installing yt-dlp + its PO-token plugin into the venv…');
+    const res = spawnSync(
+        venvPython,
+        ['-m', 'pip', 'install', '-U', 'yt-dlp', 'bgutil-ytdlp-pot-provider'],
+        { stdio: 'inherit', shell: USE_SHELL }
+    );
+    if (res.status !== 0) return null;
+
+    try {
+        if (fs.existsSync(venvYtdlp)) return venvYtdlp;
+    } catch {
+        /* fall through */
+    }
+    return null;
 }
 
 /** yt-dlp + its plugin live in python, outside npm's reach. Install if missing. */
@@ -702,6 +762,17 @@ async function ensurePythonDeps() {
     if (pips.length === 0 && pythonCmd) {
         say('`ensurepip` did not work — trying the official get-pip.py bootstrap…')
         if (await bootstrapPipWithScript(pythonCmd)) pips = pipInvocations().filter(pipWorks)
+    }
+
+    // Still nothing: build a venv, which sidesteps PEP 668 entirely by never
+    // touching the system python. Produces a yt-dlp binary rather than a pip.
+    if (pips.length === 0 && pythonCmd) {
+        const venvYtdlp = await tryVenvInstall(pythonCmd)
+        if (venvYtdlp) {
+            ytdlpOverride = venvYtdlp
+            say(`yt-dlp installed ✅ with the PO-token plugin (${venvYtdlp})`)
+            return
+        }
     }
 
     if (pips.length > 0) {

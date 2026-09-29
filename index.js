@@ -329,9 +329,18 @@ async function startXeonBotInc() {
         } else {
             pairingCodeIssued = true
 
-            // Number comes from settings.ownerNumber (non-interactive) or is typed
-            // by the user in an interactive terminal.
-            let phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Please type the WhatsApp number for the BOT account 😍\n(not necessarily your personal number)\nFormat: 6281376552730 (without + or spaces) : `)))
+            // On a panel there is NO interactive terminal, so question() resolves
+            // immediately from settings — printing a prompt there only makes it
+            // look like the bot is waiting for input it will never receive.
+            let phoneNumber
+            if (rl) {
+                phoneNumber = await question(chalk.bgBlack(chalk.greenBright(`Please type the WhatsApp number for the BOT account 😍\n(not necessarily your personal number)\nFormat: 6281376552730 (without + or spaces) : `)))
+            } else {
+                phoneNumber = settings.botNumber || settings.ownerNumber || null
+                if (phoneNumber) {
+                    console.log(chalk.cyan(`[pair] Using ${phoneNumber} from settings — non-interactive console, nothing to type.`))
+                }
+            }
             if (!phoneNumber) {
                 console.log(chalk.red('No phone number available. Set ownerNumber in settings.js (or type it when prompted).'));
                 process.exit(1);

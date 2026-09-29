@@ -80,6 +80,17 @@ All notable changes to Optimus Bot are documented here.
   bot) but nothing for the account the bot *is*. The pairing prompt therefore offered `ownerNumber`, so
   pairing with it would link your personal WhatsApp as the bot. Pairing now prefers `settings.botNumber`
   and falls back to `ownerNumber`, and the prompt says so.
+- **Fixed: pip bootstrap on Debian/Ubuntu panels (PEP 668).** `get-pip.py` aborted with
+  `error: externally-managed-environment`, so no pip was ever obtained and the host fell back to the
+  plugin-less standalone binary. It now retries with `--break-system-packages` (the override the error
+  message itself suggests, and safe in a container whose python exists only for this bot), and a **venv
+  install** (`./.venv`, gitignored) was added as a further fallback — a venv sidesteps PEP 668 entirely
+  and still gives yt-dlp its PO-token plugin, because both live in the same environment. Both the venv
+  binary and the standalone are now searched for, with the venv preferred since only it has the plugin.
+- **Fixed: the pairing prompt looked like it was waiting for input on a panel.** In a non-interactive
+  console `question()` resolves immediately from settings, so the "Please type your WhatsApp number"
+  line was printed but never waited on — confusing when the number was already configured. It now says
+  `[pair] Using 923417360554 from settings — non-interactive console, nothing to type.`
 - **The pairing code is now also written to `data/pairing-code.txt`** (and removed once linked). On a panel
   the console scrolls and is awkward to read back — and missing the code means restarting, which issues a
   *new* code and invalidates the one you had. The file can be opened any time from the panel's Files tab.

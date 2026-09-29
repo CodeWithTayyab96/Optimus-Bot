@@ -22,6 +22,8 @@ data/*
 /.pairtest/
 # Session produced by the .pair command (real credentials too)
 /session-pair/
+# Python venv used for yt-dlp + its PO-token plugin (bootstrap.js)
+/.venv/
 # Belt and braces: a stray creds.json anywhere must never be committed.
 creds.json
 
