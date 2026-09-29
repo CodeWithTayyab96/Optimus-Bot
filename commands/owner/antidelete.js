@@ -137,7 +137,12 @@ function sweepTempDir() {
 }
 
 // Periodic maintenance (store TTL + temp cleanup) every 5 minutes.
-setInterval(() => { sweepStore(); sweepTempDir(); }, 5 * 60 * 1000);
+//
+// unref() so merely importing this module never holds a process open. Without
+// it any process that requires it — tests, CLI helpers, one-off scripts — hangs
+// on exit waiting for a 5-minute timer it has no interest in.
+const sweepTimer = setInterval(() => { sweepStore(); sweepTempDir(); }, 5 * 60 * 1000);
+if (typeof sweepTimer.unref === 'function') sweepTimer.unref();
 
 // Restore persisted entries on startup.
 loadStoreFromDisk();
@@ -264,13 +269,50 @@ function extractProductText(pm) {
 /** Download helper that never throws — a failed media fetch still stores the
  *  rest of the message (caption/text), it just won't have the file. */
 async function safeDownload(node, type, filePath) {
+    // downloadContentFromMessage() destructures `mediaKey` from the TOP LEVEL of
+    // whatever it is handed. A node without one cannot be decrypted — that is a
+    // property of the message WhatsApp delivered (some arrive as stubs), not
+    // something to retry. Report it once, concisely, instead of throwing an
+    // error that reads like a crash.
+    if (!node?.mediaKey) {
+        logMediaFailureOnce(`no media key for ${type}`, describeMediaNode(node));
+        return '';
+    }
     try {
         await downloadMessageToFile(node, type, filePath);
         return filePath;
     } catch (e) {
-        console.error(`Antidelete media download failed (${type}):`, e.message);
+        logMediaFailureOnce(`${type} download failed: ${e.message}`, describeMediaNode(node));
         return '';
     }
+}
+
+/** What a media node actually carries — enough to tell a wrong node from a
+ *  genuinely keyless message, without dumping the payload. */
+function describeMediaNode(node) {
+    if (!node || typeof node !== 'object') return `node is ${node === null ? 'null' : typeof node}`;
+    const fields = Object.keys(node)
+        .filter((k) => !k.startsWith('_') && node[k] !== null && node[k] !== undefined)
+        .slice(0, 8);
+    return [
+        `mediaKey=${node.mediaKey ? 'present' : 'MISSING'}`,
+        `url=${node.url || node.directPath ? 'present' : 'MISSING'}`,
+        `fields=[${fields.join(', ')}]`,
+    ].join(' ');
+}
+
+// Bursts are common (one keyless message per media type), so log each distinct
+// reason at most once a minute rather than flooding the console.
+const recentMediaFailures = new Map();
+const MEDIA_FAILURE_LOG_INTERVAL_MS = 60000;
+
+function logMediaFailureOnce(reason, detail) {
+    const key = `${reason}|${detail}`;
+    const now = Date.now();
+    if (now - (recentMediaFailures.get(key) || 0) < MEDIA_FAILURE_LOG_INTERVAL_MS) return;
+    recentMediaFailures.set(key, now);
+    if (recentMediaFailures.size > 50) recentMediaFailures.clear();
+    console.warn(`[antidelete] ${reason} — ${detail}`);
 }
 
 /** True if the captured entry holds anything worth storing. */
@@ -381,7 +423,14 @@ async function captureMessageData(messageId, content) {
         entry.mediaPath = await safeDownload(activeContent.stickerMessage, 'sticker', path.join(TEMP_MEDIA_DIR, `${messageId}.webp`));
     } else if (activeContent.lottieStickerMessage) {
         // Animated (lottie) sticker — store the raw file as a document.
-        const lottieNode = activeContent.lottieStickerMessage.message || activeContent.lottieStickerMessage;
+        //
+        // lottieStickerMessage is a FutureProofMessage: { message: { stickerMessage } }.
+        // The mediaKey lives on the INNER stickerMessage, so unwrapping only one
+        // level hands downloadContentFromMessage a wrapper with no key — which is
+        // exactly what produced "Cannot derive from empty media key" for stickers.
+        const lottieNode = activeContent.lottieStickerMessage.message?.stickerMessage
+            || activeContent.lottieStickerMessage.message
+            || activeContent.lottieStickerMessage;
         entry.mediaType = 'document';
         entry.mimetype = 'application/json';
         entry.fileName = `${messageId}.json`;
@@ -797,6 +846,7 @@ module.exports = {
     _test: {
         messageStore, sweepStore, sweepTempDir, evictEntry, enforceCap,
         captureMessageData, hasContent, getMessageContent,
+        describeMediaNode, safeDownload,
         STORE_TTL_MS, MAX_STORE_ENTRIES,
     },
 };

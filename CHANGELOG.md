@@ -26,6 +26,24 @@ All notable changes to Optimus Bot are documented here.
   the full diagnosis — its old 20s ceiling could report a working binary as dead.
 - **Tests:** `__tests__/ytdlp-helpers.test.js`.
 
+### 🛡️ Antidelete media recovery
+
+- **Fixed: `Cannot derive from empty media key` for lottie stickers.** `lottieStickerMessage` is a
+  `FutureProofMessage` — `{ message: { stickerMessage } }` — so the mediaKey sits one level deeper than
+  the code unwrapped. It handed `downloadContentFromMessage()` a wrapper, which destructures `mediaKey`
+  from the **top level**, so the key came back empty. It now unwraps both levels.
+- **Failures now explain themselves.** Instead of a bare `mediaKey=MISSING` mystery, a failed fetch logs
+  one line saying whether the key and URL were present and which fields the node actually carried —
+  enough to tell a *wrong node* from a *genuinely keyless message*. Repeats are deduplicated per minute,
+  so a burst of the same failure no longer floods the console.
+- **A keyless node is no longer treated as an error.** Such a message is not retryable (WhatsApp sent a
+  stub), so it now degrades quietly and the rest of the message — caption, text, sender — is still
+  stored, which is what the recovery path already promised.
+- **Fixed: importing `commands/owner/antidelete.js` held the process open.** A module-level
+  `setInterval` had no `unref()`, so any process that required it — tests, CLI helpers, one-shot scripts
+  — never exited. Now unref'd.
+- **Tests:** `__tests__/antidelete-media.test.js`.
+
 ### 🍪 Optional cookie support (off by default)
 
 - yt-dlp is now passed `--cookies <file>` when a cookie jar exists at `.tools/cookies.txt` (or at the
