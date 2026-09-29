@@ -4,6 +4,33 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🌐 Free WARP tunnel for IP-blocked hosts (opt-in, `WARP=1`)
+
+- **New `lib/warpProxy.js`** — a **free, unlimited** way to get YouTube working on a host whose IP is
+  blocked, with **no residential proxy and no root**. It runs [usque](https://github.com/Diniboy1123/usque)
+  (a userspace Cloudflare WARP / MASQUE client) as a local SOCKS5 proxy. Cloudflare's egress IPs are **not**
+  blocked by YouTube (verified: yt-dlp downloads through WARP), and because usque needs no TUN device or
+  root, it works inside an unprivileged Pterodactyl container where the official `warp-cli` cannot.
+- **Opt in with `WARP=1` in `.env`.** On first start it (1) downloads the right usque build for the host,
+  (2) **checksum-verifies** it against the published `checksums.txt`, (3) extracts it with a dependency-free
+  ZIP reader (no system `unzip`), (4) registers a free Cloudflare account — accepting Cloudflare's Terms of
+  Service on your behalf — and (5) starts the SOCKS5 proxy and points the bot at it via `PROXIES`.
+- **The proxy is bound to `127.0.0.1` only** (usque's default is `0.0.0.0`); it is never exposed on a
+  shared host. It auto-restarts if it dies, so the bot does not silently lose YouTube again.
+- **Registration is now robust.** `register` answers the Terms-of-Service prompt by watching the output
+  stream (instead of the earlier `spawnSync` that swallowed the error), and **retries up to 4× on transient
+  network failures** (`unexpected EOF`, timeouts, resets) with a clear manual-fallback message — a single
+  flaky attempt no longer kills bot startup. Verified: the prompt is answered and output is captured (the
+  `unexpected EOF` seen in some egress environments is a network quirk, not a code defect).
+- **Escape hatches:** `WARP_PORT` (default `1080`) for a different local port, and `WARP_HTTP2=1` to force
+  HTTP/2-over-TCP when a host blocks the default UDP/QUIC tunnel.
+- `bootstrap.js` `startBot()` wires `WARP=1` to set `PROXIES` (only when it is not already set). The
+  failure is non-fatal — the bot starts without the tunnel and YouTube stays blocked, rather than crashing.
+- `/.warp/` is gitignored (the binary + the free account config it registers).
+- **Tests:** `__tests__/warp-proxy.test.js` — asset selection per platform/arch, the ZIP reader (stored +
+  deflated + missing-entry + non-zip), proxy-URL format, the register-retry decision, and `waitForPort`
+  against a real local TCP socket.
+
 ### 🩺 RapidAPI fallback for IP-blocked hosts
 
 - **New `lib/rapidApi.js`** — a **last-resort** YouTube fallback for hosts whose IP is blocked. yt-dlp

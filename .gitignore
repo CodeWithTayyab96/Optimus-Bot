@@ -24,6 +24,8 @@ data/*
 /session-pair/
 # Python venv used for yt-dlp + its PO-token plugin (bootstrap.js)
 /.venv/
+# usque binary + the free WARP account config it registers (lib/warpProxy.js)
+/.warp/
 # Belt and braces: a stray creds.json anywhere must never be committed.
 creds.json
 

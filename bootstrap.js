@@ -831,7 +831,7 @@ async function preflight() {
     }
 }
 
-function startBot() {
+async function startBot() {
     const entry = path.join(ROOT, 'index.js')
     if (!fs.existsSync(entry)) {
         console.error(`[bootstrap] index.js not found at ${entry}`)
@@ -843,6 +843,28 @@ function startBot() {
     // child inherits it.
     const env = { ...process.env }
     if (ytdlpOverride) env.YTDLP_BIN = ytdlpOverride
+
+    // Optional free WARP tunnel for hosts YouTube blocks (WARP=1).
+    //
+    // The official Cloudflare client needs root; usque reimplements WARP in
+    // userspace, so this works in an unprivileged container. Cloudflare's egress
+    // IPs are not blocked by YouTube, which makes this a free alternative to a
+    // residential proxy.
+    if (process.env.WARP === '1') {
+        try {
+            const warp = require('./lib/warpProxy')
+            const url = await warp.start((m) => console.log(m))
+            if (!env.PROXIES) {
+                env.PROXIES = url
+                say(`WARP tunnel ready — PROXIES=${url}`)
+            } else {
+                say('PROXIES is already set, so WARP will not be used.')
+            }
+        } catch (err) {
+            warn(`could not start the WARP tunnel: ${err.message}`)
+            warn('the bot will start without it — YouTube may stay blocked.')
+        }
+    }
 
     const child = spawn(process.execPath, [entry, ...passthrough], {
         cwd: ROOT,
@@ -910,7 +932,7 @@ async function main() {
     if (DEPS_ONLY) return
 
     say('starting Optimus Bot…')
-    startBot()
+    await startBot()
 }
 
 main().catch((err) => {
