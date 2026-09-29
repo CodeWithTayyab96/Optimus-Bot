@@ -14,6 +14,21 @@ All notable changes to Optimus Bot are documented here.
   through untouched with no extra request.
 - **Tests:** `__tests__/tiktok-link.test.js`.
 
+### 🔬 `.ytdiag` — find out which YouTube client works from this host
+
+- **New owner command.** "Sign in to confirm you're not a bot" is an IP problem, but that does not mean
+  nothing can be done — YouTube tolerates different player clients differently depending on the IP. Rather
+  than guessing, `.ytdiag` probes each client (`default`, `mweb`, `tv`, `web_safari`, `ios`, `android_vr`)
+  against a video and reports which actually work **here**, plus the yt-dlp version, its path, and whether
+  a PO-token plugin is available.
+- **The answer is decisive:** if some client works, pin it and the bot works with no proxy; if nothing
+  works — not even the default — the IP is blocked and a proxy is the only remaining fix.
+- `.ytdiag <url>` probes a specific video instead of the built-in stable one.
+- **Measured while building it:** the default client took **6.9s** and `mweb` **33.7s** on the same video
+  (mweb round-trips to the PO-token provider). Worth knowing on a slow panel, and why the per-client
+  timeout is 45s rather than something tighter.
+- **Tests:** `__tests__/ytdiag.test.js`.
+
 ### 🎬 YouTube downloads on hosts without Python
 
 - **The bot-check error is now explained instead of misdiagnosed.** `Sign in to confirm you're not a bot`
