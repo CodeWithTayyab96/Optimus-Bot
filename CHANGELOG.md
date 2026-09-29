@@ -62,6 +62,18 @@ All notable changes to Optimus Bot are documented here.
   bot) but nothing for the account the bot *is*. The pairing prompt therefore offered `ownerNumber`, so
   pairing with it would link your personal WhatsApp as the bot. Pairing now prefers `settings.botNumber`
   and falls back to `ownerNumber`, and the prompt says so.
+- **New `scripts/test-pairing.js`** (`npm run pair:test`) — an end-to-end pairing test that runs the real
+  sequence in three phases: **pair** (code or `--qr`) → **persist** (the session is written and reports
+  `registered: true`) → **reconnect** (a *fresh* socket opens from the on-disk session with no pairing at
+  all, which is what actually proves persistence). It uses its own `./.pairtest` directory and **never
+  touches your real `./session`**; `npm run pair:clean` removes it.
+- **Security: `.pairtest/` is now gitignored**, and a bare `creds.json` pattern was added so a stray
+  credentials file is ignored **at any depth**. A test pairing writes real credentials, and they were
+  committable before this.
+- **Clarification worth recording:** WhatsApp pairing is **not** a local-network protocol. There is no
+  device discovery, no mDNS and no LAN handshake — the phone and the bot never talk to each other; both
+  connect outbound to WhatsApp's servers and the link is brokered there. No local permissions are needed
+  and the two devices do not have to share a network. The only requirement is outbound internet.
 - **New `scripts/pair.js`** (`npm run pair`) — links WhatsApp on your own machine and writes
   `./session/creds.json`, the exact directory the bot reads at startup. Copy that folder to the host and
   the bot connects **with no phone number in `settings.js` and nothing typed into a panel console**.

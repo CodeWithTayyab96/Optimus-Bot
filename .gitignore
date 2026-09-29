@@ -18,6 +18,10 @@ data/*
 
 # Session files (WhatsApp credentials — never commit)
 /session/
+# Test pairing session (also real credentials — scripts/test-pairing.js writes here)
+/.pairtest/
+# Belt and braces: a stray creds.json anywhere must never be committed.
+creds.json
 
 # Environment variables
 .env
