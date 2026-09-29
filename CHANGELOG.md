@@ -55,6 +55,18 @@ All notable changes to Optimus Bot are documented here.
   it makes cookies unnecessary.
 - `.dlstatus` reports whether cookies are configured (never the contents).
 
+### 🔄 `.update` — ZIP mode works without hand-configuration
+
+- **ZIP mode no longer needs hand-configuration.** `.update` falls back to a ZIP archive URL derived
+  from the same repo/branch git mode uses (`<repo>/archive/refs/heads/<branch>.zip`), so a panel that is
+  not a git checkout works without setting `UPDATE_ZIP_URL`. `settings.updateZipUrl` and the env var
+  still take precedence, and `UPDATE_BRANCH` is honoured.
+- Reminder of how it deploys: **git mode** when a `.git` directory and `git` are present
+  (`git reset --hard` → `git clean -fd` → `npm install` → restart); **ZIP mode** otherwise (download,
+  extract, copy over, preserving `node_modules`, `session`, `data`, `settings.js`).
+- `data/`, `baileys_store.json` and `settings.js` are backed up and restored around a git update, so
+  runtime state survives. `.update check` previews without touching the working tree (git mode only).
+
 ### 🚀 Deploy / bootstrap
 
 - `bootstrap.js` installs yt-dlp automatically: pip variants → `ensurepip` → the official `get-pip.py`

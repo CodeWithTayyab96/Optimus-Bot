@@ -220,8 +220,22 @@ function copyRecursive(src, dest, ignore = [], relative = '', outList = []) {
     }
 }
 
+/**
+ * The archive URL for the configured repo+branch.
+ *
+ * ZIP mode previously required settings.updateZipUrl / UPDATE_ZIP_URL to be set
+ * by hand, so on a panel that is not a git checkout `.update` simply failed with
+ * "No ZIP URL configured" — even though the repo URL was already known. Deriving
+ * it means ZIP mode works with no configuration, exactly like git mode does.
+ */
+function defaultZipUrl() {
+    const { url, branch } = repoConfig();
+    const base = String(url).replace(/\.git$/, '').replace(/\/+$/, '');
+    return `${base}/archive/refs/heads/${branch}.zip`;
+}
+
 async function updateViaZip(sock, chatId, message, zipOverride) {
-    const zipUrl = (zipOverride || settings.updateZipUrl || process.env.UPDATE_ZIP_URL || '').trim();
+    const zipUrl = (zipOverride || settings.updateZipUrl || process.env.UPDATE_ZIP_URL || defaultZipUrl()).trim();
     if (!zipUrl) {
         throw new Error('No ZIP URL configured. Set settings.updateZipUrl or UPDATE_ZIP_URL env.');
     }
@@ -360,5 +374,6 @@ module.exports = {
     RUNTIME_BACKUP_PATHS,
     summarizeChanges,
     repoConfig,
+    defaultZipUrl,
     updateCommand,
 };
