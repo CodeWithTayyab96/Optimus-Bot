@@ -24,8 +24,15 @@ All notable changes to Optimus Bot are documented here.
   `unexpected EOF` seen in some egress environments is a network quirk, not a code defect).
 - **Escape hatches:** `WARP_PORT` (default `1080`) for a different local port, and `WARP_HTTP2=1` to force
   HTTP/2-over-TCP when a host blocks the default UDP/QUIC tunnel.
-- `bootstrap.js` `startBot()` wires `WARP=1` to set `PROXIES` (only when it is not already set). The
-  failure is non-fatal — the bot starts without the tunnel and YouTube stays blocked, rather than crashing.
+- **WARP is owned by `index.js`, not `bootstrap.js`.** The panel launches the bot via `npm start`
+  (`node index.js`), where bootstrap's WARP startup was never reached — so `WARP=1` was silently ignored.
+  WARP now starts inside the bot process itself, so it works no matter how the bot is launched
+  (`npm start`, the panel's start command, or `node bootstrap.js`, which only spawns the bot). bootstrap's
+  duplicate block was removed to avoid two processes racing for port 1080.
+- **`settings.proxies` is now a live getter** that reads `process.env.PROXIES` at call time. Previously it
+  was cached at module load, so a proxy assigned *after* `settings.js` was required (which is exactly when
+  the WARP tunnel sets `PROXIES`) was never seen by yt-dlp. Now yt-dlp picks up the tunnel on its next call.
+- The failure is non-fatal — the bot starts without the tunnel and YouTube stays blocked, rather than crashing.
 - `/.warp/` is gitignored (the binary + the free account config it registers).
 - **Tests:** `__tests__/warp-proxy.test.js` — asset selection per platform/arch, the ZIP reader (stored +
   deflated + missing-entry + non-zip), proxy-URL format, the register-retry decision, and `waitForPort`

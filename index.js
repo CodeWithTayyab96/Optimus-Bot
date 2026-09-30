@@ -542,11 +542,40 @@ async function startXeonBotInc() {
 }
 
 
-// Start the bot with error handling
-startXeonBotInc().catch(error => {
-    console.error('Fatal error:', error)
-    process.exit(1)
-})
+/**
+ * Start the bot, optionally bringing up the free WARP tunnel first (WARP=1).
+ *
+ * WARP is owned HERE — not in bootstrap.js — so it works no matter how the bot
+ * is launched: `npm start` (node index.js), the panel's start command, or
+ * bootstrap.js (which only spawns this process). The tunnel is a local SOCKS5
+ * proxy; if it fails the bot still starts and YouTube may just stay blocked.
+ */
+async function startWithWarp() {
+    if (process.env.WARP === '1') {
+        try {
+            const warp = require('./lib/warpProxy');
+            const url = await warp.start((m) => console.log(m));
+            if (!process.env.PROXIES) {
+                process.env.PROXIES = url;
+                console.log(`[warp] WARP tunnel ready — PROXIES=${url}`);
+            } else {
+                console.log('[warp] PROXIES is already set, so WARP will not be used.');
+            }
+        } catch (err) {
+            console.warn(`[warp] could not start the WARP tunnel: ${err.message}`);
+            console.warn('[warp] the bot will start without it — YouTube may stay blocked.');
+        }
+    }
+    startXeonBotInc().catch((error) => {
+        console.error('Fatal error:', error);
+        process.exit(1);
+    });
+}
+
+startWithWarp().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err)
 })

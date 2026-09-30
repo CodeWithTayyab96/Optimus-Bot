@@ -844,27 +844,9 @@ async function startBot() {
     const env = { ...process.env }
     if (ytdlpOverride) env.YTDLP_BIN = ytdlpOverride
 
-    // Optional free WARP tunnel for hosts YouTube blocks (WARP=1).
-    //
-    // The official Cloudflare client needs root; usque reimplements WARP in
-    // userspace, so this works in an unprivileged container. Cloudflare's egress
-    // IPs are not blocked by YouTube, which makes this a free alternative to a
-    // residential proxy.
-    if (process.env.WARP === '1') {
-        try {
-            const warp = require('./lib/warpProxy')
-            const url = await warp.start((m) => console.log(m))
-            if (!env.PROXIES) {
-                env.PROXIES = url
-                say(`WARP tunnel ready — PROXIES=${url}`)
-            } else {
-                say('PROXIES is already set, so WARP will not be used.')
-            }
-        } catch (err) {
-            warn(`could not start the WARP tunnel: ${err.message}`)
-            warn('the bot will start without it — YouTube may stay blocked.')
-        }
-    }
+    // NOTE: the free WARP tunnel (WARP=1) is started by index.js itself, not
+    // here. Owning it in the actual bot process means it works no matter how the
+    // bot is launched, and avoids two processes both trying to bind port 1080.
 
     const child = spawn(process.execPath, [entry, ...passthrough], {
         cwd: ROOT,

@@ -61,10 +61,16 @@ const settings = {
   // ── Outbound proxy pool for the media/download commands ───
   // Comma-separated proxy URLs (http://user:pass@host:port or socks5://host:port).
   // Leave empty/unset for a direct connection (no proxy) — the default.
-  proxies: (process.env.PROXIES || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean),
+  //
+  // LIVE getter, not a value cached at module load: index.js can start the WARP
+  // tunnel after this module is already required and assign PROXIES at runtime —
+  // yt-dlp must see the new value on the next call, not the empty one from load.
+  get proxies() {
+    return (process.env.PROXIES || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  },
 
   // ── Bot behaviour ─────────────────────────────────────────
   commandMode: 'public',
