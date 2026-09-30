@@ -4,6 +4,23 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🔧 WARP tunnel: fix connect timeouts (DNS) and stop proxying what isn't blocked
+
+- **Fixed: every request through the WARP tunnel timed out.** On the panel the tunnel came up fine
+  (`Connected to MASQUE server`) yet yt-dlp reported `Connection ... timed out (connect timeout=20)` for
+  **both** YouTube and SoundCloud — a connect-stage failure, not a YouTube block. Cause: usque's `socks`
+  mode sends DNS **through the tunnel** (9.9.9.9, default 2s), and when that can't resolve, every SOCKS
+  connect hangs until the client gives up. YouTube's error was a giveaway: it went from
+  `Sign in to confirm you're not a bot` (IP block) to `timeout`, i.e. it never reached YouTube at all.
+  The proxy now runs with **`-l --system-dns`** so names resolve with the host's own resolver.
+- **`--always-reconnect`** added: usque dropped the tunnel when idle and only reconnected on the next
+  outbound request, so the first request after a quiet period paid for a fresh handshake — and often
+  timed out waiting for it.
+- **The tunnel is now used for YouTube only.** With `PROXIES` set, *every* yt-dlp call was proxied, which
+  broke SoundCloud (it worked direct, then started timing out) and wasted tunnel bandwidth on traffic that
+  was never blocked. Non-YouTube hosts stay direct; only the actually-blocked host uses the tunnel.
+- **Bumped to v2.1.1.**
+
 ### 🏷️ Versioning — the bot now reports what it is running
 
 - **The version is bumped on every push**, and `settings.js` + `package.json` are kept **in sync**
