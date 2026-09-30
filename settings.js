@@ -62,6 +62,11 @@ const settings = {
   // Get credentials from: https://dash.cloudflare.com → Workers AI → Use REST API
   cloudflareAccountId: process.env.CLOUDFLARE_ACCOUNT_ID || 'YOUR_CLOUDFLARE_ACCOUNT_ID',
   cloudflareApiToken: process.env.CLOUDFLARE_API_TOKEN || 'YOUR_CLOUDFLARE_API_TOKEN',
+  // AI Horde (https://stablehorde.net) — crowd-sourced image generation, and the
+  // only image provider that needs NO key at all. Leave this blank and the bot
+  // uses the documented anonymous key (ten zeros); registering a free account and
+  // pasting the key here only buys queue priority, never better image quality.
+  hordeApiKey: process.env.HORDE_API_KEY || '',
   // OpenAI-Compatible chat provider (OpenAI, OpenRouter, Together, Groq-compatible,
   // or any local LLM that exposes /chat/completions).
   openaiBaseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
@@ -99,13 +104,18 @@ const settings = {
   commandMode: 'public',
   maxStoreMessages: 20,
   storeWriteInterval: 10000,
+  // Restart the bot when Node's RSS climbs past this, in MB (checked every 30s
+  // in index.js). It was hardcoded at 400, which was tuned for a small panel and
+  // capped the bot at roughly 13% of a 3 GiB host — so it is a setting now.
+  // Override with MAX_RSS_MB in .env; 0 or unset falls back to 600.
+  maxRssMb: Number(process.env.MAX_RSS_MB) || 600,
   description: 'Optimus Bot — a WhatsApp bot for group management and automation.',
   // ── Bot version ─────────────────────────────────────────────
   // BUMP THIS (and package.json's version) ON EVERY PUSH. It is shown in
   // .alive, .ping, .uptime, .dlstatus and the startup banner, so the operator
   // can tell at a glance whether the panel is running the latest code.
   // Keep settings.version and package.json.version in sync.
-  version: '2.1.7',
+  version: '2.3.3',
   // Short git commit of the running checkout (see currentCommit above).
   gitCommit: currentCommit(),
 

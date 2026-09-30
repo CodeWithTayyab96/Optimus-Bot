@@ -54,6 +54,33 @@ async function hasGitRepo() {
 // config alive across updates.
 const RUNTIME_BACKUP_PATHS = ['data', 'baileys_store.json', 'settings.js', '.env'];
 
+/**
+ * Paths ZIP mode must never overwrite.
+ *
+ * This list is SEPARATE from RUNTIME_BACKUP_PATHS and the two will not warn you
+ * if they drift. Git mode protects runtime state by backing it up and restoring
+ * it; ZIP mode copies file-by-file and calls neither helper, so anything not
+ * named here is simply overwritten by the repo's copy.
+ *
+ * `.env` in particular MUST be here. It is environment-specific — the repo ships
+ * a placeholder, the panel holds the real credentials — so copying the repo's
+ * over it wipes every key: AI providers, CLOUDFLARE_*, and WARP=1. That is
+ * exactly how a working WARP tunnel vanished between two boots.
+ *
+ * If you add a path to RUNTIME_BACKUP_PATHS, check whether it belongs here too.
+ */
+const ZIP_PRESERVE_PATHS = [
+    'node_modules',
+    '.git',
+    'session',
+    'tmp',
+    'tmp/',
+    'temp',
+    'data',
+    'baileys_store.json',
+    '.env',
+];
+
 function backupRuntimeState() {
     const backupDir = path.join(process.cwd(), 'tmp', `update-backup-${Date.now()}`);
     for (const rel of RUNTIME_BACKUP_PATHS) {
@@ -256,8 +283,10 @@ async function updateViaZip(sock, chatId, message, zipOverride) {
     const [root] = fs.readdirSync(extractTo).map(n => path.join(extractTo, n));
     const srcRoot = fs.existsSync(root) && fs.lstatSync(root).isDirectory() ? root : extractTo;
 
-    // Copy over while preserving runtime dirs/files
-    const ignore = ['node_modules', '.git', 'session', 'tmp', 'tmp/', 'temp', 'data', 'baileys_store.json'];
+    // Copy over while preserving runtime dirs/files.
+    // See ZIP_PRESERVE_PATHS for why `.env` is in this list — it is the only
+    // thing protecting the panel's credentials in ZIP mode.
+    const ignore = ZIP_PRESERVE_PATHS;
     const copied = [];
     // Preserve ownerNumber from existing settings.js if present
     let preservedOwner = null;
@@ -377,6 +406,8 @@ module.exports = {
     backupRuntimeState,
     restoreRuntimeState,
     RUNTIME_BACKUP_PATHS,
+    ZIP_PRESERVE_PATHS,
+    copyRecursive,
     summarizeChanges,
     repoConfig,
     defaultZipUrl,

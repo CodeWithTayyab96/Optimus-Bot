@@ -1,23 +1,46 @@
+/**
+ * .savestatus — save the media you REPLIED TO (or forwarded) into this chat.
+ *
+ * ⚠️ NAME WARNING — read this before changing the description again.
+ *   This command does NOT fetch anybody's WhatsApp status, and never could:
+ *   statuses cannot be quoted from a normal chat, and there is no fetch-on-demand
+ *   API for them. It saves the media attached to the message you replied to.
+ *   The real status saver is `.status <number>` (commands/owner/status.js), which
+ *   serves from lib/statusCache. The description below is deliberately honest
+ *   about that, because the old wording ("Save media from a status") sent people
+ *   here expecting something this command cannot do.
+ *
+ * ⚠️ PRIVACY: this can capture media posted by other people. It is owner-only and
+ * the reply carries a reminder. If you consider that unacceptable, delete this
+ * file — see the deployment docs.
+ */
 const style = require('../../lib/messageStyle');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
-/**
- * .savestatus — save media from a status (or any quoted media) into this chat.
- *
- * ⚠️ PRIVACY: this can capture media posted by other people. It is owner-only
- * and the reply carries a reminder. If the owner considers that unacceptable,
- * delete this file — see the deployment docs.
- *
- * Practical note: WhatsApp statuses cannot be quoted directly in a normal chat,
- * so this works on media that was forwarded into the chat (or a quoted media
- * message). It downloads the attached media and re-sends it here.
- */
+// A quoted message may be wrapped — a view-once reply arrives as
+// { viewOnceMessageV2: { message: { imageMessage } } }, so looking for
+// `imageMessage` on the wrapper finds nothing. Unwrap first.
+const ENVELOPE_KEYS = [
+    'viewOnceMessageV2',
+    'viewOnceMessageV2Extension',
+    'viewOnceMessage',
+    'ephemeralMessage',
+];
+
+function unwrap(node, depth = 0) {
+    if (!node || typeof node !== 'object' || depth > 10) return node;
+    for (const key of ENVELOPE_KEYS) {
+        if (node[key]?.message) return unwrap(node[key].message, depth + 1);
+    }
+    return node;
+}
+
 module.exports = {
     name: 'savestatus',
     aliases: ['dlstatus2', 'savestory'],
     category: 'owner',
-    description: 'Save media from a status / quoted message into this chat (owner only)',
-    usage: '.savestatus (reply to/forward the media)',
+    description: 'Save the media you replied to (or forwarded) into this chat — for a real status, use .status <number>',
+    usage: '.savestatus (reply to / forward the media)  ·  .status <number> for a contact’s status',
     ownerOnly: true,
     modOnly: false,
     groupOnly: false,
@@ -28,7 +51,9 @@ module.exports = {
         try {
             const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
             const own = message.message || {};
-            const src = quoted || own;
+
+            // Unwrap view-once / ephemeral envelopes on both paths.
+            const src = unwrap(quoted) || unwrap(own) || {};
 
             const kind = src.imageMessage ? 'image'
                 : src.videoMessage ? 'video'
@@ -37,7 +62,8 @@ module.exports = {
 
             if (!kind) {
                 return await extra.reply(style.invalidInput(
-                    'Reply to (or forward) an image, video or audio to save it.',
+                    'Reply to (or forward) an image, video or audio to save it. ' +
+                    'To fetch someone’s status, use .status <number>.',
                     `${extra.prefix}savestatus`
                 ));
             }
@@ -67,4 +93,6 @@ module.exports = {
             return await extra.reply(style.error('Failed to save that media.'));
         }
     },
+    // Exported for tests.
+    _test: { unwrap },
 };

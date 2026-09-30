@@ -4,6 +4,200 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🔐 `.update` no longer wipes `.env` on a non-git panel (v2.3.3)
+
+**The bug.** `.update` has two paths, and only one of them was protecting credentials.
+
+- **Git mode** backs up runtime state and restores it afterwards, so `.env` is safe — it is listed in
+  `RUNTIME_BACKUP_PATHS`.
+- **ZIP mode** (used when the panel is *not* a git checkout) copies the repo tree file-by-file and calls
+  **neither** helper. Its only protection is its own preserve list — and **`.env` was not on it.**
+
+So on a ZIP-mode panel, `.update` copied the repo's **placeholder** `.env` over the real one and silently
+wiped every credential in it: all AI provider keys, `CLOUDFLARE_*`, and `WARP=1`. This is the same
+failure that previously killed a working WARP tunnel between two boots — the git-mode half was fixed
+back then, but the ZIP-mode half was missed.
+
+- **Fixed:** `.env` added to the ZIP preserve list, which is now a named, exported constant
+  (`ZIP_PRESERVE_PATHS`) so it can actually be tested.
+- **Proved in both directions.** With the old list, a panel `.env` containing real credentials is
+  replaced by the repo's empty one — credentials gone. With the new list it survives byte-for-byte,
+  `WARP=1` and keys intact, while `.env.example`, `index.js` and `settings.js` still update normally and
+  `data/`, `session/` and `baileys_store.json` stay preserved.
+- **Documented the trap.** `RUNTIME_BACKUP_PATHS` and `ZIP_PRESERVE_PATHS` are separate lists and will
+  **not** warn you if they drift apart. Both now carry a comment saying so, and a test asserts every
+  backup path (except `settings.js`, which ZIP mode patches deliberately) is also a preserve path.
+- **Tests:** 12 assertions covering credential survival, that documentation and code still update, and
+  the two lists staying in sync.
+
+### 🖼️ Cloudflare image generation actually works now — the request body was being rejected (v2.3.2)
+
+**The bug was never the token.** `generateWithCloudflare()` sent `num_steps`, `width` and `height`.
+Workers AI's `flux-1-schnell` now **rejects unknown properties outright**:
+
+```
+5006  AiError: Bad input: Additional or unevaluated properties
+      '/num_steps, /width, /height' at '/' not allowed
+```
+
+So the provider failed on **every single call, even with a perfectly valid token** — which made it look
+like an authentication problem and sent us chasing tokens and account IDs instead.
+
+- **Fixed:** the body is now `{ prompt, steps: 4 }`. `steps` is the only tuning key it accepts; output
+  size is fixed by the model. (`num_steps` is rejected too — it is not an alias.)
+- **Verified:** 1024×1024 JPEG in **3.2 s**, no watermark. It now wins the chain on the first attempt
+  instead of falling through to AI Horde (13 s, 512×512).
+
+**Clearer failure message.** Cloudflare returns code `10000 "Authentication error"` for *both* a bad
+token and a token that merely lacks the Workers AI permission, so the log was actively misleading. A
+`403` now says the token is valid but not authorised for Workers AI, and names the two things to check
+(`CLOUDFLARE_ACCOUNT_ID` and the token's `Account → Workers AI` permission).
+
+**Two gotchas worth keeping:**
+- **A wrong Account ID returns the identical `10000` error as a missing permission.** The two are
+  indistinguishable from outside — read the Account ID off the dashboard, never infer it.
+- **An empty `GET /accounts` does not mean a broken token.** Listing accounts requires *Account
+  Settings: Read*, which a Workers-AI-only token legitimately does not have.
+
+### ⚙️ Memory watchdog is now a setting, default 600 MB (v2.3.1)
+
+`index.js` restarted the bot whenever Node's RSS crossed a **hardcoded 400 MB**. That number was tuned
+for a small panel; on a 3 GiB host it capped the bot at roughly **13% of the available RAM**, which
+turns a healthy bot into a restart loop under real load.
+
+- **New `settings.maxRssMb`** — default **600**, override with `MAX_RSS_MB` in `.env`. Raise it on a
+  roomy host or lower it on a tiny one without a code change and a push.
+- **`0` or unset falls back to 600** rather than disabling the guard, so a stray empty value cannot
+  silently remove the safety net.
+- **The log line is now useful.** It reports the limit *and* the actual usage —
+  `⚠️ RAM too high (>600MB, at 712MB), restarting bot...`. It previously named the threshold but not
+  where the process actually was, which made the restart look arbitrary.
+- Documented in `.env.example` under *Runtime tuning*.
+
+**Not the same number:** the panel's "used memory" and Node's RSS are different things. The guard reads
+`process.memoryUsage().rss` — this process only — while the panel's figure includes the OS and every
+other process in the container. A container showing 439 MiB does not mean Node is near 400.
+
+### 📸 `.status <number>` — private status saver, and view-once confirmations moved to the DM (v2.3.0)
+
+**`.status <number>` — new.** Saves a contact's WhatsApp status to your DM, privately.
+
+- WhatsApp **pushes** statuses; there is no fetch-on-demand call. `sock.fetchStatus(jid)` is a trap —
+  it returns the profile *about* text, not the story. So the only way an on-demand command can work is
+  to have recorded the status when it arrived. **`lib/statusCache.js`** now does exactly that, hooked
+  into `handleStatus` in `main.js` ahead of the autostatus handler.
+- **Never marks the status viewed.** `readMessages()` is what sends the "seen" receipt, and this path
+  deliberately never calls it — so the poster never sees that the bot looked. (`.autostatus on` does the
+  opposite; the two are independent on purpose.)
+- **Everything goes to the DM** — media and confirmation alike — and the target is resolved through the
+  new `lib/dmTarget.js`, which can never return a group JID.
+- Also: `.status` lists what is cached (contacts, counts, disk use); `.status clear [number]` wipes it.
+- **Bounded on purpose:** newest 5 per contact, 30 MB per item, 150 MB total, oldest pruned first with
+  the files deleted. Status media lands on disk, so without caps a busy feed would quietly fill the panel.
+
+**View-once confirmations now go to the DM.** Replying "save" to a media in a group used to post
+"📥 Saved to your DM." **into the group** — telling everyone what the owner had just kept, which defeats
+the entire point of pulling the media out of there. The confirmation now goes to the DM and nothing is
+posted back to the source chat. When the trigger is typed in the DM itself it says "📥 Saved." there,
+which is accurate.
+
+**`.savestatus` review — the name was lying.** It never saved anybody's status: statuses cannot be quoted
+from a normal chat, so it only ever handled the media you replied to or forwarded. Two fixes:
+
+- Description and usage now say what it actually does, and point at `.status <number>` for a real status.
+- It could not see **view-once** media at all. A quoted view-once arrives as
+  `{ viewOnceMessageV2: { message: { imageMessage } } }`, so looking for `imageMessage` on the wrapper
+  found nothing and it reported "reply to an image, video or audio". It now unwraps the envelope first.
+
+**New `lib/dmTarget.js`.** `resolveDmJid()` is the single place that answers "where should this private
+send go?". `senderId` is `participant || remoteJid` (`main.js`) and is **not** a DM: a reply from the
+owner's own linked device carries no `participant`, so it collapses to the chat — and `fromMe` bypasses
+the owner gate, making that path reachable. A group JID is never returned. Both `.status` and the
+view-once saver use it so the two cannot drift apart.
+
+**Tests:** 24 assertions — command registration and alias collisions (deduped by command identity, since
+`loadCommands()` keys the Map by name *and* alias), envelope unwrapping, prune caps, DM-target
+resolution, and the `savestatus` view-once fix. Plus an end-to-end capture test: a `status@broadcast`
+upsert is recorded, a re-delivered upsert is not duplicated, a non-status message is ignored, and
+`clear()` empties it.
+
+### 🐛 View-Once → DM hijacked ordinary replies, and could leak media into a group (v2.2.1)
+
+**The bug:** replying **"Nice"** to a media message — an ordinary compliment — made the bot forward
+that media and post **"📥 Sent to your DM."** Nobody asked it to. Two separate defects combined.
+
+**Cause 1 — the trigger list was full of normal conversation.** It accepted
+`good, nice, save, dm, send, keep, download, lovely, cool, wow, fire, beautiful, amazing, love, yes, yep`
+and `❤️ 👍 😍 🔥 🥰 ✅ ⭐ 💖 💯`. The comment claimed exact-matching "avoids false positives like
+*that's good*" — but it never guarded against the far more common case of simply replying *"nice"*.
+Any of those words, in reply to **any** media in **any** chat, silently triggered a save.
+
+**Cause 2 — the "DM" could resolve to the chat itself, or to a group.** The target was
+`const dmJid = senderId`, and `senderId` is `message.key.participant || message.key.remoteJid`
+(`main.js:135`). A reply sent from the owner's **own linked device** carries **no `participant`**, so
+`senderId` collapses to the chat JID — and in a group that is the **GROUP**. That path is reachable
+because the owner gate is `message.key.fromMe || senderIsOwnerOrSudo` (`main.js:189`), and `fromMe`
+passes unconditionally. Result: the media is posted **publicly into the group** while the bot announces
+it went to the DM. The confirmation was a lie, and the module's whole stated purpose — getting the
+media *out* of the group — was inverted.
+
+**The fix:**
+
+- **Triggers narrowed to explicit save-intent only:** `save, dm, keep, download, savethis, sendme` plus
+  `📥` and `💾`. Every removed word was ordinary conversation. A trigger has to be something a person
+  would never type by accident.
+- **New `resolveDmJid()`** — the single place that decides where media lands. It **never** returns a
+  group JID, returns the account's own chat for a `fromMe` reply, and strips the `:device` suffix
+  (`923701609799:12@s.whatsapp.net` → `923701609799@s.whatsapp.net`). If it cannot resolve a safe
+  target it sends nothing rather than guessing.
+- **The confirmation no longer lies.** When the trigger was typed inside the DM itself the media has
+  simply appeared in that chat, so it says **"📥 Saved."**; otherwise **"📥 Sent to your DM."**
+- Help text updated (`commands/general/viewonce.js`) and the call-site comment in `main.js` now warns
+  that `fromMe` messages carry no `participant`.
+- **Tests:** 41 assertions — the 24 former noisy triggers must *not* fire, the 11 real triggers must
+  fire, and DM resolution is checked for `fromMe`-in-group, group-JID refusal, in-DM reply, device
+  suffix, and `@lid`.
+
+### 🖼️ Image generation — chain repaired, AI Horde added (v2.2.0)
+
+**The bug:** `.imagine` was returning **watermarked** images. The watermark was Pollinations' — meaning
+the chain had fallen through *two* providers to reach the last resort. All three were broken:
+
+- **Gemini `gemini-3.1-flash-image` was dead as primary.** Every Gemini image model
+  (`gemini-3.1-flash-image`, `-flash-lite-image`, `gemini-2.5-flash-image`, `gemini-3-pro-image`)
+  returns `429 — limit: 0 input tokens per minute on Free Tier`. Image output is **paid-only** on
+  Gemini, so as primary it burned 1–3s on every call and *always* failed. Verified against all four
+  models.
+- **Cloudflare returned `401 Authentication error`** — the stored `CLOUDFLARE_API_TOKEN` is dead.
+  The account ID and `flux-1-schnell` model are fine; only the token needs replacing.
+- **Pollinations is now paywalled.** Uncached generations return `402 Payment Required` carrying an
+  x402 challenge — **$0.01 USDC per image**. Only cached prompts still answer free, and
+  `nologo=true` no longer suppresses the watermark.
+
+**The fix:**
+
+- **New provider: AI Horde** (`stablehorde.net`) — crowd-sourced, genuinely free, **needs no key at
+  all**. Anonymous requests use the documented ten-zeros key; `settings.hordeApiKey` is optional and
+  only buys queue priority. Async submit → poll → fetch, with a 90s deadline so a command can never
+  hang, and the job is cancelled on early exit so it never squats on a worker slot.
+- **Chain reordered to what actually works:** Cloudflare → **AI Horde** → Pollinations → Gemini.
+  Gemini is now *last* so a free-tier key never costs a wasted round-trip before a working provider.
+- **Anonymous requests are sized for the kudos rule.** Anonymous clients start at **-50 kudos** and
+  the Horde *rejects* anything over 600×600 or an equivalent sampler budget
+  (*"This request requires 20.03 kudos to fulfil"*). The anonymous path therefore asks for
+  **512×512 @ 20 steps**; a registered key with kudos gets 1024×1024 @ 25. A rejected 1024 request is
+  worth less than a delivered 512 one.
+- **`nsfw: false` + `censor_nsfw: true`** — the Horde's model list is heavily NSFW/anime, and this bot
+  posts into arbitrary chats, so it must never be routed there. A censored placeholder is treated as
+  a failure and falls through.
+- **`settings.hordeApiKey`** added (env `HORDE_API_KEY`, optional).
+- **Verified end-to-end** through `generateImage()` — 512×512 WebP in ~13s, no watermark.
+
+**Note for local runs:** the repo `.env` has `GEMINI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` and
+`CLOUDFLARE_API_TOKEN` **empty**, so a local run skips both silently and lands on AI Horde. The real
+credentials live only on the panel. A dead-but-present Cloudflare token is *not* skipped — it is
+tried and 401s — so refresh it in the Cloudflare dashboard to get the faster primary back.
+
 ### 📖 `.dictionary` — new (Free Dictionary API, keyless)
 
 - **New `commands/utility/dictionary.js`** — `.dictionary <word>` (aliases `.dict`, `.define`, `.meaning`)

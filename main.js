@@ -67,6 +67,10 @@ const { handleAutoread, isBotMentionedInMessage } = safeRequire('./commands/owne
 const afk = require('./lib/afk');
 const { handleMessageRevocation, storeMessage } = safeRequire('./commands/owner/antidelete');
 const { handleStatusUpdate } = safeRequire('./commands/owner/autostatus');
+// Records every incoming status so `.status <number>` has something to serve.
+// Statuses are PUSHED by WhatsApp — there is no fetch-on-demand API — so if it
+// is not captured here, it is gone.
+const statusCache = safeRequire('./lib/statusCache');
 const { readState: readPmBlockerState } = safeRequire('./commands/owner/pmblocker');
 const { handleTicTacToeMove } = safeRequire('./commands/fun/tictactoe');
 const bombModule = safeRequire('./commands/fun/bomb');
@@ -248,9 +252,12 @@ async function handleMessages(sock, messageUpdate, printLog) {
             if (consumed) return;
         }
 
-        // View-Once → DM: when the owner/sudo REPLIES to a media message with a
-        // trigger word/emoji (e.g. "good", "nice", 📥), forward that media to
+        // View-Once → DM: when the owner/sudo REPLIES to a media message with an
+        // explicit save trigger (e.g. "save", "dm", 📥), forward that media to
         // their DM. Runs for any media reply (view-once included); owner-only.
+        // NOTE: `fromMe` also passes this gate, and such a message carries no
+        // `participant` — handleViewOnceReply resolves a safe target for that case
+        // rather than trusting senderId, which would be the CHAT.
         if (isOwnerOrSudoCheck) {
             const dmHandled = await handleViewOnceReply(sock, message, chatId, senderId);
             if (dmHandled) return;
@@ -485,6 +492,14 @@ module.exports = {
     handleMessages,
     handleGroupParticipantUpdate,
     handleStatus: async (sock, status) => {
+        // Cache first, and never let a capture failure break status handling.
+        if (statusCache && statusCache.capture) {
+            try {
+                await statusCache.capture(sock, status);
+            } catch (e) {
+                console.error('[statusCache] capture error:', e.message);
+            }
+        }
         if (handleStatusUpdate) await handleStatusUpdate(sock, status);
     }
 };

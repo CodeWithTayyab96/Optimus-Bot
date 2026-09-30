@@ -68,11 +68,14 @@ setInterval(() => {
     }
 }, 60_000) // every 1 minute
 
-// Memory monitoring - Restart if RAM gets too high
+// Memory monitoring - Restart if RAM gets too high.
+// The limit is settings.maxRssMb (env MAX_RSS_MB), not a hardcoded number: it
+// has to track the host, and 400 MB was wrong for anything but a small panel.
 setInterval(() => {
+    const limit = settings.maxRssMb || 600
     const used = process.memoryUsage().rss / 1024 / 1024
-    if (used > 400) {
-        console.log('⚠️ RAM too high (>400MB), restarting bot...')
+    if (used > limit) {
+        console.log(`⚠️ RAM too high (>${limit}MB, at ${used.toFixed(0)}MB), restarting bot...`)
         process.exit(1) // Panel will auto-restart
     }
 }, 30_000) // check every 30 seconds
