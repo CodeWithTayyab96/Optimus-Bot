@@ -4,6 +4,85 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🔀 Provider routing — Gemini for speech, OpenAI for auto-reply (v2.4.0)
+
+**Chat is now Groq → OpenAI-compatible.** Gemini was removed from the chat chain because the model it
+pointed at, **`gemini-2.5-flash`, is no longer served to new accounts** — every call was returning null
+and the fallback had been silently dead. `chatGemini` and `chatGeminiVision` (`.study` on scanned PDFs)
+were both using it; they now use the current `geminiNative.model`.
+
+**Speech now runs on Gemini, in both directions:**
+
+- **Text-to-speech is new.** `textToSpeech()` uses `gemini-3.8-flash-tts` and returns **`audio/wav`**
+  (verified live), so no PCM packing or container work is needed. `.tts` uses it and falls back to the
+  `gtts` path that was previously the *only* provider.
+- **Speech-to-text** is now Gemini (inline audio on `gemini-3.8-flash`) → Groq Whisper.
+- **Verified round-trip:** `textToSpeech()` produced a 221 KB WAV in 3.9 s, and `speechToText()`
+  transcribed the phrase back correctly.
+
+**Groq cannot be the TTS fallback — there is nothing there to fall back to.** `playai-tts` has been
+**decommissioned**, and the account lists 11 models with no speech synthesis among them. The TTS
+fallback is therefore `gtts` (keyless), and `aiConfig` documents why so nobody re-tries it.
+
+**`.autoreply` runs on the OpenAI-compatible endpoint only** — no Groq, and not the shared chain — so a
+Groq outage or rate limit cannot silently change which model is speaking in your chat. A test asserts
+`chatGroq` and `chat()` are never called from it.
+
+**Voice notes are transcoded.** Gemini returns WAV; WhatsApp voice notes want OGG/Opus, so `.tovoice`
+converts via ffmpeg (`libopus` confirmed present). If the conversion fails the clip is still sent — just
+as a normal audio message rather than a voice-note bubble. Losing the bubble beats losing the speech.
+
+**Config:** new `geminiNative` block. It is named that way on purpose — `scripts/smoke-ai-config.js`
+guards against a legacy `aiConfig.gemini` provider export coming back, and reusing the name broke that
+check. `speech.stt` / `speech.tts` carry the routing; `speech.provider` and `speech.model` are retained
+for backward compatibility. Smoke test: **53/53**.
+
+**A note from testing:** Gemini STT returned a transient *"currently experiencing high demand"* during
+the live run, and the fallback to Groq caught it without the caller noticing. That is the chain doing
+exactly its job.
+
+### 🤖 `.autoreply` — let the AI answer every message in a chat (v2.4.0)
+
+A `.chatbot` command already existed, but it only answers when the bot is **mentioned or replied to**,
+and it is `groupOnly`. What was missing was a way to switch the AI on for a chat and have it hold up
+that side of the conversation by itself.
+
+| Command | Effect |
+| --- | --- |
+| `.autoreply on` | the AI answers **every** message in this chat |
+| `.autoreply on 923701609799` | answers **only that one person** in this chat |
+| `.autoreply off` | stops |
+| `.autoreply` | shows whether it is on here, and who it is answering |
+
+Works in **DMs as well as groups** — unlike `.chatbot`, which is group-only. **Owner-only**, because it
+speaks with the account's voice.
+
+**Deliberately a separate setting from `.chatbot`.** Sharing one flag between "answer when mentioned"
+and "answer everything" would mean switching on a mention-bot and getting a chatterbox. Separate
+storage key (`userGroupData.autoReply`), separate command.
+
+**Safety rails, every one deliberate:**
+
+- **Never answers its own messages** (`fromMe`) — that is how bots end up in a loop with themselves.
+- **Commands keep working.** The hook only runs on messages that do *not* start with the prefix, so
+  `.ping` and friends are untouched.
+- **One reply in flight per chat.** A burst would otherwise fire several parallel AI calls and answer
+  them out of order. Overlapping messages are dropped rather than queued.
+- **Bounded memory:** 12 messages of context per chat, and only 50 chats remembered, so a bot left
+  running for weeks cannot grow this without limit.
+- **A provider failure is not an error.** If every AI provider fails, the message is simply left
+  unanswered — no error spam in the chat.
+- **`.chatbot` and `.autoreply` cannot both answer the same message:** if auto-reply handled it, the
+  chatbot hook is skipped.
+
+**The persona is honest.** The prompt tells the AI to reply in the person's own language and keep it to
+a line or two, but explicitly **not** to claim it is human when asked directly. (The older `.chatbot`
+prompt says the opposite — flagged here rather than silently changed.)
+
+**Tests:** 20 assertions with the config store and AI provider stubbed — off by default, replies when
+on, `fromMe` ignored, empty text ignored, the single-person filter including device suffixes, DM
+support, a provider returning null and one throwing, the in-flight guard, and history bounding.
+
 ### 👤 `.getdp` could not find a picture that plainly exists (v2.3.5)
 
 `.getdp <number>` answered *"Profile picture not found for this user"* for a contact whose picture is

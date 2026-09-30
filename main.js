@@ -71,6 +71,9 @@ const { handleStatusUpdate } = safeRequire('./commands/owner/autostatus');
 // Statuses are PUSHED by WhatsApp — there is no fetch-on-demand API — so if it
 // is not captured here, it is gone.
 const statusCache = safeRequire('./lib/statusCache');
+// Per-chat AI auto-reply: answers EVERY message, unlike .chatbot which needs a
+// mention. Kept separate so turning on one cannot silently enable the other.
+const { handleAutoReply } = safeRequire('./lib/autoReply');
 const { readState: readPmBlockerState } = safeRequire('./commands/owner/pmblocker');
 const { handleTicTacToeMove } = safeRequire('./commands/fun/tictactoe');
 const bombModule = safeRequire('./commands/fun/bomb');
@@ -307,13 +310,27 @@ async function handleMessages(sock, messageUpdate, printLog) {
             // Show typing indicator if autotyping is enabled
             if (handleAutotypingForMessage) await handleAutotypingForMessage(sock, chatId, userMessage);
 
+            // Auto-reply: when switched on for THIS chat, the AI answers every
+            // message with no mention needed. Runs in DMs as well as groups —
+            // that is the whole point of it, and it is why it sits here rather
+            // than inside the `isGroup` block below.
+            let autoReplied = false;
+            if (handleAutoReply) {
+                try {
+                    autoReplied = await handleAutoReply(sock, chatId, message, userMessage, senderId);
+                } catch (e) {
+                    console.error('[autoReply] handler error:', e.message);
+                }
+            }
+
             if (isGroup) {
                 // Always run moderation features (antitag) regardless of mode
                 if (handleTagDetection) await handleTagDetection(sock, chatId, message, senderId);
                 if (handleMentionDetection) await handleMentionDetection(sock, chatId, message);
 
-                // Only run chatbot in public mode or for owner/sudo
-                if ((isPublic || isOwnerOrSudoCheck) && handleChatbotResponse) {
+                // Only run chatbot in public mode or for owner/sudo — and never
+                // when auto-reply already answered, or the chat gets two replies.
+                if (!autoReplied && (isPublic || isOwnerOrSudoCheck) && handleChatbotResponse) {
                     await handleChatbotResponse(sock, chatId, message, userMessage, senderId);
                 }
             }
