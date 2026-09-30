@@ -4,6 +4,26 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🧹 Env cleanup, WARP enabled, credits
+
+- **`.env` cleaned up.** Dropped the leftover inline placeholder text; every entry is now a bare
+  `KEY=` with a section header. Added the API keys the code actually reads that were missing
+  (`OPENAI_*`, `TMDB_API_KEY`, `NASA_API_KEY`, `PIXAZO_API_KEY`, `SPORTSDB_KEY`, `TRACE_MOE_API_KEY`,
+  `NEXORACLE_API_KEY`) and kept the requested ones (`TELEGRAM_BOT_TOKEN`, `GIPHY_API_KEY`). Removed
+  nothing the bot reads — the list was checked against `process.env.*` usage across the source.
+- **`WARP=1` is now the default in the template**, so a fresh clone gets a working YouTube path out of
+  the box on an IP-blocked host. Enabling it downloads the usque binary (checksum-verified) and
+  registers a free Cloudflare account, accepting Cloudflare's ToS on the user's behalf — that is now
+  stated plainly in the file rather than buried in `lib/warpProxy.js`.
+- **Credits section added** to `.env`: naming/layout follows comparable Baileys bots (Knightbot-MD,
+  Shadow-style); usque (Diniboy1123, MIT) credited for the WARP integration.
+- **No third-party keys were added.** Values are placeholders only; real credentials stay in the
+  server's `.env`, which `.update` preserves. See the note below on why.
+- **Dependencies audited, not removed:** 15 of 49 declared packages are unreferenced in source, but
+  `libsignal`/`ws` arrive via Baileys and the rest cannot be runtime-verified from here, so
+  `package.json` is unchanged rather than risking the WhatsApp transport.
+- **Bumped to v2.1.3.**
+
 ### 🔐 `.update` no longer wipes your `.env` (and `.env` ships with placeholders)
 
 - **Fixed: an update silently destroyed the panel's real `.env`.** `.update` backs up runtime state with
