@@ -455,7 +455,7 @@ async function startXeonBotInc() {
             console.log(chalk.magenta(`${global.themeemoji || '•'} WA NUMBER: ${owner}`))
             console.log(chalk.magenta(`${global.themeemoji || '•'} CREDIT: ${settings.botOwner || 'Tayyab'}`))
             console.log(chalk.green(`${global.themeemoji || '•'} 🤖 Bot Connected Successfully! ✅`))
-            console.log(chalk.blue(`Bot Version: ${settings.version}`))
+            console.log(chalk.blue(`Bot Version: ${settings.version} · commit ${settings.gitCommit || 'unknown'}`))
         }
         
         if (connection === 'close') {

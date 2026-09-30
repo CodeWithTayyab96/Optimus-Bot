@@ -6,6 +6,7 @@
  * and the proxy pool. Owner-only because it makes live calls.
  */
 const style = require('../../lib/messageStyle');
+const settings = require('../../settings');
 const dlHealth = require('../../lib/dlHealth');
 const proxyPool = require('../../lib/proxyPool');
 const potSupervisor = require('../../lib/potSupervisor');
@@ -43,6 +44,9 @@ module.exports = {
         const alive = results.filter(r => r.ok).length;
         const lines = results.map(r => `${r.ok ? '✅' : '❌'} ${r.name} — ${r.detail}`);
         lines.push('', `Sources alive: ${alive}/${results.length}`);
+        // Shown FIRST: the operator needs to confirm the panel is running the
+        // pushed code before trusting any of the probes below.
+        lines.unshift(`🤖 Optimus Bot v${settings.version} · commit ${settings.gitCommit || 'unknown'}`);
 
         // PO token provider supervisor
         const sup = potSupervisor.status();

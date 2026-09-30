@@ -4,6 +4,19 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🏷️ Versioning — the bot now reports what it is running
+
+- **The version is bumped on every push**, and `settings.js` + `package.json` are kept **in sync**
+  (they had drifted apart: `1.0.0` vs `2.0.0`). Policy: patch = fix, minor = feature, major = breaking.
+- **`.dlstatus` now leads with the version** (`🤖 Optimus Bot v2.1.0 · commit 9cf6b12`) so the operator
+  can confirm the panel is running the pushed code before trusting any of the probes below.
+- **It also prints the short git commit** (`settings.gitCommit`, read once at load, falls back to
+  `unknown` when there is no `.git`, so it can never break startup). A version number alone cannot prove
+  `.update` actually landed — the commit hash can.
+- The version was already shown in `.alive`, `.ping`, `.uptime` and the startup banner; the banner now
+  includes the commit too.
+- **Bumped to v2.1.0.**
+
 ### 🌐 Free WARP tunnel for IP-blocked hosts (opt-in, `WARP=1`)
 
 - **New `lib/warpProxy.js`** — a **free, unlimited** way to get YouTube working on a host whose IP is

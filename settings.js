@@ -17,6 +17,29 @@
 // and when the relevant vars are already set in the shell.
 require('dotenv').config();
 
+/**
+ * Short git commit of the running checkout.
+ *
+ * A version number alone can't prove an update actually landed — the operator
+ * runs `.update` on a panel, and needs to confirm the code running is the code
+ * that was pushed. This is read once at load and shown in `.dlstatus` and the
+ * startup banner. Falls back to 'unknown' when git or .git is unavailable
+ * (e.g. a deployed copy with no repo), so it can never break startup.
+ */
+function currentCommit() {
+  try {
+    const r = require('child_process').spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: __dirname,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    if (r.status !== 0) return 'unknown';
+    return String(r.stdout || '').trim() || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 const settings = {
   prefix: '.', // Command prefix — change this and every command responds to the new prefix
   packname: 'Optimus Bot',
@@ -77,7 +100,14 @@ const settings = {
   maxStoreMessages: 20,
   storeWriteInterval: 10000,
   description: 'Optimus Bot — a WhatsApp bot for group management and automation.',
-  version: '1.0.0',
+  // ── Bot version ─────────────────────────────────────────────
+  // BUMP THIS (and package.json's version) ON EVERY PUSH. It is shown in
+  // .alive, .ping, .uptime, .dlstatus and the startup banner, so the operator
+  // can tell at a glance whether the panel is running the latest code.
+  // Keep settings.version and package.json.version in sync.
+  version: '2.1.0',
+  // Short git commit of the running checkout (see currentCommit above).
+  gitCommit: currentCommit(),
 
   // ── Channel & social links shown in help / alive / startup banner ──
   channelLink: 'https://whatsapp.com/channel/0029VbCzsfGKmCPSiZlGKC3S',
