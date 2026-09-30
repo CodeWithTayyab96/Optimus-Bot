@@ -105,7 +105,7 @@ const settings = {
   // .alive, .ping, .uptime, .dlstatus and the startup banner, so the operator
   // can tell at a glance whether the panel is running the latest code.
   // Keep settings.version and package.json.version in sync.
-  version: '2.1.5',
+  version: '2.1.6',
   // Short git commit of the running checkout (see currentCommit above).
   gitCommit: currentCommit(),
 

@@ -19,6 +19,25 @@ All notable changes to Optimus Bot are documented here.
 - Source/inspiration: freeapihub.com/apis/free-dictionary-api.
 - **Bumped to v2.1.5.**
 
+### 📖 `.quran` — new (Al Quran Cloud, keyless, with recitation audio)
+
+- **New `commands/islamic/quran.js`** — `.quran <surah>` (or `.quran <surah>:<ayah>`, aliases
+  `.surah`, `.ayah`) looks up the Quran on **Al Quran Cloud** (free, no key). It returns the Arabic
+  (Uthmani) text with the Muhammad Asad English translation, boxed per the standard card style.
+- **Recitation audio.** For a single ayah (`.quran 2:255`) the ayah's recitation MP3 is sent as a
+  separate WhatsApp audio message; for a whole surah the full-recitation URL is linked in the header
+  (a full surah MP3 is large, so it is a link, not an auto-send).
+- **Robust fetching.** Two single-edition calls (`quran-uthmani`, `en.asad`) run in parallel via
+  `Promise.allSettled`, so the command still works if the translation edition is briefly unavailable
+  (Arabic-only), and avoids the multi-edition URL-format ambiguity. A 404 / non-200 → clean
+  *"not found"* card; other failures → generic lookup-failed.
+- **Long surahs are windowed.** Surahs longer than 40 ayahs render the first 40 with a pointer to
+  `.quran <surah>:<ayah>`, so a 286-ayah surah does not flood the chat.
+- New `islamic` command category (auto-discovered by the loader, like the others).
+- Source: freeapihub.com/apis (the full directory the user pointed at); this was the clear keyless
+  standout for the bot's audience.
+- **Bumped to v2.1.6.**
+
 ### 🎬 `.gif` — attribution added, and it explains itself when unconfigured
 
 - **Added the "Powered by GIPHY" attribution** Giphy's terms require. Results were previously sent with

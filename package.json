@@ -1,6 +1,6 @@
 {
   "name": "optimusbot",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "Optimus Bot — WhatsApp Bot",
   "main": "index.js",
   "scripts": {
