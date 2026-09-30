@@ -4,6 +4,21 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 📖 `.dictionary` — new (Free Dictionary API, keyless)
+
+- **New `commands/utility/dictionary.js`** — `.dictionary <word>` (aliases `.dict`, `.define`, `.meaning`)
+  looks up an English word on the **Free Dictionary API** (dictionaryapi.dev) and returns definitions,
+  phonetics, example sentences, synonyms and antonyms in the standard boxed card. It also sends the
+  **pronunciation audio** as a separate WhatsApp audio message when the API provides one.
+- **No API key, no `.env` entry.** The API is free and keyless (community-run, best-effort), so it slots
+  in beside `.ddg` — another zero-config public-API command — rather than needing a credential.
+- **Word-not-found is handled, not treated as an error.** A 404 (or any non-array body) returns a clean
+  *"not found"* card instead of a stack trace; other failures get the generic lookup-failed message.
+- **Long replies are split safely** (`style.splitLong`, 3500-char chunks) so a word with many senses still
+  arrives intact.
+- Source/inspiration: freeapihub.com/apis/free-dictionary-api.
+- **Bumped to v2.1.5.**
+
 ### 🎬 `.gif` — attribution added, and it explains itself when unconfigured
 
 - **Added the "Powered by GIPHY" attribution** Giphy's terms require. Results were previously sent with
