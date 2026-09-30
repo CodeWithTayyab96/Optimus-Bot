@@ -4,6 +4,34 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 📸 `.status` — records live, logs captures, and no longer drops your own statuses (v2.3.4)
+
+`.status <number>` answered "Nothing cached" for a contact whose status was plainly visible on the same
+account. Two separate things were going on, and **neither was a broken command**:
+
+1. **Statuses are captured LIVE.** The cache itself only arrived in v2.3.3, so a status posted hours
+   earlier could never have been in it — and nothing can backfill one. The empty-cache reply said
+   nothing about this, so it read as a failure.
+2. **A status posted by THIS account was being silently dropped.** Such a message arrives with
+   `fromMe: true` and **no `participant`**, so the poster JID resolved to `status@broadcast` and
+   `captureMessage()` returned early. Since the bot runs on the owner's own number, that is precisely
+   the case you would test with — and it could never work.
+
+**Changes:**
+
+- **Fixed:** a `fromMe` status is now attributed to the account itself instead of being skipped.
+- **Every capture is logged:** `[statusCache] saved image status from 923… (48213 bytes)`. Without a
+  line like this there is no way to distinguish *"no status has arrived"* from *"the capture path is
+  broken"* — both present as an empty cache from inside the chat.
+- **The empty-cache replies now lead with the live-only rule** (and the 24h expiry), so the next person
+  to hit this gets the actual answer instead of a guess.
+- **Tests:** 6 assertions — another person's status, the account's own status, a status with no poster
+  at all (still skipped), and the resulting contact list.
+
+**Correction to an earlier note:** this was first blamed on the poster's status-privacy audience. That
+was wrong for this setup — the bot runs on the owner's own number, so it *is* in the audience of
+everyone whose status the owner can see. The real cause was timing plus the `fromMe` gap.
+
 ### 🔐 `.update` no longer wipes `.env` on a non-git panel (v2.3.3)
 
 **The bug.** `.update` has two paths, and only one of them was protecting credentials.

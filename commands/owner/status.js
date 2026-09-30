@@ -95,10 +95,12 @@ module.exports = {
 
             if (!contacts.length) {
                 return say(style.box('📸 STATUS CACHE', [
-                    'Nothing cached yet.',
+                    'Nothing cached yet — no status has arrived since the bot started.',
                     '',
-                    'The bot records every status it receives, as it arrives.',
-                    `Ask for one with: ${extra.prefix}status 923701609799`,
+                    'Statuses are recorded LIVE, as they arrive. The bot cannot go back',
+                    'and fetch one that was already posted, and they expire after 24h.',
+                    '',
+                    'Ask someone to post a new status, then check again.',
                 ]));
             }
 
@@ -131,12 +133,13 @@ module.exports = {
             return say(style.box('📸 STATUS', [
                 `Nothing cached for ${number}.`,
                 '',
-                'Statuses are pushed by WhatsApp, so the bot can only serve one it',
-                'has already received. Two things have to be true:',
-                ' • that contact must have the bot in their status audience, and',
-                ' • the status must have arrived since the bot last started.',
+                'Statuses are recorded LIVE, as they arrive. The bot cannot go back',
+                'and fetch one that was already posted — so a status from before the',
+                'bot last started, or older than 24h, will never appear here.',
                 '',
-                `Check who is cached with: ${extra.prefix}status`,
+                'Ask them to post a new status, then run this again.',
+                '',
+                `See who IS cached: ${extra.prefix}status`,
             ]));
         }
 
