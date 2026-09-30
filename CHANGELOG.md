@@ -4,6 +4,21 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🎬 `.gif` — attribution added, and it explains itself when unconfigured
+
+- **Added the "Powered by GIPHY" attribution** Giphy's terms require. Results were previously sent with
+  no attribution at all, which is a terms requirement rather than a cosmetic detail.
+- **A missing or placeholder `GIPHY_API_KEY` now says so.** Previously the request went out with the
+  committed `YOUR_GIPHY_API_KEY` placeholder, Giphy answered 401, and the user got a bare
+  *"Failed to fetch GIF. Please try again later."* — which pointed at nothing they could fix. It now says
+  where to get a free key and what to set.
+- **401/403 and 429 are handled distinctly** instead of one generic failure: a rejected key tells you to
+  check the key (beta keys are refused on some endpoints), and a rate-limit hit says beta keys are limited
+  and suggests a production key.
+- Also added a 20s request timeout. The MP4 rendition + `gifPlayback` behaviour is unchanged — WhatsApp
+  needs MP4 or the animation arrives broken.
+- **Bumped to v2.1.4.**
+
 ### 🧹 Env cleanup, WARP enabled, credits
 
 - **`.env` cleaned up.** Dropped the leftover inline placeholder text; every entry is now a bare
