@@ -82,8 +82,11 @@ describe('update.repoConfig', () => {
 describe('update.RUNTIME_BACKUP_PATHS', () => {
     test('covers the runtime state an update must not clobber', () => {
         // git reset --hard + git clean -fd would otherwise revert or delete these.
+        // `.env` is the critical one: the repo ships a tracked placeholder .env, so
+        // without backing it up an update checks that out over the panel's real one
+        // and silently wipes every credential (including WARP=1).
         expect(update.RUNTIME_BACKUP_PATHS).toEqual(
-            expect.arrayContaining(['data', 'baileys_store.json', 'settings.js'])
+            expect.arrayContaining(['data', 'baileys_store.json', 'settings.js', '.env'])
         );
     });
 });

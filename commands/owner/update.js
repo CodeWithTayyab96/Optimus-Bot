@@ -47,7 +47,12 @@ async function hasGitRepo() {
 // as defaults; `git reset --hard` + `git clean -fd` would otherwise revert or
 // delete them. settings.js is user configuration. baileys_store.json is the
 // lightweight message store.
-const RUNTIME_BACKUP_PATHS = ['data', 'baileys_store.json', 'settings.js'];
+// `.env` MUST be protected. The repo ships a tracked placeholder `.env`, so
+// `git reset --hard` checks that out over the panel's real `.env` and silently
+// wipes every credential in it — including WARP=1, which is exactly how a
+// working tunnel disappeared between two boots. Backing it up is what keeps
+// config alive across updates.
+const RUNTIME_BACKUP_PATHS = ['data', 'baileys_store.json', 'settings.js', '.env'];
 
 function backupRuntimeState() {
     const backupDir = path.join(process.cwd(), 'tmp', `update-backup-${Date.now()}`);

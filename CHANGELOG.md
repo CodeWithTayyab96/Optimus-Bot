@@ -4,6 +4,19 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 🔐 `.update` no longer wipes your `.env` (and `.env` ships with placeholders)
+
+- **Fixed: an update silently destroyed the panel's real `.env`.** `.update` backs up runtime state with
+  `RUNTIME_BACKUP_PATHS` — but that list was `['data', 'baileys_store.json', 'settings.js']`, and **`.env`
+  was not on it**. Because the repo now ships a tracked `.env`, `git reset --hard` checked that out over the
+  server's copy and wiped every credential in it. This is what made a working WARP tunnel vanish between two
+  boots: `WARP=1` was in `.env` one boot, gone the next.
+- **`.env` is now backed up and restored across updates**, so config (and any key in it) survives. Locked in
+  by a test so it cannot silently regress.
+- **The committed `.env` now ships with placeholder values** — every key listed, no real secrets — so it
+  works as a starter template for a fresh clone. `.env.example` remains the fully documented version.
+- **Bumped to v2.1.2.**
+
 ### 🔧 WARP tunnel: fix connect timeouts (DNS) and stop proxying what isn't blocked
 
 - **Fixed: every request through the WARP tunnel timed out.** On the panel the tunnel came up fine
