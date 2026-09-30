@@ -38,6 +38,21 @@ All notable changes to Optimus Bot are documented here.
   standout for the bot's audience.
 - **Bumped to v2.1.6.**
 
+### 🍔 `.food` and 🔎 `.anime` — two more keyless APIs (from the freeapihub directory)
+
+- **`.food`** (`commands/fun/food.js`) — sends a random food photo from **Foodish** (free, no key).
+  `.food <category>` (pizza, dessert, biryani…) picks a category; an unknown category falls back to a
+  plain random image instead of erroring. Sent as a WhatsApp image with a caption.
+- **`.anime`** (`commands/anime/animesearch.js`) — searches anime by title on **Kitsu** (free, no key)
+  and returns the top 3 matches: title, type, status, episode count, ★ rating and a truncated synopsis,
+  plus the #1 result's poster image. Kitsu is JSON:API, so the request sends `Accept:
+  application/vnd.api+json` (otherwise it answers 406).
+- Both are keyless like `.ddg` / `.dictionary` / `.quran` — no `.env` entry needed.
+- **Note:** the existing `commands/anime/anime.js` is `.animu` (reaction stickers) — unrelated; `.anime`
+  is a new search command in a separate file, no name clash.
+- Source: user picked Foodish + Kitsu Anime from the freeapihub catalog.
+- **Bumped to v2.1.7.**
+
 ### 🎬 `.gif` — attribution added, and it explains itself when unconfigured
 
 - **Added the "Powered by GIPHY" attribution** Giphy's terms require. Results were previously sent with
