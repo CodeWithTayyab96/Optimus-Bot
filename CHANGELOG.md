@@ -4,6 +4,32 @@ All notable changes to Optimus Bot are documented here.
 
 ## [Unreleased]
 
+### 👤 `.getdp` could not find a picture that plainly exists (v2.3.5)
+
+`.getdp <number>` answered *"Profile picture not found for this user"* for a contact whose picture is
+visible in the chat list. The lookup was simply too narrow — it made exactly **one** attempt, and that
+attempt was the least likely one to succeed.
+
+1. **It only ever asked for `image`.** WA Web itself requests `preview` (the thumbnail), and a
+   privacy-gated picture frequently answers for `preview` while refusing `image`.
+2. **It only ever asked with a `@s.whatsapp.net` (PN) JID.** Baileys 7 moved to LIDs, and the docs are
+   blunt about it: *"Don't try to 'restore' PN JIDs. Migrate your application logic to LIDs — PNs are
+   less reliable going forward."* A PN-only lookup can come back empty while the picture is perfectly
+   visible in the app.
+
+**Fixed:** a new `fetchProfilePicture()` resolves PN → LID via
+`sock.signalRepository.lidMapping.getLIDForPN()`, then tries **LID→image, LID→preview, PN→image,
+PN→preview**, returning the first URL that lands. Every failure is swallowed on purpose — one
+combination failing says nothing about the next — and it degrades safely when `lidMapping` is missing.
+
+**The error message is now honest.** "Not found" implied no picture existed. It usually does exist; it
+is simply not shared with this account. The reply now says that, and names the real cause (privacy set
+to *My contacts* or *Nobody*, and this account is not on their list).
+
+- **Tests:** 13 assertions against a fake socket — LID-first ordering, the preview fallback, exhausting
+  all four combinations, returning null instead of throwing, working with no `lidMapping`, and the
+  number/JID helpers (`+92 341 7360554` parses, device suffixes strip).
+
 ### 📸 `.status` — records live, logs captures, and no longer drops your own statuses (v2.3.4)
 
 `.status <number>` answered "Nothing cached" for a contact whose status was plainly visible on the same
