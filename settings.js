@@ -86,6 +86,16 @@ const settings = {
   // getFile on public packs). Create your own with @BotFather.
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN',
 
+  // ── KnightBot API (OPTIONAL last-resort audio fallback) ─────
+  // See lib/knightbotApi.js and docs/knightbot-api-assessment.md.
+  // OFF by default: yt-dlp -> direct URL -> RapidAPI remains the real chain.
+  // Requires BOTH the opt-in flag and a private key. The shared demo key is
+  // refused by lib/knightbotApi.js so a misconfiguration cannot silently send
+  // the bot's traffic through a rate-limited public key.
+  knightbotApiEnabled: /^(1|true|yes|on)$/i.test(String(process.env.KNIGHTBOT_API_ENABLED || '').trim()),
+  knightbotApiKey: process.env.KNIGHTBOT_API_KEY || '',
+  knightbotApiBaseUrl: process.env.KNIGHTBOT_API_BASE_URL || 'https://knightbotapi.stream',
+
   // ── Outbound proxy pool for the media/download commands ───
   // Comma-separated proxy URLs (http://user:pass@host:port or socks5://host:port).
   // Leave empty/unset for a direct connection (no proxy) — the default.

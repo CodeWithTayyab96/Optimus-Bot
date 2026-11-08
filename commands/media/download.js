@@ -15,6 +15,8 @@ const ROUTES = [
     { test: /(?:facebook\.com|fb\.watch)\//i, file: 'facebook', pretty: 'Facebook → .facebook' },
     { test: /mediafire\.com\//i, file: 'mediafire', pretty: 'MediaFire → .mediafire' },
     { test: /soundcloud\.com\//i, file: 'soundcloud', pretty: 'SoundCloud → .soundcloud' },
+    { test: /drive\.google\.com\//i, file: 'gdrive', pretty: 'Google Drive → .gdrive' },
+    { test: /(?:github\.com|raw\.githubusercontent\.com|codeload\.github\.com)\//i, file: 'githubdl', pretty: 'GitHub → .githubdl' },
     // Known-unavailable platforms: route to them so the user gets the same
     // honest "not available" message rather than a raw error.
     { test: /threads\.(?:net|com)\//i, file: 'threads', pretty: 'Threads → .threads' },
@@ -71,7 +73,8 @@ module.exports = {
 
             return await extra.reply(style.error(
                 'That link isn’t from a platform I can download from.\n\n' +
-                'Supported: YouTube, TikTok, Instagram, Twitter/X, Facebook, MediaFire, SoundCloud, Threads, CapCut.'
+                'Supported: YouTube, TikTok, Instagram, Twitter/X, Facebook, MediaFire, SoundCloud, ' +
+                'Threads, CapCut, Google Drive, GitHub.'
             ));
         } catch (e) {
             console.error('[download] error:', e.message);
