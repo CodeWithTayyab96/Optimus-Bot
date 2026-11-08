@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const fs = require('fs');
 const path = require('path');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
@@ -9,7 +10,7 @@ async function takeCommand(sock, chatId, message, args) {
         // Check if message is a reply to a sticker
         const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (!quotedMessage?.stickerMessage) {
-            await sock.sendMessage(chatId, { text: '⚠️ Reply to a sticker with .take <packname>' });
+            await sock.sendMessage(chatId, { text: style.warning('Reply to a sticker with .take <packname>') });
             return;
         }
 
@@ -33,7 +34,7 @@ async function takeCommand(sock, chatId, message, args) {
             );
 
             if (!stickerBuffer) {
-                await sock.sendMessage(chatId, { text: '❌ Failed to download sticker' });
+                await sock.sendMessage(chatId, { text: style.error('Failed to download sticker') });
                 return;
             }
 
@@ -69,12 +70,12 @@ async function takeCommand(sock, chatId, message, args) {
 
         } catch (error) {
             console.error('Sticker processing error:', error);
-            await sock.sendMessage(chatId, { text: '❌ Failed to process the sticker. Please try again.' });
+            await sock.sendMessage(chatId, { text: style.error('Failed to process the sticker. Please try again.') });
         }
 
     } catch (error) {
         console.error('Error in take command:', error);
-        await sock.sendMessage(chatId, { text: '❌ Something went wrong. Please try again.' });
+        await sock.sendMessage(chatId, { text: style.error('Something went wrong. Please try again.') });
     }
 }
 

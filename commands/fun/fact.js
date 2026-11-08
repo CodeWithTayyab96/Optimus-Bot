@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { getFact } = require('../../lib/funContent');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -9,7 +10,7 @@ const factCommand = async function (sock, chatId, message) {
             ...channelInfo
         }, { quoted: message });
     } catch (error) {
-        await sock.sendMessage(chatId, { text: '❌ Could not fetch a fact right now. Please try again!', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Could not fetch a fact right now. Please try again!'), ...channelInfo }, { quoted: message });
     }
 };
 

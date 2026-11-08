@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { motivation, pick } = require('../../lib/funData');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -9,7 +10,7 @@ const motivateCommand = async function (sock, chatId, message) {
             ...channelInfo
         }, { quoted: message });
     } catch (e) {
-        await sock.sendMessage(chatId, { text: '❌ Failed. Try again!', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed. Try again!'), ...channelInfo }, { quoted: message });
     }
 };
 

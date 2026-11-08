@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { shayari, pick } = require('../../lib/funData');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -9,7 +10,7 @@ async function shayariCommand(sock, chatId, message) {
             ...channelInfo
         }, { quoted: message });
     } catch (error) {
-        await sock.sendMessage(chatId, { text: '❌ Failed to fetch shayari. Please try again later.', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to fetch shayari. Please try again later.'), ...channelInfo }, { quoted: message });
     }
 }
 

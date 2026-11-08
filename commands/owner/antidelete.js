@@ -846,12 +846,12 @@ async function handleMessageRevocation(sock, revocationMessage) {
                     } catch (err) {
                         console.error('Error sending deleted media:', err);
                         await sock.sendMessage(ownerNumber, {
-                            text: '⚠️ Failed to send the deleted media. The file may no longer be available.'
+                            text: style.warning('Failed to send the deleted media. The file may no longer be available.')
                         });
                     }
                 } else {
                     await sock.sendMessage(ownerNumber, {
-                        text: `⚠️ Media (${original.mediaType}) could not be recovered — the file is no longer available.`
+                        text: style.warning(`Media (${original.mediaType}) could not be recovered — the file is no longer available.`)
                     });
                 }
 

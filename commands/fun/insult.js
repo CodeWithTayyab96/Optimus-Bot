@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { insults, pick } = require('../../lib/funData');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -14,7 +15,7 @@ async function insultCommand(sock, chatId, message) {
 
         if (!userToInsult) {
             return await sock.sendMessage(chatId, {
-                text: '⚠️ Please mention someone or reply to their message to roast them.',
+                text: style.warning('Please mention someone or reply to their message to roast them.'),
                 ...channelInfo
             });
         }
@@ -27,7 +28,7 @@ async function insultCommand(sock, chatId, message) {
             ...channelInfo
         });
     } catch (error) {
-        await sock.sendMessage(chatId, { text: '❌ An error occurred while sending the insult.', ...channelInfo });
+        await sock.sendMessage(chatId, { text: style.error('An error occurred while sending the insult.'), ...channelInfo });
     }
 }
 

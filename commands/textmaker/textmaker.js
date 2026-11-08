@@ -1,6 +1,7 @@
+const style = require('../../lib/messageStyle');
 const mumaker = require('mumaker');
 const settings = require('../../settings');
-const style = require('../../lib/messageStyle');
+const msgStyle = require('../../lib/messageStyle');
 
 // Base channel info template — same newsletter branding as lib/messageConfig,
 // unwrapped because this module passes it directly as `contextInfo:`.
@@ -154,7 +155,7 @@ module.exports = {
             if (!TEXTMAKER_STYLES.includes(style)) {
                 if (style) {
                     await sock.sendMessage(extra.chatId, {
-                        text: `⚠️ Unknown text style: ${style}\n\nUse ${extra.prefix}textmaker to see available styles.`
+                        text: msgStyle.warning(`Unknown text style: ${style}\n\nUse ${extra.prefix}textmaker to see available styles.`)
                     }, { quoted: message });
                 } else {
                     await sock.sendMessage(extra.chatId, {

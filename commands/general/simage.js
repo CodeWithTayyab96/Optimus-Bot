@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const sharp = require('sharp');
 const fs = require('fs');
 const fsPromises = require('fs/promises');
@@ -23,7 +24,7 @@ const convertStickerToImage = async (sock, quotedMessage, chatId) => {
     try {
         const stickerMessage = quotedMessage.stickerMessage;
         if (!stickerMessage) {
-            await sock.sendMessage(chatId, { text: '⚠️ Reply to a sticker with .simage to convert it.' });
+            await sock.sendMessage(chatId, { text: style.warning('Reply to a sticker with .simage to convert it.') });
             return;
         }
 
@@ -44,7 +45,7 @@ const convertStickerToImage = async (sock, quotedMessage, chatId) => {
         scheduleFileDeletion(outputImagePath);
     } catch (error) {
         console.error('Error converting sticker to image:', error);
-        await sock.sendMessage(chatId, { text: '❌ Failed to convert the sticker. Please try again.' });
+        await sock.sendMessage(chatId, { text: style.error('Failed to convert the sticker. Please try again.') });
     }
 };
 
@@ -65,7 +66,7 @@ module.exports = {
         if (quotedMessage?.stickerMessage) {
             await convertStickerToImage(sock, quotedMessage, extra.chatId);
         } else {
-            await sock.sendMessage(extra.chatId, { text: '⚠️ Please reply to a sticker with the ' + extra.prefix + 'simage command to convert it.', ...extra.channelInfo }, { quoted: message });
+            await sock.sendMessage(extra.chatId, { text: style.warning('Please reply to a sticker with the ') + extra.prefix + 'simage command to convert it.', ...extra.channelInfo }, { quoted: message });
         }
     },
 

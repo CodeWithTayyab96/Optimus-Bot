@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 async function shipCommand(sock, chatId, msg, groupMetadata) {
     try {
         // Get all participants from the group
@@ -26,7 +27,7 @@ async function shipCommand(sock, chatId, msg, groupMetadata) {
 
     } catch (error) {
         console.error('Error in ship command:', error);
-        await sock.sendMessage(chatId, { text: '❌ Failed to ship! Make sure this is a group.' });
+        await sock.sendMessage(chatId, { text: style.error('Failed to ship! Make sure this is a group.') });
     }
 }
 

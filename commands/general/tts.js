@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const gTTS = require('gtts');
 const fs = require('fs');
 const path = require('path');
@@ -150,7 +151,7 @@ async function ttsCommand(sock, chatId, text, message, options = {}) {
 
         if (!speech) {
             return await sock.sendMessage(chatId, {
-                text: '❌ Speech generate nahi ho saki. Dobara try karo. (Failed to generate speech. Please try again.)',
+                text: style.error('Speech generate nahi ho saki. Dobara try karo. (Failed to generate speech. Please try again.)'),
                 ...channelInfo
             }, { quoted: message });
         }
@@ -179,7 +180,7 @@ async function ttsCommand(sock, chatId, text, message, options = {}) {
     } catch (err) {
         console.error('TTS error:', err.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Speech generate nahi ho saki. Dobara try karo. (Failed to generate speech. Please try again.)',
+            text: style.error('Speech generate nahi ho saki. Dobara try karo. (Failed to generate speech. Please try again.)'),
             ...channelInfo
         }, { quoted: message });
     }

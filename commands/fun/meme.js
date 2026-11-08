@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const fetch = require('node-fetch');
 
 async function memeCommand(sock, chatId, message) {
@@ -26,7 +27,7 @@ async function memeCommand(sock, chatId, message) {
     } catch (error) {
         console.error('Error in meme command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Failed to fetch meme. Please try again later.'
+            text: style.error('Failed to fetch meme. Please try again later.')
         },{ quoted: message });
     }
 }

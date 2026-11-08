@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const fetch = require('node-fetch');
 const { writeExifImg } = require('../../lib/exif');
 const delay = time => new Promise(res => setTimeout(res, time));
@@ -20,7 +21,7 @@ async function stickerTelegramCommand(sock, chatId, msg) {
         
         if (!args[0]) {
             await sock.sendMessage(chatId, { 
-                text: '⚠️ Please enter the Telegram sticker URL!\n\nExample: .tg https://t.me/addstickers/Porcientoreal' 
+                text: style.warning('Please enter the Telegram sticker URL!\n\nExample: .tg https://t.me/addstickers/Porcientoreal') 
             });
             return;
         }
@@ -28,7 +29,7 @@ async function stickerTelegramCommand(sock, chatId, msg) {
         // Validate URL format
         if (!args[0].match(/(https:\/\/t.me\/addstickers\/)/gi)) {
             await sock.sendMessage(chatId, { 
-                text: '❌ Invalid URL! Make sure it\'s a Telegram sticker URL.' 
+                text: style.error('Invalid URL! Make sure it\'s a Telegram sticker URL.') 
             });
             return;
         }
@@ -170,7 +171,7 @@ async function stickerTelegramCommand(sock, chatId, msg) {
 
             // Only send completion message at the end
             await sock.sendMessage(chatId, { 
-                text: `✅ Successfully downloaded ${successCount}/${stickerSet.result.stickers.length} stickers!` 
+                text: style.success(`Successfully downloaded ${successCount}/${stickerSet.result.stickers.length} stickers!`) 
             });
 
         } catch (error) {
@@ -180,7 +181,7 @@ async function stickerTelegramCommand(sock, chatId, msg) {
     } catch (error) {
         console.error('Error in stickertelegram command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Failed to process Telegram stickers!\nMake sure:\n1. The URL is correct\n2. The sticker pack exists\n3. The sticker pack is public' 
+            text: style.error('Failed to process Telegram stickers!\nMake sure:\n1. The URL is correct\n2. The sticker pack exists\n3. The sticker pack is public') 
         });
     }
 }

@@ -35,7 +35,7 @@ async function githubCommand(sock, chatId, message) {
 
     await sock.sendMessage(chatId, { image: imgBuffer, caption: txt }, { quoted: message });
   } catch (error) {
-    await sock.sendMessage(chatId, { text: '❌ Error fetching repository information.' }, { quoted: message });
+    await sock.sendMessage(chatId, { text: style.error('Error fetching repository information.') }, { quoted: message });
   }
 }
 

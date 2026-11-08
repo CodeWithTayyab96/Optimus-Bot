@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const axios = require('axios');
 const { jidNormalizedUser, jidDecode } = require('@whiskeysockets/baileys');
 
@@ -79,7 +80,7 @@ module.exports = {
             if (args && args[0]) {
                 const jid = toJid(args[0]);
                 if (!jid) {
-                    return extra.reply('❌ Please provide a valid phone number (with country code).');
+                    return extra.reply(style.error('Please provide a valid phone number (with country code).'));
                 }
                 targetUser = jid;
             }
@@ -97,7 +98,7 @@ module.exports = {
             }
 
             if (!targetUser) {
-                return extra.reply('❌ Could not identify target user. Provide a number, or reply to / tag a user.');
+                return extra.reply(style.error('Could not identify target user. Provide a number, or reply to / tag a user.'));
             }
 
             const found = await fetchProfilePicture(sock, targetUser);
@@ -105,7 +106,7 @@ module.exports = {
                 // Be accurate about WHY. "Not found" alone is misleading — the
                 // picture usually exists, it is just not shared with this account.
                 return extra.reply(
-                    '❌ No profile picture available for this user.\n\n' +
+                    style.error('No profile picture available for this user.\n\n') +
                     'Either they have none set, or their privacy is set to ' +
                     '*My contacts* / *Nobody* and this account is not on their list. ' +
                     'A picture you can see in your own chat list is not necessarily ' +
@@ -117,7 +118,7 @@ module.exports = {
             const buffer = Buffer.from(response.data);
 
             if (!buffer.length) {
-                return extra.reply('❌ Got an empty profile picture. Try again.');
+                return extra.reply(style.error('Got an empty profile picture. Try again.'));
             }
 
             await sock.sendMessage(extra.chatId, {
@@ -129,7 +130,7 @@ module.exports = {
             }, { quoted: message });
         } catch (error) {
             console.error('[getpp] error:', error.message);
-            extra.reply('❌ Could not fetch that profile picture.');
+            extra.reply(style.error('Could not fetch that profile picture.'));
         }
     },
     // Exported for tests

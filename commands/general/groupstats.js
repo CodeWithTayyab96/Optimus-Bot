@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { getStats } = require('../../lib/groupstats');
 
 module.exports = {
@@ -47,7 +48,7 @@ Type ${extra.prefix}myactivity to see your stats.
             }, { quoted: message });
         } catch (err) {
             console.error('[groupstats cmd] error:', err);
-            extra.reply('❌ Error loading stats.');
+            extra.reply(style.error('Error loading stats.'));
         }
     }
 };

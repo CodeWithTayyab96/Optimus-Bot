@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const axios = require('axios');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -15,7 +16,7 @@ async function characterCommand(sock, chatId, message) {
     
     if (!userToAnalyze) {
         await sock.sendMessage(chatId, { 
-            text: '⚠️ Please mention someone or reply to their message to analyze their character.', 
+            text: style.warning('Please mention someone or reply to their message to analyze their character.'), 
             ...channelInfo 
         });
         return;
@@ -73,7 +74,7 @@ async function characterCommand(sock, chatId, message) {
     } catch (error) {
         console.error('Error in character command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Failed to analyze character. Please try again later.',
+            text: style.error('Failed to analyze character. Please try again later.'),
             ...channelInfo 
         });
     }

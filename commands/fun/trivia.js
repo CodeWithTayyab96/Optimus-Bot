@@ -1,10 +1,11 @@
+const style = require('../../lib/messageStyle');
 const axios = require('axios');
 
 let triviaGames = {};
 
 async function startTrivia(sock, chatId) {
     if (triviaGames[chatId]) {
-        sock.sendMessage(chatId, { text: '⚠️ A trivia game is already in progress!' });
+        sock.sendMessage(chatId, { text: style.warning('A trivia game is already in progress!') });
         return;
     }
 
@@ -23,22 +24,22 @@ async function startTrivia(sock, chatId) {
         });
     } catch (error) {
         console.error('Error in trivia command:', error);
-        sock.sendMessage(chatId, { text: '❌ Failed to fetch a trivia question. Please try again later.' });
+        sock.sendMessage(chatId, { text: style.error('Failed to fetch a trivia question. Please try again later.') });
     }
 }
 
 function answerTrivia(sock, chatId, answer) {
     if (!triviaGames[chatId]) {
-        sock.sendMessage(chatId, { text: '⚠️ No trivia game is in progress. Start one with .trivia' });
+        sock.sendMessage(chatId, { text: style.warning('No trivia game is in progress. Start one with .trivia') });
         return;
     }
 
     const game = triviaGames[chatId];
 
     if (answer.toLowerCase() === game.correctAnswer.toLowerCase()) {
-        sock.sendMessage(chatId, { text: `✅ Correct! The answer is ${game.correctAnswer}` });
+        sock.sendMessage(chatId, { text: style.success(`Correct! The answer is ${game.correctAnswer}`) });
     } else {
-        sock.sendMessage(chatId, { text: `❌ Wrong! The correct answer was ${game.correctAnswer}` });
+        sock.sendMessage(chatId, { text: style.error(`Wrong! The correct answer was ${game.correctAnswer}`) });
     }
 
     delete triviaGames[chatId];
@@ -62,7 +63,7 @@ module.exports = {
             if (answer) {
                 await answerTrivia(sock, extra.chatId, answer);
             } else {
-                await sock.sendMessage(extra.chatId, { text: '⚠️ Please provide an answer. Usage: .answer <answer>', ...extra.channelInfo }, { quoted: message });
+                await sock.sendMessage(extra.chatId, { text: style.warning('Please provide an answer. Usage: .answer <answer>'), ...extra.channelInfo }, { quoted: message });
             }
         } else {
             await startTrivia(sock, extra.chatId);

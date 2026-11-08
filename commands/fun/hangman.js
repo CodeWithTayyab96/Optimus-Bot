@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const fs = require('fs');
 
 const words = ['javascript', 'bot', 'hangman', 'whatsapp', 'nodejs'];
@@ -20,7 +21,7 @@ function startHangman(sock, chatId) {
 
 function guessLetter(sock, chatId, letter) {
     if (!hangmanGames[chatId]) {
-        sock.sendMessage(chatId, { text: '⚠️ No hangman game in progress. Start one with .hangman' });
+        sock.sendMessage(chatId, { text: style.warning('No hangman game in progress. Start one with .hangman') });
         return;
     }
 
@@ -28,7 +29,7 @@ function guessLetter(sock, chatId, letter) {
     const { word, guessedLetters, maskedWord, maxWrongGuesses } = game;
 
     if (guessedLetters.includes(letter)) {
-        sock.sendMessage(chatId, { text: `⚠️ You already guessed "${letter}". Try another letter.` });
+        sock.sendMessage(chatId, { text: style.warning(`You already guessed "${letter}". Try another letter.`) });
         return;
     }
 
@@ -40,7 +41,7 @@ function guessLetter(sock, chatId, letter) {
                 maskedWord[i] = letter;
             }
         }
-        sock.sendMessage(chatId, { text: `✅ Good guess! ${maskedWord.join(' ')}` });
+        sock.sendMessage(chatId, { text: style.success(`Good guess! ${maskedWord.join(' ')}`) });
 
         if (!maskedWord.includes('_')) {
             sock.sendMessage(chatId, { text: `🎉 Congratulations! You guessed the word: ${word}` });
@@ -48,7 +49,7 @@ function guessLetter(sock, chatId, letter) {
         }
     } else {
         game.wrongGuesses += 1;
-        sock.sendMessage(chatId, { text: `⚠️ Wrong guess! You have ${maxWrongGuesses - game.wrongGuesses} tries left.` });
+        sock.sendMessage(chatId, { text: style.warning(`Wrong guess! You have ${maxWrongGuesses - game.wrongGuesses} tries left.`) });
 
         if (game.wrongGuesses >= maxWrongGuesses) {
             sock.sendMessage(chatId, { text: `💀 Game over! The word was: ${word}` });
@@ -75,7 +76,7 @@ module.exports = {
             if (guessedLetter) {
                 await guessLetter(sock, extra.chatId, guessedLetter);
             } else {
-                await sock.sendMessage(extra.chatId, { text: '⚠️ Please guess a letter. Usage: .guess <letter>', ...extra.channelInfo }, { quoted: message });
+                await sock.sendMessage(extra.chatId, { text: style.warning('Please guess a letter. Usage: .guess <letter>'), ...extra.channelInfo }, { quoted: message });
             }
         } else {
             await startHangman(sock, extra.chatId);

@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -10,7 +11,7 @@ async function attpCommand(sock, chatId, message) {
     const text = userMessage.split(' ').slice(1).join(' ');
 
     if (!text) {
-        await sock.sendMessage(chatId, { text: '⚠️ Please provide text after the .attp command.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.warning('Please provide text after the .attp command.') }, { quoted: message });
         return;
     }
 
@@ -22,7 +23,7 @@ async function attpCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, { sticker: webpBuffer }, { quoted: message });
     } catch (error) {
         console.error('Error generating local sticker:', error);
-        await sock.sendMessage(chatId, { text: '❌ Failed to generate the sticker. Please try again.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to generate the sticker. Please try again.') }, { quoted: message });
     }
 }
 

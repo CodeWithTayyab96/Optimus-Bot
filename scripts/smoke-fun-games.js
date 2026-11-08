@@ -137,13 +137,13 @@ async function runWith(cmdName, msg, args, extra) {
         if (cmdName === 'hangman') sent = await runWith(cmdName, msg, args, { commandName: 'guess', userMessage: '.guess' });
         else if (cmdName === 'trivia') sent = await runWith(cmdName, msg, args, { commandName: 'answer', userMessage: '.answer' });
         else sent = await runWith(cmdName, msg, args);
-        check(`${cmdName}: missing input styled compact`, hasText(sent, '⚠️') && hasText(sent, needle), JSON.stringify(sent.map(s => s.content?.text)));
+        check(`${cmdName}: missing input styled compact`, hasText(sent, '[WARNING]') && hasText(sent, needle), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // ttt .move without a position
     {
         const sent = await runWith('tictactoe', { message: {} }, ['x'], { commandName: 'move', userMessage: '.move x' });
-        check('ttt: .move missing position styled', hasText(sent, '⚠️') && hasText(sent, '.move <number>'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ttt: .move missing position styled', hasText(sent, '[WARNING]') && hasText(sent, '.move <number>'), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // --- 3) No raw provider/API errors leaked into user-visible text ---
@@ -152,9 +152,9 @@ async function runWith(cmdName, msg, args, extra) {
             !/\$\{(error|err|e)\.message\}/.test(src[f]),
             'found ${error.message} template leak');
     }
-    check('bomb: friendly final catch', src.bomb.includes('❌ Something went wrong. Please try again.'));
-    check('memesearch: friendly fetch error, no error.message', src.memesearch.includes("'❌ Failed to fetch the meme. Please try again later.'"));
-    check('trivia: friendly fetch error', src.trivia.includes('❌ Failed to fetch a trivia question. Please try again later.'));
+    check('bomb: friendly final catch', src.bomb.includes("style.error('Something went wrong. Please try again.')"));
+    check('memesearch: friendly fetch error, no error.message', src.memesearch.includes("style.error('Failed to fetch the meme. Please try again later.')"));
+    check('trivia: friendly fetch error', src.trivia.includes("style.error('Failed to fetch a trivia question. Please try again later.')"));
     check('no secret-key interpolation into reply text', funFiles.every(f => !/\$\{settings\.[^}]*[Kk]ey[^}]*\}/.test(src[f]) && !src[f].includes('at process.')), 'leaked internal detail');
 
     // --- 4) AI-backed fun commands: provider calls preserved + playful headers ---
@@ -223,11 +223,11 @@ async function runWith(cmdName, msg, args, extra) {
 
         sent.length = 0;
         await cmds.tictactoe.handleTicTacToeMove(sock, GROUP, P1, '2');
-        check('ttt: wrong-player move styled compact', hasText(sent, '⚠️ It\'s not your turn.'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ttt: wrong-player move styled compact', hasText(sent, '[WARNING] It\'s not your turn.'), JSON.stringify(sent.map(s => s.content?.text)));
 
         sent.length = 0;
         await cmds.tictactoe.handleTicTacToeMove(sock, GROUP, P2, '1');
-        check('ttt: taken position styled compact', hasText(sent, '⚠️ That position is already taken.'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ttt: taken position styled compact', hasText(sent, '[WARNING] That position is already taken.'), JSON.stringify(sent.map(s => s.content?.text)));
 
         sent.length = 0;
         await cmds.tictactoe.handleTicTacToeMove(sock, GROUP, P2, 'surrender');
@@ -248,7 +248,7 @@ async function runWith(cmdName, msg, args, extra) {
         check('hangman: start styled with 🎮 HANGMAN', hasText(sent, '🎮 HANGMAN'), JSON.stringify(sent.map(s => s.content?.text)));
         sent.length = 0;
         await cmds.hangman.guessLetter(sock, '123@g.us', 'z');
-        check('hangman: wrong guess styled compact', hasText(sent, '⚠️ Wrong guess!') && hasText(sent, 'tries left'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('hangman: wrong guess styled compact', hasText(sent, '[WARNING] Wrong guess!') && hasText(sent, 'tries left'), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // Trivia: start (mocked API) + answer paths, state untouched
@@ -262,7 +262,7 @@ async function runWith(cmdName, msg, args, extra) {
             check('trivia: start styled with 🎮 TRIVIA + question', hasText(sent, '🎮 TRIVIA') && hasText(sent, 'What is 2+2?'), JSON.stringify(sent.map(s => s.content?.text)));
             sent.length = 0;
             await cmds.trivia.answerTrivia(sock, '123@g.us', '4');
-            check('trivia: correct answer styled', hasText(sent, '✅ Correct!'), JSON.stringify(sent.map(s => s.content?.text)));
+            check('trivia: correct answer styled', hasText(sent, '[SUCCESS] Correct!'), JSON.stringify(sent.map(s => s.content?.text)));
             sent.length = 0;
             await cmds.trivia.answerTrivia(sock, '123@g.us', '4');
             check('trivia: game state cleaned after answer', hasText(sent, 'No trivia game is in progress'), JSON.stringify(sent.map(s => s.content?.text)));

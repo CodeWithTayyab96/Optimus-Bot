@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 // Store game state per user
 const gameState = new Map();
 
@@ -33,7 +34,7 @@ module.exports = {
                 const game = gameState.get(sender);
 
                 if (game.chatId !== chatId) {
-                    return extra.reply('⚠️ You already have an active bomb game in another chat. Finish it or type *suren* there first.');
+                    return extra.reply(style.warning('You already have an active bomb game in another chat. Finish it or type *suren* there first.'));
                 }
 
                 const text = message.message?.conversation ||
@@ -152,7 +153,7 @@ module.exports = {
             }, timeout + 60000);
         } catch (error) {
             console.error('Error in bomb command:', error);
-            return extra.reply('❌ Something went wrong. Please try again.');
+            return extra.reply(style.error('Something went wrong. Please try again.'));
         }
     }
 };

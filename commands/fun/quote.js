@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { getQuote } = require('../../lib/funContent');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -9,7 +10,7 @@ const quoteCommand = async function (sock, chatId, message) {
             ...channelInfo
         }, { quoted: message });
     } catch (error) {
-        await sock.sendMessage(chatId, { text: '❌ Failed to get a quote right now. Please try again later!', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to get a quote right now. Please try again later!'), ...channelInfo }, { quoted: message });
     }
 };
 

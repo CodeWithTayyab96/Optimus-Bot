@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { roasts, pick } = require('../../lib/funData');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -18,7 +19,7 @@ async function roastCommand(sock, chatId, message) {
             ...channelInfo
         }, { quoted: message });
     } catch (e) {
-        await sock.sendMessage(chatId, { text: '❌ Failed to roast. Try again!', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to roast. Try again!'), ...channelInfo }, { quoted: message });
     }
 }
 

@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const fetch = require('node-fetch');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -40,7 +41,7 @@ async function simpCommand(sock, chatId, quotedMsg, mentionedJid, sender) {
     } catch (error) {
         console.error('Error in simp command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Sorry, I couldn\'t generate the simp card. Please try again later!',
+            text: style.error('Sorry, I couldn\'t generate the simp card. Please try again later!'),
             ...channelInfo
         });
     }

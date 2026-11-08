@@ -121,7 +121,7 @@ module.exports = {
             }
         } catch (error) {
             console.error('Error in memesearch command:', error);
-            await extra.reply('❌ Failed to fetch the meme. Please try again later.');
+            await extra.reply(style.error('Failed to fetch the meme. Please try again later.'));
         }
     }
 };

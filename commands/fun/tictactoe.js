@@ -12,7 +12,7 @@ async function tictactoeCommand(sock, chatId, senderId, text) {
             [room.game.playerX, room.game.playerO].includes(senderId)
         )) {
             await sock.sendMessage(chatId, { 
-                text: '⚠️ You are still in a game. Type *surrender* to quit.' 
+                text: style.warning('You are still in a game. Type *surrender* to quit.') 
             });
             return;
         }
@@ -79,7 +79,7 @@ async function tictactoeCommand(sock, chatId, senderId, text) {
             if (text) room.name = text;
 
             await sock.sendMessage(chatId, { 
-                text: `⏳ *Waiting for opponent*\nType *.ttt ${text || ''}* to join!`
+                text: style.processing(`*Waiting for opponent*\nType *.ttt ${text || ''}* to join!`)
             });
 
             games[room.id] = room;
@@ -88,7 +88,7 @@ async function tictactoeCommand(sock, chatId, senderId, text) {
     } catch (error) {
         console.error('Error in tictactoe command:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Error starting game. Please try again.' 
+            text: style.error('Error starting game. Please try again.') 
         });
     }
 }
@@ -111,7 +111,7 @@ async function handleTicTacToeMove(sock, chatId, senderId, text) {
         // Allow surrender at any time, not just during player's turn
         if (senderId !== room.game.currentTurn && !isSurrender) {
             await sock.sendMessage(chatId, { 
-                text: '⚠️ It\'s not your turn.' 
+                text: style.warning('It\'s not your turn.') 
             });
             return;
         }
@@ -123,7 +123,7 @@ async function handleTicTacToeMove(sock, chatId, senderId, text) {
 
         if (!ok) {
             await sock.sendMessage(chatId, { 
-                text: '⚠️ That position is already taken.' 
+                text: style.warning('That position is already taken.') 
             });
             return;
         }
@@ -224,7 +224,7 @@ module.exports = {
         if (extra.commandName === 'move') {
             const position = parseInt(args[0]);
             if (isNaN(position)) {
-                await sock.sendMessage(extra.chatId, { text: '⚠️ Please provide a valid position (1-9). Usage: .move <number>', ...extra.channelInfo }, { quoted: message });
+                await sock.sendMessage(extra.chatId, { text: style.warning('Please provide a valid position (1-9). Usage: .move <number>'), ...extra.channelInfo }, { quoted: message });
             } else {
                 await handleTicTacToeMove(sock, extra.chatId, extra.senderId, String(position));
             }

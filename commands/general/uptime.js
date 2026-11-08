@@ -46,7 +46,7 @@ module.exports = {
             await extra.reply(text);
         } catch (error) {
             console.error('Error in uptime command:', error);
-            await extra.reply('❌ An error occurred while fetching uptime information. Please try again later.');
+            await extra.reply(style.error('An error occurred while fetching uptime information. Please try again later.'));
         }
     }
 };

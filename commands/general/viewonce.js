@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { downloadContentFromMessage, toBuffer } = require('@whiskeysockets/baileys');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -121,7 +122,7 @@ async function viewonceCommand(sock, chatId, message) {
     // 4. No media found
     if (!mediaType || !mediaNode) {
         await sock.sendMessage(chatId, {
-            text: '❌ Please reply to a view-once image or video.\n\n*Supported:*\n  🖼️ Image → View-Once image\n  🎬 Video → View-Once video\n  🎵 Audio → Voice note',
+            text: style.error('Please reply to a view-once image or video.\n\n*Supported:*\n  🖼️ Image → View-Once image\n  🎬 Video → View-Once video\n  🎵 Audio → Voice note'),
             ...channelInfo,
         }, { quoted: message });
         return;
@@ -134,7 +135,7 @@ async function viewonceCommand(sock, chatId, message) {
     } catch (dlErr) {
         console.error(`[.vv] Download failed for ${mediaType}:`, dlErr.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to download media. The view-once media may have expired or the download URL is no longer valid.',
+            text: style.error('Failed to download media. The view-once media may have expired or the download URL is no longer valid.'),
             ...channelInfo,
         }, { quoted: message });
         return;
@@ -142,7 +143,7 @@ async function viewonceCommand(sock, chatId, message) {
 
     if (!buffer || buffer.length === 0) {
         await sock.sendMessage(chatId, {
-            text: '❌ Downloaded media is empty. Please try again.',
+            text: style.error('Downloaded media is empty. Please try again.'),
             ...channelInfo,
         }, { quoted: message });
         return;
@@ -176,7 +177,7 @@ async function viewonceCommand(sock, chatId, message) {
     } catch (sendErr) {
         console.error('[.vv] Send error:', sendErr.message);
         await sock.sendMessage(chatId, {
-            text: '❌ Failed to send media. Please try again.',
+            text: style.error('Failed to send media. Please try again.'),
             ...channelInfo,
         }, { quoted: message });
     }

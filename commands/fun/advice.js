@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { getAdvice } = require('../../lib/funContent');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -9,7 +10,7 @@ const adviceCommand = async function (sock, chatId, message) {
             ...channelInfo
         }, { quoted: message });
     } catch (e) {
-        await sock.sendMessage(chatId, { text: '❌ Failed to get advice. Try again!', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to get advice. Try again!'), ...channelInfo }, { quoted: message });
     }
 };
 

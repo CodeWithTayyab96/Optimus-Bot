@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
@@ -54,7 +55,7 @@ async function urlCommand(sock, chatId, message) {
         if (!media) media = await getQuotedMediaBufferAndExt(message);
 
         if (!media) {
-            await sock.sendMessage(chatId, { text: '⚠️ Please send or reply to a media (image, video, audio, sticker, document) to get a URL.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.warning('Please send or reply to a media (image, video, audio, sticker, document) to get a URL.') }, { quoted: message });
             return;
         }
 
@@ -85,14 +86,14 @@ async function urlCommand(sock, chatId, message) {
         }
 
         if (!url) {
-            await sock.sendMessage(chatId, { text: '❌ Failed to upload media. Please try again.' }, { quoted: message });
+            await sock.sendMessage(chatId, { text: style.error('Failed to upload media. Please try again.') }, { quoted: message });
             return;
         }
 
         await sock.sendMessage(chatId, { text: `🔗 URL: ${url}` }, { quoted: message });
     } catch (error) {
         console.error('[URL] error:', error?.message || error);
-        await sock.sendMessage(chatId, { text: '❌ Failed to convert media to a URL. Please try again.' }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to convert media to a URL. Please try again.') }, { quoted: message });
     }
 }
 

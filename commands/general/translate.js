@@ -75,7 +75,7 @@ async function handleTranslateCommand(sock, chatId, message, match) {
 
         if (!text) {
             return sock.sendMessage(chatId, {
-                text: '❌ No text found to translate. Reply to a message or type text after .translate.',
+                text: style.error('No text found to translate. Reply to a message or type text after .translate.'),
                 quoted: message,
             });
         }
@@ -93,7 +93,7 @@ async function handleTranslateCommand(sock, chatId, message, match) {
     } catch (error) {
         console.error('❌ Error in translate command:', error?.message || error);
         await sock.sendMessage(chatId, {
-            text: '❌ Translation failed. Please try again later.',
+            text: style.error('Translation failed. Please try again later.'),
             quoted: message,
         });
     }

@@ -1,10 +1,11 @@
+const style = require('../../lib/messageStyle');
 const { riddles, pick } = require('../../lib/funData');
 const { channelInfo } = require('../../lib/messageConfig');
 
 const riddleCommand = async function (sock, chatId, message) {
     try {
         const riddle = pick(riddles);
-        if (!riddle) return await sock.sendMessage(chatId, { text: '❌ Could not find a riddle.', ...channelInfo }, { quoted: message });
+        if (!riddle) return await sock.sendMessage(chatId, { text: style.error('Could not find a riddle.'), ...channelInfo }, { quoted: message });
 
         await sock.sendMessage(chatId, {
             text: `🧩 RIDDLE\n\n${riddle.question}\n\n_Reply with your answer, then type_ *.answer* _to reveal!_`,
@@ -18,7 +19,7 @@ const riddleCommand = async function (sock, chatId, message) {
             });
         }, 30000);
     } catch (e) {
-        await sock.sendMessage(chatId, { text: '❌ Failed to get riddle. Try again!', ...channelInfo }, { quoted: message });
+        await sock.sendMessage(chatId, { text: style.error('Failed to get riddle. Try again!'), ...channelInfo }, { quoted: message });
     }
 };
 

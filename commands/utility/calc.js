@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 module.exports = {
     name: 'calc',
     aliases: ['calculate', 'math'],
@@ -13,21 +14,21 @@ module.exports = {
     async execute(sock, message, args, extra) {
         try {
             if (args.length === 0) {
-                return extra.reply(`❌ Usage: ${extra.prefix}calc <expression>\n\nExample: ${extra.prefix}calc 5 + 3 * 2`);
+                return extra.reply(style.error(`Usage: ${extra.prefix}calc <expression>\n\nExample: ${extra.prefix}calc 5 + 3 * 2`));
             }
 
             const expression = args.join(' ');
 
             // Whitelist: digits, arithmetic operators, parentheses, decimal points
             if (!/^[0-9+\-*/(). ]+$/.test(expression)) {
-                return extra.reply('❌ Invalid expression! Only numbers and operators (+, -, *, /, parentheses) allowed.');
+                return extra.reply(style.error('Invalid expression! Only numbers and operators (+, -, *, /, parentheses) allowed.'));
             }
 
             try {
                 const result = new Function(`"use strict"; return (${expression});`)();
 
                 if (typeof result !== 'number' || !isFinite(result)) {
-                    return extra.reply('❌ Invalid mathematical expression!');
+                    return extra.reply(style.error('Invalid mathematical expression!'));
                 }
 
                 let text = `🧮 *Calculator*\n\n`;
@@ -36,10 +37,10 @@ module.exports = {
 
                 await extra.reply(text);
             } catch (evalError) {
-                await extra.reply('❌ Invalid mathematical expression!');
+                await extra.reply(style.error('Invalid mathematical expression!'));
             }
         } catch (error) {
-            await extra.reply('❌ Something went wrong. Please try again.');
+            await extra.reply(style.error('Something went wrong. Please try again.'));
         }
     }
 };

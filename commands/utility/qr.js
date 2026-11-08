@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const qrcode = require('qrcode');
 
 module.exports = {
@@ -15,7 +16,7 @@ module.exports = {
     async execute(sock, message, args, extra) {
         try {
             if (args.length === 0) {
-                return extra.reply(`❌ Usage: ${extra.prefix}qr <text>\n\nExample: ${extra.prefix}qr https://google.com`);
+                return extra.reply(style.error(`Usage: ${extra.prefix}qr <text>\n\nExample: ${extra.prefix}qr https://google.com`));
             }
 
             const text = args.join(' ');
@@ -32,7 +33,7 @@ module.exports = {
             }, { quoted: message });
         } catch (error) {
             console.error('Error in qr command:', error);
-            await extra.reply('❌ Failed to generate the QR code. Please try again.');
+            await extra.reply(style.error('Failed to generate the QR code. Please try again.'));
         }
     }
 };

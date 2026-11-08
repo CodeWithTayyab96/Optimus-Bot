@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 module.exports = {
     name: 'gayrate',
     aliases: [],
@@ -35,7 +36,7 @@ module.exports = {
             await sock.sendMessage(extra.chatId, { text: out, mentions: [targetId] }, { quoted: message });
         } catch (error) {
             console.error('[gayrate] ERROR:', error);
-            await extra.reply('❌ Something went wrong.');
+            await extra.reply(style.error('Something went wrong.'));
         }
     }
 };

@@ -1,3 +1,4 @@
+const style = require('../../lib/messageStyle');
 const { compliments, pick } = require('../../lib/funData');
 const { channelInfo } = require('../../lib/messageConfig');
 
@@ -14,7 +15,7 @@ async function complimentCommand(sock, chatId, message) {
 
         if (!userToCompliment) {
             return await sock.sendMessage(chatId, {
-                text: '⚠️ Please mention someone or reply to their message to compliment them.',
+                text: style.warning('Please mention someone or reply to their message to compliment them.'),
                 ...channelInfo
             });
         }
@@ -27,7 +28,7 @@ async function complimentCommand(sock, chatId, message) {
             ...channelInfo
         });
     } catch (error) {
-        await sock.sendMessage(chatId, { text: '❌ An error occurred while sending the compliment.', ...channelInfo });
+        await sock.sendMessage(chatId, { text: style.error('An error occurred while sending the compliment.'), ...channelInfo });
     }
 }
 
