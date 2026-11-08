@@ -825,9 +825,9 @@ async function preflight() {
     await ensurePythonDeps()
 
     try {
-        require.resolve('ffmpeg-static', { paths: [ROOT] })
+        require.resolve('@ffmpeg-installer/ffmpeg', { paths: [ROOT] })
     } catch {
-        warn('ffmpeg-static is not installed — audio/video conversion will fail.')
+        warn('@ffmpeg-installer/ffmpeg is not installed - audio/video conversion will fail.')
     }
 }
 

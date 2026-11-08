@@ -109,7 +109,7 @@ To change a model, edit `lib/aiConfig.js` directly. Run `.aistatus` as the bot o
 ### Prerequisites
 
 - **Node.js** ≥ 22.0.0
-- **FFmpeg** — bundled via `ffmpeg-static`; a system install is optional (see `DEPLOY.md` §5)
+- **FFmpeg** - bundled via `@ffmpeg-installer/ffmpeg`; a system install is optional (see `DEPLOY.md` §5)
 - A WhatsApp account for pairing
 
 ### Installation

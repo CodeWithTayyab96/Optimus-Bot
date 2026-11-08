@@ -30,7 +30,7 @@ then needs ~15–25 s to warm up before it serves tokens).
 | **Python ≥ 3.8 + pip** | yt-dlp + the PO token plugin | |
 | **yt-dlp ≥ 2025.05.22** | YouTube downloads | the PO token plugin requires this minimum |
 | **bgutil-ytdlp-pot-provider** (pip) | mints PO tokens for yt-dlp | `pip install -U bgutil-ytdlp-pot-provider` |
-| **ffmpeg** | audio/video conversion | **bundled** via `ffmpeg-static`; see §5 |
+| **ffmpeg** | audio/video conversion | **bundled** via `@ffmpeg-installer/ffmpeg`; see §5 |
 | **git** | cloning the provider | one-time |
 
 ---
@@ -119,7 +119,7 @@ If you cloned the provider somewhere else, point the bot at it with
 | `POT_PROVIDER_PORT` | `4416` | provider listen port |
 | `DL_HEALTH_INTERVAL_MS` | `1200000` (20 min) | health-check interval |
 | `YTDLP_BIN` | `yt-dlp` | yt-dlp binary name/path |
-| `FFMPEG_PATH` | *(auto)* | override ffmpeg (else `ffmpeg-static`, else PATH) |
+| `FFMPEG_PATH` | *(auto)* | override ffmpeg (else `@ffmpeg-installer/ffmpeg`, else PATH) |
 | `NEXORACLE_API` / `NEXORACLE_KEY` | built-in | NexOracle endpoints (`.apk`) |
 | `NASA_API_KEY` | `DEMO_KEY` | `.apod` |
 | `TMDB_API_KEY` | placeholder | `.tmdb` |
@@ -130,11 +130,11 @@ Standard bot settings (owner number, prefix, etc.) live in `settings.js`.
 
 ## 5. ffmpeg
 
-`ffmpeg-static` is a project dependency, so a working ffmpeg ships with the bot
+`@ffmpeg-installer/ffmpeg` is a project dependency, so a working ffmpeg ships with the bot
 and `lib/converter.js` uses it automatically. Resolution order:
 
 1. `FFMPEG_PATH` (if set)
-2. the bundled `ffmpeg-static` binary
+2. the bundled `@ffmpeg-installer/ffmpeg` binary
 3. `ffmpeg` on `PATH`
 
 If you prefer a system ffmpeg, install it and set `FFMPEG_PATH` to its path.
@@ -237,8 +237,8 @@ Last-known state is kept in `data/dlHealthState.json`.
 |---|---|
 | `.song`/`.video` intermittent 403 | is the provider up? `.dlstatus` → "PO token provider (bgutil)" |
 | `Requested format is not available` | transient; retry — the fallback chain absorbs it |
-| `spawn ffmpeg ENOENT` | ffmpeg missing — `npm install` (ffmpeg-static) or set `FFMPEG_PATH` |
-| `Cannot find module 'sharp'` / `Could not load the sharp module` after a clean install | **npm ≥ 12 blocks unreviewed install scripts by default**, so `sharp` and `ffmpeg-static` never build. Check the `allowScripts` field in `package.json` covers them; re-approve with `npm approve-scripts --all` (npm ≥ 11.16). |
+| `spawn ffmpeg ENOENT` | ffmpeg missing - `npm install` (@ffmpeg-installer/ffmpeg) or set `FFMPEG_PATH` |
+| `Cannot find module 'sharp'` / `Could not load the sharp module` after a clean install | **npm ≥ 12 blocks unreviewed install scripts by default**, so `sharp` never builds. Check the `allowScripts` field in `package.json` covers it; re-approve with `npm approve-scripts --all` (npm ≥ 11.16). |
 | `.threads` / `.capcut` say "not available" | expected — no working free source exists (see the command comments) |
 | Slow downloads | a configured proxy is slow — check `.dlstatus` proxy lines |
 
