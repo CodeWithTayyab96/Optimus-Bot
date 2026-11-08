@@ -27,7 +27,7 @@ function check(name, cond, extra) {
     else { fail++; console.log('❌ ' + name + (extra ? ' — ' + extra : '')); }
 }
 
-const WIDTH_RE = /^(?:OPTIMUS \/ )?(.{0,33})$/;
+const WIDTH_RE = /^(?:╔═ OPTIMUS · |╔═ |OPTIMUS \/ )?(.{0,44})$/;
 const BAD_CHARS = /[\u001b\u009b]|<[a-z/][^>]*>|\x1b\[[0-9;]*m/i;
 
 // ── card shape ───────────────────────────────────────────────────────────────
@@ -36,9 +36,12 @@ console.log('\n=== card shape ===');
     const card = style.box('📸 STATUS CACHE', ['[01] AUTO-SAVE :: ENABLED']);
     const lines = card.split('\n');
 
-    check('line 1 is the module heading', lines[0] === 'OPTIMUS / STATUS_CACHE.SYS', lines[0]);
-    check('line 2 is a rule', /^━{8,32}$/.test(lines[1]), lines[1]);
-    check('line 3 starts the body', lines[2] === '[01] AUTO-SAVE :: ENABLED', lines[2]);
+    check('line 1 is the top border carrying the module name',
+        /^╔═ OPTIMUS · STATUS_CACHE\.SYS ═*╗$/.test(lines[0]), lines[0]);
+    check('line 2 is the framed body row',
+        lines[1].startsWith('║ [01] AUTO-SAVE :: ENABLED') && lines[1].endsWith('║'), lines[1]);
+    check('line 3 is the bottom border', /^╚═+╝$/.test(lines[2]), lines[2]);
+    check('every box line shares one width', new Set(lines.map((l) => l.length)).size === 1, JSON.stringify(lines.map((l) => l.length)));
     check('no colour band anywhere', !/🟩|🟥|🟨|🟦|🟪/.test(card), card.slice(-40));
     check('a card has no trailing blank line', card.trimEnd() === card, JSON.stringify(card.slice(-20)));
 
@@ -151,7 +154,7 @@ console.log('\n=== empty states ===');
     check('empty state is a block, not a shrug', empty.length >= 2);
 
     const card = style.box('RECORDS.SYS', [...style.emptyResult('RECORDS'), style.tag('system', '0 RECORDS')]);
-    check('an empty list still renders a full card', card.startsWith('OPTIMUS / RECORDS.SYS') && card.includes('0 RECORDS'), card.slice(0, 80));
+    check('an empty list still renders a full card', card.startsWith('╔═') && card.includes('RECORDS.SYS') && card.includes('0 RECORDS'), card.slice(0, 80));
 }
 
 // ── compatibility ────────────────────────────────────────────────────────────
@@ -171,15 +174,19 @@ console.log('\n=== WhatsApp compatibility ===');
     ];
     check('no ANSI escape in any sample', samples.every((s) => !BAD_CHARS.test(s)), samples.find((s) => BAD_CHARS.test(s)));
     check('no HTML tags in any sample', samples.every((s) => !/<\/?(b|i|u|br|div|span)\b/i.test(s)));
-    // The width budget applies to structural lines — headings, rules, numbered
-    // entries and field gutters. Body sentences are left to WhatsApp's own
-    // wrapping, which is what a phone actually does with them.
-    const structural = samples.flatMap((s) => s.split('\n').filter((l) =>
-        l.startsWith('OPTIMUS / ') || /^━+$/.test(l) || /^\[\d{2}\] /.test(l) || /^ +[A-Z][A-Z ]* = /.test(l)));
+    // The width budget applies to structural lines — headings, numbered entries
+    // and field gutters — measured inside the rail. Body sentences are left to
+    // WhatsApp's own wrapping, which is what a phone actually does with them.
+    const structural = samples.flatMap((s) => s.split('\n')
+        .map((l) => l.replace(/^[║\s]+/, '').replace(/[║\s]+$/, ''))
+        .filter((l) =>
+            l.startsWith('OPTIMUS · ') || l.startsWith('OPTIMUS / ') ||
+            /^\[\d{2}\] /.test(l) || /^ +[A-Z][A-Z ]* = /.test(l)));
     check('every structural line fits a phone', structural.every((l) => WIDTH_RE.test(l)),
         structural.find((l) => !WIDTH_RE.test(l)));
-    check('rules never exceed 32 columns', samples.flatMap((s) => s.split('\n')).filter((l) => /^━+$/.test(l)).every((l) => l.length <= 32));
-    check('no structural line is wider than 33 columns', structural.every((l) => l.length <= 33), structural.find((l) => l.length > 33));
+    const borders = samples.flatMap((s) => s.split('\n')).filter((l) => /^╔═.*╗$|^╚═+╝$/.test(l));
+    check('box borders stay within the phone budget', borders.every((l) => l.length <= 48), borders.find((l) => l.length > 48));
+    check('no structural line is wider than 44 columns', structural.every((l) => l.length <= 44), structural.find((l) => l.length > 44));
     check('usage hints are preserved verbatim', style.invalidInput('x', '.video <name or url>').includes('.video <name or url>'));
     check('the words ACCESS DENIED survive', style.permissionDenied('owner').includes('ACCESS DENIED'));
     check('the words NOT FOUND survive', style.notFound('X').includes('NOT FOUND'));
@@ -188,7 +195,8 @@ console.log('\n=== WhatsApp compatibility ===');
     // Long bodies chunk rather than overflow.
     const chunks = style.splitBlocks([style.box('BIG.SYS', new Array(400).fill('[01] ITEM :: VALUE'))], 3000);
     check('a huge menu chunks at block boundaries', chunks.length > 1 && chunks.every((c) => c.length <= 3000), `${chunks.length} chunks`);
-    check('no chunk splits a rule from its heading', chunks.every((c) => /OPTIMUS \/ [A-Z_.]+\.SYS\n━+/.test(c) || !c.includes('OPTIMUS / ')));
+    check('no chunk splits a heading from its first body line',
+        chunks.every((c) => /╔═ OPTIMUS · [A-Z_.]+\.SYS ═*╗\n║/.test(c) || !c.includes('OPTIMUS · ')));
 }
 
 // ── splitting ────────────────────────────────────────────────────────────────

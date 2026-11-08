@@ -51,9 +51,9 @@ function failsafe(fn) { try { return fn(); } catch { return null; } }
         const card = style.card('STATUS_CACHE.SYS', [style.tag('system', 'HELLO')]);
         const lines = card.split('\n');
 
-        check('line 1 is the module heading', lines[0] === 'OPTIMUS / STATUS_CACHE.SYS', lines[0]);
-        check('a rule sits under the heading', /^━{8,32}$/.test(lines[1]), lines[1]);
-        check('the body follows the rule', lines[2] === '[SYSTEM] HELLO', lines[2]);
+        check('line 1 is the top rail with the module name', /^╔═ OPTIMUS · STATUS_CACHE\.SYS ═*╗$/.test(lines[0]), lines[0]);
+        check('the body sits inside the rail', lines[1].startsWith('║ [SYSTEM] HELLO') && lines[1].endsWith('║'), lines[1]);
+        check('the bottom rail closes the card', /^╚═+╝$/.test(lines[2]), lines[2]);
         check('no emoji band closes the card', !/🟩|🟥|🟨|🟦|🟪/.test(card), card.slice(-40));
 
         check('divider() never collapses or runs away',
@@ -91,7 +91,7 @@ function failsafe(fn) { try { return fn(); } catch { return null; } }
         ]);
         check('the digest carries every line', many.includes('Downloading') && many.includes('Saved.'), many.slice(0, 120));
         check('the digest uses the shared card',
-            many.split('\n')[0] === 'OPTIMUS / NOTICE.SYS' && /^━+$/.test(many.split('\n')[1]), many.slice(0, 80));
+            many.split('\n')[0].startsWith('╔═ OPTIMUS · NOTICE.SYS') && many.split('\n')[1].startsWith('║'), many.slice(0, 80));
     }
 
     // ------------------------------------------------------ antidelete pacing ---

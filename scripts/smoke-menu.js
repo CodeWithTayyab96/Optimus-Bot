@@ -21,14 +21,14 @@ check('processing', style.processing('Downloading') === '[PROCESS] Downloading')
 check('completed aliases success', style.completed('Done') === style.success('Done'));
 
 const errBox = style.error('Bad input', { box: true, usage: '.x <y>' });
-check('error boxed has a module heading', errBox.startsWith('OPTIMUS / ERROR.SYS'));
-check('error boxed has a rule under the heading', /^━+$/m.test(errBox));
+check('error boxed has a module heading', errBox.startsWith('╔═ OPTIMUS · ERROR.SYS'), errBox.split('\n')[0]);
+check('error boxed has a framed body under the heading', /^║ /.test(errBox.split('\n')[1]), errBox.split('\n')[1]);
 check('error boxed tags the failure', errBox.includes('[ERROR] Bad input'));
 check('error boxed carries the usage verbatim', errBox.includes('Usage:') && errBox.includes('.x <y>'));
-check('error boxed has no box-drawing border', !errBox.includes('╭') && !errBox.includes('╰') && !errBox.includes('┃'));
+check('error boxed is wrapped in the box rail', errBox.includes('║') && errBox.trimEnd().endsWith('╝'), errBox.slice(-20));
 
 check('permission owner', style.permissionDenied('owner', { box: false }) === '[ERROR] ACCESS DENIED Only the bot owner can use this command.');
-check('permission ownerOrSudo boxed', style.permissionDenied('ownerOrSudo').includes('OPTIMUS / ACCESS.SYS'));
+check('permission ownerOrSudo boxed', style.permissionDenied('ownerOrSudo').includes('OPTIMUS · ACCESS.SYS'));
 check('permission admin', style.permissionDenied('admin', { box: false }) === '[ERROR] ACCESS DENIED Only group admins can use this command.');
 check('permission group', style.permissionDenied('group', { box: false }).includes('groups'));
 check('permission botAdmin', style.permissionDenied('botAdmin', { box: false }).includes('admin'));
@@ -92,13 +92,13 @@ check('unknown command → null', help.buildCommandDetail('nonexistentxyz', { is
 const smallChunks = help.buildMenuChunks({ isOwnerOrSudo: true, isAdmin: true }, { maxLen: 600 });
 check('menu splits under small maxLen', smallChunks.length > 1);
 check('no chunk exceeds maxLen', smallChunks.every(c => c.length <= 600));
-// Each chunk holds whole OPTIMUS / MODULE.SYS cards: a heading is always
-// followed by its rule, and never orphaned at the end of a chunk.
+// Each chunk holds whole cards: a top rail is always followed by a framed
+// body line, and never orphaned at the end of a chunk.
 check('blocks never split across chunks', smallChunks.every(c => {
     const lines = c.split('\n');
     return lines.every((l, i) => {
-        if (!l.startsWith('OPTIMUS / ')) return true;
-        return i + 1 < lines.length && /^━{8,32}$/.test(lines[i + 1]);
+        if (!l.startsWith('╔═ OPTIMUS · ')) return true;
+        return i + 1 < lines.length && lines[i + 1].startsWith('║');
     });
 }));
 

@@ -192,7 +192,7 @@ function runTimes(state, results, n, { start = 1_000_000_000, step = 20 * 60 * 1
         const mixed = await dlHealth.checkResults([bad(YT), ok(IG)], { alert: true });
         check('simultaneous down + recovered is one message', sent.length === 1, `${sent.length}`);
         check('both changes are in that message', mixed.broke.length === 1 && mixed.fixed.length === 1, JSON.stringify({ broke: mixed.broke.length, fixed: mixed.fixed.length }));
-        check('combined title is used', sent[0].includes('OPTIMUS / SOURCE_SYNC.SYS'), sent[0].split('\n')[0]);
+        check('combined title is used', sent[0].includes('OPTIMUS · SOURCE_SYNC.SYS'), sent[0].split('\n')[0]);
     }
 
     // --------------------------------------------------------------- switch ---

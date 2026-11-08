@@ -67,10 +67,10 @@ function hasText(sent, substr) {
         ['summarize', { message: {} }, [], 'Reply to any message with .summarize'],
         ['imagine', { message: { conversation: '.imagine' } }, [], 'INVALID INPUT'],
         ['magicstudio', { message: {} }, [], 'INVALID INPUT'],
-        ['gptimage', { message: {} }, [], 'OPTIMUS / AI_IMAGE.SYS'],
+        ['gptimage', { message: {} }, [], 'OPTIMUS · AI_IMAGE.SYS'],
         ['stt', { message: {} }, [], 'INVALID INPUT'],
         ['voicesummary', { message: {} }, [], 'Reply to a voice note or audio with .voicesummary'],
-        ['study', { message: {} }, [], 'OPTIMUS / AI_STUDY.SYS'],
+        ['study', { message: {} }, [], 'OPTIMUS · AI_STUDY.SYS'],
     ];
     for (const [cmdName, msg, args, substr] of usageCases) {
         const sent = await runWith(cmdName, msg, args);

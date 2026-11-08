@@ -160,7 +160,7 @@ async function capture(sock, msg) {
     cmdSock.sent.length = 0;
     await statusCmd.execute(cmdSock, msg, [], extra);
     let out = lastText();
-    check('listing uses the terminal STATUS_CACHE module', out.includes('OPTIMUS / STATUS_CACHE.SYS'), out.slice(0, 80));
+    check('listing uses the terminal STATUS_CACHE module', out.includes('OPTIMUS · STATUS_CACHE.SYS'), out.slice(0, 80));
     check('listing shows the contact name', out.includes('Ali Khan'), out.slice(0, 300));
     check('listing shows the phone number', out.includes(ALI_PN), out.slice(0, 300));
     check('listing offers #1 as a fetch handle', /FETCH: \.status #1/.test(out), out.slice(0, 400));

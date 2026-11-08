@@ -118,13 +118,13 @@ describe('Menu categorization', () => {
 
     for (const cat of EXPECTED_CATEGORIES) {
         test(`contains category header "${cat}"`, () => {
-            expect(menuText).toContain(`OPTIMUS / ${moduleOf(cat)}`);
+            expect(menuText).toContain(`OPTIMUS · ${moduleOf(cat)}`);
         });
     }
 
     test('does NOT contain an "MISC" or "UNKNOWN" category', () => {
-        expect(menuText).not.toContain(`OPTIMUS / ${moduleOf('MISC')}`);
-        expect(menuText).not.toContain(`OPTIMUS / ${moduleOf('UNKNOWN')}`);
+        expect(menuText).not.toContain(`OPTIMUS · ${moduleOf('MISC')}`);
+        expect(menuText).not.toContain(`OPTIMUS · ${moduleOf('UNKNOWN')}`);
     });
 });
 
@@ -140,15 +140,15 @@ describe('Command placement', () => {
     /**
      * Slice one category's index card out of the full menu.
      *
-     * The card now starts at `OPTIMUS / <CATEGORY>.SYS` (see lib/messageStyle)
+     * The card now starts at `OPTIMUS · <CATEGORY>.SYS` (see lib/messageStyle)
      * and ends at the next card, so the block is everything from this heading
-     * up to the following `OPTIMUS / ` heading.
+     * up to the following `OPTIMUS · ` heading.
      */
     function getCategoryBlock(cat) {
-        const heading = `OPTIMUS / ${cat.replace(/[^A-Z0-9]+/gi, '_').toUpperCase()}.SYS`;
+        const heading = `OPTIMUS · ${cat.replace(/[^A-Z0-9]+/gi, '_').toUpperCase()}.SYS`;
         const startIdx = menuText.indexOf(heading);
         if (startIdx === -1) return '';
-        const next = menuText.indexOf('OPTIMUS / ', startIdx + heading.length);
+        const next = menuText.indexOf('OPTIMUS · ', startIdx + heading.length);
         return menuText.substring(startIdx, next === -1 ? menuText.length : next);
     }
 
@@ -184,10 +184,10 @@ describe('Alphabetical sorting', () => {
     });
 
     function getCommandsInCategory(cat) {
-        const heading = `OPTIMUS / ${cat.replace(/[^A-Z0-9]+/gi, '_').toUpperCase()}.SYS`;
+        const heading = `OPTIMUS · ${cat.replace(/[^A-Z0-9]+/gi, '_').toUpperCase()}.SYS`;
         const startIdx = menuText.indexOf(heading);
         if (startIdx === -1) return [];
-        const next = menuText.indexOf('OPTIMUS / ', startIdx + heading.length);
+        const next = menuText.indexOf('OPTIMUS · ', startIdx + heading.length);
         const block = menuText.substring(startIdx, next === -1 ? menuText.length : next);
         const commands = [];
         const regex = /\[\d{2}\] (\S+) ::/g;
@@ -242,7 +242,7 @@ describe('Branding', () => {
     });
 
     test('header shows the OPTIMUS system name', () => {
-        expect(menuText).toContain('OPTIMUS / SYSTEM.SYS');
+        expect(menuText).toContain('OPTIMUS · SYSTEM.SYS');
     });
 
     test('header shows the viewer handle', () => {
@@ -301,7 +301,7 @@ describe('No secrets in menu output', () => {
 describe('Command detail card', () => {
     test('.help help shows detail card', () => {
         const detail = help.buildCommandDetail('help', OWNER_VIEWER);
-        expect(detail).toContain('OPTIMUS / COMMAND_INFO.SYS');
+        expect(detail).toContain('OPTIMUS · COMMAND_INFO.SYS');
         expect(detail).toContain('help');
         // categoryTitle() converts "general" → "General"
         expect(detail).toContain('GENERAL');

@@ -90,6 +90,7 @@ const CATEGORY_ICONS = {
     group: '👥',
     games: '🎲',
     misc: '📁',
+    islamic: '🕌',
 };
 
 // Colour square for the band under each category title (WhatsApp has no text
@@ -169,12 +170,12 @@ function collectCommands(viewer = {}) {
 /**
  * One atomic block per category, as a terminal index:
  *
- *     OPTIMUS / GENERAL.SYS
- *     ━━━━━━━━━━━━━━━━━━
- *     > AVAILABLE COMMANDS
- *
- *     [01] alive          :: Check bot status
- *     [02] ping           :: Check response time
+ *     ╔═ 📦 OPTIMUS · GENERAL.SYS ══════════╗
+ *     ║ > AVAILABLE COMMANDS                 ║
+ *     ║                                      ║
+ *     ║ [01] alive     :: Check bot status   ║
+ *     ║ [02] ping      :: Check response time║
+ *     ╚══════════════════════════════════════╝
  *
  * The value column is the command's own description, not a repeat of its name —
  * `alive :: .alive` tells the reader nothing they did not already know.
@@ -193,7 +194,7 @@ function buildBlocks(viewer = {}, opts = {}) {
         list.forEach((cmd, i) => {
             lines.push(`[${String(i + 1).padStart(2, '0')}] ${cmd.name.padEnd(width, ' ')} :: ${shortDescription(cmd)}`);
         });
-        return style.card(`${categoryLabel(cat)}`, lines);
+        return style.card(`${categoryLabel(cat)}`, lines, { icon: CATEGORY_ICONS[cat] || '▪' });
     });
 }
 
@@ -249,17 +250,18 @@ function buildCategoryIndex(viewer = {}, opts = {}) {
     const total = visibleCommandCount(viewer);
 
     const lines = [
-        style.tag('system', `${total} COMMAND(S) AVAILABLE TO YOU`),
+        `🤖 ${total} COMMAND(S) AVAILABLE TO YOU`,
         style.quote('PICK A CATEGORY:'),
         '',
     ];
     const width = Math.max(...cats.map((c) => categoryLabel(c).length));
     cats.forEach((cat, i) => {
         const count = byCat.get(cat).length;
-        lines.push(`[${String(i + 1).padStart(2, '0')}] ${categoryLabel(cat).padEnd(width, ' ')} :: ${String(count).padStart(2, ' ')} CMD · ${prefix}${categoryCommand(cat)}`);
+        const icon = CATEGORY_ICONS[cat] || '▪';
+        lines.push(`[${String(i + 1).padStart(2, '0')}] ${icon} ${categoryLabel(cat).padEnd(width, ' ')} :: ${String(count).padStart(2, ' ')} CMD · ${prefix}${categoryCommand(cat)}`);
     });
     lines.push('');
-    lines.push(style.tag('info', `${prefix}help <command>  :: DETAILS FOR ONE COMMAND`));
+    lines.push(`ℹ️ ${prefix}help <command>  :: DETAILS FOR ONE COMMAND`);
     return style.card('COMMAND_INDEX.SYS', lines);
 }
 
@@ -284,8 +286,8 @@ function buildCategoryChunks(cat, viewer = {}, opts = {}) {
     list.forEach((cmd, i) => {
         lines.push(`[${String(i + 1).padStart(2, '0')}] ${cmd.name.padEnd(width, ' ')} :: ${shortDescription(cmd)}`);
     });
-    const block = style.card(categoryLabel(cat), lines);
-    const footer = style.tag('system', `${list.length} COMMAND(S) · ${prefix}help <command> FOR DETAILS · ${prefix}menu FOR ALL CATEGORIES`);
+    const block = style.card(categoryLabel(cat), lines, { icon: CATEGORY_ICONS[cat] || '▪' });
+    const footer = `ℹ️ ${list.length} COMMAND(S) · ${prefix}help <command> FOR DETAILS · ${prefix}menu FOR ALL CATEGORIES`;
     return style.splitBlocks([header, block, footer], opts.maxLen || 3000);
 }
 
@@ -315,7 +317,7 @@ function buildCommandDetail(query, viewer = {}) {
         style.tag('info', 'USAGE'),
         style.quote(cmd.usage || `${prefix}${cmd.name}`),
     ];
-    return style.card('COMMAND_INFO.SYS', lines);
+    return style.card('COMMAND_INFO.SYS', lines, { icon: CATEGORY_ICONS[cmd.category || 'misc'] || '📄' });
 }
 
 function viewerFromExtra(extra = {}) {
