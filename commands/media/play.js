@@ -9,6 +9,11 @@ async function playCommand(sock, chatId, message) {
     let stopTyping = () => { };
     try {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
+        if (!text) {
+            return await sock.sendMessage(chatId, {
+                text: style.error('Download failed. Please try again later.')
+            });
+        }
         const searchQuery = text.split(' ').slice(1).join(' ').trim();
 
         if (!searchQuery) {

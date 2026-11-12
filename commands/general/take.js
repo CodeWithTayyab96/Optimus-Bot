@@ -21,7 +21,11 @@ async function takeCommand(sock, chatId, message, args) {
             // Download the sticker
             const stickerBuffer = await downloadMediaMessage(
                 {
-                    key: message.message.extendedTextMessage.contextInfo.stanzaId,
+                    key: {
+                        remoteJid: chatId,
+                        id: message.message.extendedTextMessage.contextInfo.stanzaId,
+                        participant: message.message.extendedTextMessage.contextInfo.participant,
+                    },
                     message: quotedMessage,
                     messageType: 'stickerMessage'
                 },

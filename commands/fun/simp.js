@@ -2,14 +2,12 @@ const style = require('../../lib/messageStyle');
 const fetch = require('node-fetch');
 const { channelInfo } = require('../../lib/messageConfig');
 
-async function simpCommand(sock, chatId, quotedMsg, mentionedJid, sender) {
+async function simpCommand(sock, chatId, quotedParticipant, mentionedJid, sender) {
     try {
         // Determine the target user
-        let who = quotedMsg 
-            ? quotedMsg.sender 
-            : mentionedJid && mentionedJid[0] 
-                ? mentionedJid[0] 
-                : sender;
+        let who = quotedParticipant
+            || (mentionedJid && mentionedJid[0])
+            || sender;
 
         // Get the profile picture URL
         let avatarUrl;
@@ -60,9 +58,9 @@ module.exports = {
     adminOnly: false,
     botAdminNeeded: false,
     async execute(sock, message, args, extra) {
-        const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const quotedParticipant = message.message?.extendedTextMessage?.contextInfo?.participant;
         const mentionedJid = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-        await simpCommand(sock, extra.chatId, quotedMsg, mentionedJid, extra.senderId);
+        await simpCommand(sock, extra.chatId, quotedParticipant, mentionedJid, extra.senderId);
     },
     simpCommand,
 }; 

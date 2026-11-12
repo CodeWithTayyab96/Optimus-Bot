@@ -2,11 +2,11 @@ const { getJson } = require('../../lib/http');
 const style = require('../../lib/messageStyle');
 
 module.exports = {
-    name: 'quran',
-    aliases: ['ayat', 'surah'],
+    name: 'qurantext',
+    aliases: ['ayat'],
     category: 'utility',
     description: 'Read a Quran surah or a specific ayah (with translation)',
-    usage: '.quran <1-114>  |  .ayat <surah:ayah>  (e.g. .ayat 2:255)',
+    usage: '.qurantext <1-114>  |  .ayat <surah:ayah>  (e.g. .ayat 2:255)',
     ownerOnly: false,
     modOnly: false,
     groupOnly: false,

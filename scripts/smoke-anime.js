@@ -61,16 +61,16 @@ function hasText(sent, substr) {
     axios.get = async () => ({ data: { types: ['/animu/nom', '/animu/poke', '/animu/quote'] } });
     try {
         let sent = await runWith({ message: {} }, [], { userMessage: '.animu' });
-        check('usage: boxed INVALID INPUT with dynamic types', hasText(sent, 'INVALID INPUT') && hasText(sent, '.animu <type>') && hasText(sent, 'nom, poke, quote'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('usage: boxed INVALID INPUT with dynamic types', hasText(sent, 'INVALID_INPUT') && hasText(sent, '.animu <type>') && hasText(sent, 'nom, poke, quote'), JSON.stringify(sent.map(s => s.content?.text)));
 
         // --- 2) Usage path: static fallback when the API is unreachable ---
         axios.get = async () => { throw new Error('network down'); };
         sent = await runWith({ message: {} }, [], { userMessage: '.animu' });
-        check('usage: boxed INVALID INPUT with static types fallback', hasText(sent, 'INVALID INPUT') && hasText(sent, 'face-palm') && hasText(sent, 'wink'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('usage: boxed INVALID INPUT with static types fallback', hasText(sent, 'INVALID_INPUT') && hasText(sent, 'face-palm') && hasText(sent, 'wink'), JSON.stringify(sent.map(s => s.content?.text)));
 
         // --- 3) Unsupported type: compact friendly warning (no API needed) ---
         sent = await runWith({ message: {} }, [], { userMessage: '.animu bogus' });
-        check('unsupported type: compact warning with valid types', hasText(sent, '⚠️ Unsupported anime type: bogus') && hasText(sent, 'face-palm'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('unsupported type: compact warning with valid types', hasText(sent, 'Unsupported anime type: bogus') && hasText(sent, 'face-palm'), JSON.stringify(sent.map(s => s.content?.text)));
 
         // --- 4) Every supported type reachable; quote content sent unboxed ---
         axios.get = async () => ({ data: { quote: 'Fake anime quote' } });

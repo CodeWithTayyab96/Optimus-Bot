@@ -1,4 +1,4 @@
-const { isAdmin } = require('../../lib/isAdmin');
+const isAdmin = require('../../lib/isAdmin');
 const style = require('../../lib/messageStyle');
 
 // Function to handle manual promotions via command

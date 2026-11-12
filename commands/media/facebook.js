@@ -53,6 +53,9 @@ module.exports = {
             }, { quoted: message });
         } catch (error) {
             console.error('[facebook] error:', error.message);
+            if (/maxContentLength/.test(error.message)) {
+                return await extra.reply(style.error('This video is too large to download (over 200 MB). Please try a shorter or lower-quality version.'));
+            }
             return await extra.reply(style.error('Failed to download the Facebook video. Please try again.'));
         }
     },

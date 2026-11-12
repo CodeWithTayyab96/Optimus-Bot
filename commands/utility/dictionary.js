@@ -100,11 +100,11 @@ function extra_reply(sock, chatId, message, text) {
 }
 
 module.exports = {
-    name: 'dictionary',
-    aliases: ['dict', 'define', 'meaning'],
+    name: 'dict',
+    aliases: [],
     category: 'utility',
     description: 'Look up an English word: definition, phonetic, examples, synonyms',
-    usage: '.dictionary <word>',
+    usage: '.dict <word>',
     ownerOnly: false,
     modOnly: false,
     groupOnly: false,

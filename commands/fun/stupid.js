@@ -1,14 +1,12 @@
 const style = require('../../lib/messageStyle');
 const fetch = require('node-fetch');
 
-async function stupidCommand(sock, chatId, quotedMsg, mentionedJid, sender, args) {
+async function stupidCommand(sock, chatId, quotedParticipant, mentionedJid, sender, args) {
     try {
         // Determine the target user
-        let who = quotedMsg 
-            ? quotedMsg.sender 
-            : mentionedJid && mentionedJid[0] 
-                ? mentionedJid[0] 
-                : sender;
+        let who = quotedParticipant
+            || (mentionedJid && mentionedJid[0])
+            || sender;
 
         // Get the text for the stupid card (default to "im+stupid" if not provided)
         let text = args && args.length > 0 ? args.join(' ') : 'im+stupid';
@@ -61,9 +59,9 @@ module.exports = {
     adminOnly: false,
     botAdminNeeded: false,
     async execute(sock, message, args, extra) {
-        const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        const quotedParticipant = message.message?.extendedTextMessage?.contextInfo?.participant;
         const mentionedJid = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-        await stupidCommand(sock, extra.chatId, quotedMsg, mentionedJid, extra.senderId, extra.userMessage.split(/\s+/).slice(1));
+        await stupidCommand(sock, extra.chatId, quotedParticipant, mentionedJid, extra.senderId, extra.userMessage.split(/\s+/).slice(1));
     },
     stupidCommand,
 }; 

@@ -155,14 +155,12 @@ async function viewonceCommand(sock, chatId, message) {
             await sock.sendMessage(chatId, {
                 image: buffer,
                 caption,
-                viewOnce: true,
                 ...channelInfo,
             }, { quoted: message });
         } else if (mediaType === 'video') {
             await sock.sendMessage(chatId, {
                 video: buffer,
                 caption,
-                viewOnce: true,
                 ...channelInfo,
             }, { quoted: message });
         } else if (mediaType === 'audio') {
@@ -187,8 +185,8 @@ module.exports = {
     name: 'vv',
     aliases: [],
     category: 'general',
-    description: 'Re-send media as a View-Once message. Tip: reply to a media with "save"/"dm"/📥 to get it in your DM.',
-    usage: '.vv (reply to image/video/audio)  •  reply "save" to send it to your DM',
+    description: 'Recover view-once media as a normal message so it stays viewable. Tip: reply "save"/"dm"/📥 to get it in your DM.',
+    usage: '.vv (reply to a view-once image/video/audio)  •  reply "save" to send it to your DM',
     ownerOnly: false,
     modOnly: false,
     groupOnly: false,

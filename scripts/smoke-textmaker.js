@@ -61,22 +61,22 @@ function hasText(sent, substr) {
     try {
         // --- 1) Usage card (no style given) ---
         let sent = await runWith([], { userMessage: '.textmaker' });
-        check('usage: TEXTMAKER card with real syntax', hasText(sent, '🎨 TEXTMAKER') && hasText(sent, '.textmaker <style> <text>'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('usage: TEXTMAKER card with real syntax', hasText(sent, 'TEXTMAKER') && hasText(sent, '.textmaker <style> <text>'), JSON.stringify(sent.map(s => s.content?.text)));
         check('usage: real style names listed', hasText(sent, 'metallic') && hasText(sent, 'blackpink') && hasText(sent, 'fire'), JSON.stringify(sent.map(s => s.content?.text)));
         check('usage: quoted reply preserved', sent.some(s => s.opts && s.opts.quoted), 'missing quoted opts');
 
         // --- 2) Unknown style: compact warning ---
         sent = await runWith(['bogus', 'hi'], { userMessage: '.textmaker bogus hi' });
-        check('unknown style: compact warning', hasText(sent, '⚠️ Unknown text style: bogus') && hasText(sent, '.textmaker'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('unknown style: compact warning', hasText(sent, 'Unknown text style: bogus') && hasText(sent, '.textmaker'), JSON.stringify(sent.map(s => s.content?.text)));
 
         // --- 3) Missing text: usage card with hint ---
         sent = await runWith(['metallic'], { userMessage: '.textmaker metallic' });
-        check('missing text: usage card with hint', hasText(sent, 'Please provide text to generate.') && hasText(sent, '🎨 TEXTMAKER'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('missing text: usage card with hint', hasText(sent, 'Please provide text to generate.') && hasText(sent, 'TEXTMAKER'), JSON.stringify(sent.map(s => s.content?.text)));
 
         // --- 4) Success path: processing + image payload + settings.botName caption ---
         mumaker.ephoto = async () => ({ image: 'https://example.com/out.png' });
         sent = await runWith(['metallic', 'Nick'], { userMessage: '.textmaker metallic Nick' });
-        const proc = sent.find(s => typeof s.content?.text === 'string' && s.content.text.startsWith('⏳'));
+        const proc = sent.find(s => typeof s.content?.text === 'string' && s.content.text.startsWith('[PROCESS]'));
         const img = sent.find(s => s.content && s.content.image);
         check('processing message shown before the API wait', !!proc && proc.content.text.includes('Creating your text image'), JSON.stringify(sent.map(s => s.content?.text)));
         check('image payload preserved (url)', !!img && img.content.image && img.content.image.url === 'https://example.com/out.png', JSON.stringify(sent.map(s => Object.keys(s.content))));
@@ -90,7 +90,7 @@ function hasText(sent, substr) {
         // --- 6) API failure: friendly boxed error, no leak ---
         mumaker.ephoto = async () => { throw new Error('ephoto API exploded'); };
         sent = await runWith(['metallic', 'Nick'], { userMessage: '.textmaker metallic Nick' });
-        check('failure: TEXTMAKER FAILED card', hasText(sent, 'TEXTMAKER FAILED') && hasText(sent, "couldn't generate the text image"), JSON.stringify(sent.map(s => s.content?.text)));
+        check('failure: TEXTMAKER FAILED card', hasText(sent, 'TEXTMAKER_FAILED') && hasText(sent, "couldn't generate the text image"), JSON.stringify(sent.map(s => s.content?.text)));
         check('failure: no raw error.message leaked', !JSON.stringify(sent).includes('ephoto API exploded'), 'leaked error detail');
     } finally {
         mumaker.ephoto = origEphoto;

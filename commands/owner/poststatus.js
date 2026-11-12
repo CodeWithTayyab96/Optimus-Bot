@@ -1,4 +1,5 @@
 const style = require('../../lib/messageStyle');
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 /**
  * .poststatus — post to the bot's OWN status (status@broadcast).
@@ -24,8 +25,13 @@ module.exports = {
             const media = quoted?.imageMessage || quoted?.videoMessage || own.imageMessage || own.videoMessage;
 
             if (media) {
+                const isVideo = media.mimetype?.startsWith('video');
+                const stream = await downloadContentFromMessage(media, isVideo ? 'video' : 'image');
+                const chunks = [];
+                for await (const chunk of stream) chunks.push(chunk);
+                const buffer = Buffer.concat(chunks);
                 await sock.sendMessage('status@broadcast', {
-                    ...(media.mimetype?.startsWith('video') ? { video: media } : { image: media }),
+                    ...(isVideo ? { video: buffer } : { image: buffer }),
                     caption: text || ''
                 });
                 return await extra.reply(style.success('Status posted.'));

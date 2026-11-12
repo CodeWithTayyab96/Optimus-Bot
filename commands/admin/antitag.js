@@ -10,7 +10,7 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
         }
 
         const prefix = require('../../settings').prefix || '.';
-        const args = userMessage.trim().split(/s+/).slice(1);
+        const args = userMessage.trim().split(/\s+/).slice(1);
         const action = args[0];
 
         if (!action) {

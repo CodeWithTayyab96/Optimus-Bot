@@ -82,6 +82,7 @@ describe('aiConfig', () => {
             geminiApiKey: 'test-gemini-key',
             cloudflareAccountId: 'test-cf-account',
             cloudflareApiToken: 'test-cf-token',
+            openaiModel: 'gpt-4o-mini',
         });
         aiConfig = freshRequire('../lib/aiConfig');
     });
@@ -97,9 +98,9 @@ describe('aiConfig', () => {
             expect(aiConfig.text.model).toBe('openai/gpt-oss-120b');
         });
 
-        test('has Gemini fallback', () => {
-            expect(aiConfig.text.fallback.provider).toBe('gemini');
-            expect(aiConfig.text.fallback.model).toBe('gemini-2.5-flash');
+        test('has OpenAI fallback', () => {
+            expect(aiConfig.text.fallback.provider).toBe('openai');
+            expect(aiConfig.text.fallback.model).toBe('gpt-4o-mini');
         });
     });
 
@@ -327,10 +328,10 @@ describe('imageGeneration', () => {
 
     // ---- Fallback chain ----
     describe('2.4 Fallback chain', () => {
-        test('Gemini success returns immediately (no Cloudflare/Pollinations call)', async () => {
+        test('Cloudflare success returns immediately (no further provider calls)', async () => {
             const fakeBase64 = Buffer.from('ok').toString('base64');
             axios.post.mockResolvedValueOnce({
-                data: { output_image: { data: fakeBase64 } },
+                data: { result: fakeBase64 },
             });
 
             const result = await imageGen.generateImage('prompt');
@@ -339,11 +340,14 @@ describe('imageGeneration', () => {
             expect(axios.get).not.toHaveBeenCalled();
         });
 
-        test('Gemini failure → Cloudflare success', async () => {
-            // Gemini fails
+        test('Cloudflare failure → falls through to Pollinations', async () => {
+            // Cloudflare fails, Horde submit returns no job id
             axios.post
-                .mockRejectedValueOnce(new Error('gemini error'))  // Gemini
-                .mockResolvedValueOnce({ data: { result: Buffer.from('cf-ok').toString('base64') } }); // Cloudflare
+                .mockRejectedValueOnce(new Error('cf error'))
+                .mockResolvedValueOnce({ data: {} });
+            // Pollinations succeeds
+            const pngHeader = Buffer.from([0x89, 0x50, 0x4E, 0x47]);
+            axios.get.mockResolvedValueOnce({ data: Buffer.concat([pngHeader, Buffer.from('poll-ok')]) });
 
             const result = await imageGen.generateImage('prompt');
             expect(result).toBeInstanceOf(Buffer);
@@ -668,7 +672,7 @@ describe('lib/ai.js', () => {
 
             await ai.chatGemini('system', 'user');
             const url = axios.post.mock.calls[0][0];
-            expect(url).toContain('gemini-2.5-flash');
+            expect(url).toContain('gemini-3.8-flash');
         });
 
         test('returns null on error', async () => {
@@ -688,14 +692,15 @@ describe('lib/ai.js', () => {
             expect(result).toBe('groq answer');
         });
 
-        test('falls back to Gemini when Groq fails', async () => {
+        test('falls back to OpenAI when Groq fails', async () => {
+            setSettings({ openaiApiKey: 'test-openai', openaiBaseUrl: 'https://api.openai.com/v1', openaiModel: 'gpt-4o-mini' });
             axios.post.mockRejectedValueOnce(new Error('groq fail'));
             axios.post.mockResolvedValueOnce({
-                data: { candidates: [{ content: { parts: [{ text: 'gemini answer' }] } }] },
+                data: { choices: [{ message: { content: 'openai answer' } }] },
             });
 
             const result = await ai.chat('system', 'user');
-            expect(result).toBe('gemini answer');
+            expect(result).toBe('openai answer');
         });
     });
 
@@ -746,23 +751,35 @@ describe('lib/ai.js', () => {
 
     describe('3.5 generateImage (delegates to imageGeneration.js)', () => {
         test('returns image buffer on success', async () => {
+            // Make Cloudflare (first in the chain) ready so this test is
+            // self-contained. It used to pass only because mocks leaked in
+            // from earlier tests; on its own the single Gemini-shaped mock
+            // was consumed by Horde and returned null.
+            setSettings({ cloudflareAccountId: 'test-cf-account', cloudflareApiToken: 'test-cf-token' });
             const fakeBase64 = Buffer.from('delegated').toString('base64');
             axios.post.mockResolvedValueOnce({
-                data: { output_image: { data: fakeBase64 } },
+                data: { result: fakeBase64 },
             });
 
-            const result = await ai.generateImage('prompt');
+            let result;
+            try {
+                result = await ai.generateImage('prompt');
+            } finally {
+                // Clean up so later tests see Cloudflare as not configured.
+                delete require('../settings').cloudflareAccountId;
+                delete require('../settings').cloudflareApiToken;
+            }
             expect(result).toBeInstanceOf(Buffer);
         });
     });
 
     describe('3.6 speechToText', () => {
         test('uses whisper-large-v3-turbo model', async () => {
+            setSettings({ geminiApiKey: 'YOUR_GEMINI_API_KEY' });
             axios.post.mockResolvedValueOnce({ data: { text: 'transcribed' } });
 
             await ai.speechToText(Buffer.from('audio'));
-            const form = axios.post.mock.calls[0][1];
-            // form-data mock — just verify it was called
+            // form-data mock — just verify Groq whisper was called (Gemini skipped via placeholder key)
             expect(axios.post).toHaveBeenCalledTimes(1);
         });
 
@@ -804,7 +821,7 @@ describe('Provider readiness (§3)', () => {
     });
 
     test('speechToText makes 0 requests with placeholder Groq key', async () => {
-        setSettings({ groqApiKey: 'YOUR_GROQ_API_KEY' });
+        setSettings({ groqApiKey: 'YOUR_GROQ_API_KEY', geminiApiKey: 'YOUR_GEMINI_API_KEY' });
         const fresh = freshRequire('../lib/ai');
         axios.post.mockClear();
         const result = await fresh.speechToText(Buffer.from('audio'));
@@ -870,11 +887,12 @@ describe('Text chat error matrix', () => {
         expect(await ai.chatGroq('sys', 'user')).toBeNull();
     });
 
-    test('chat() falls through to Gemini when Groq errors', async () => {
+    test('chat() falls through to OpenAI when Groq errors', async () => {
+        setSettings({ openaiApiKey: 'test-openai', openaiBaseUrl: 'https://api.openai.com/v1' });
         axios.post
             .mockRejectedValueOnce(new Error('groq down'))
-            .mockResolvedValueOnce({ data: { candidates: [{ content: { parts: [{ text: 'from gemini' }] } }] } });
-        expect(await ai.chat('sys', 'user')).toBe('from gemini');
+            .mockResolvedValueOnce({ data: { choices: [{ message: { content: 'from openai' } }] } });
+        expect(await ai.chat('sys', 'user')).toBe('from openai');
     });
 
     test('chat() returns null when both providers fail', async () => {
@@ -951,7 +969,10 @@ describe('lib/ai.generateImageEdit delegation', () => {
     });
 
     test('returns null with placeholder key (0 requests)', async () => {
-        setSettings({ geminiApiKey: 'YOUR_GEMINI_API_KEY' });
+        // Disable BOTH edit providers: Gemini (placeholder key) and OpenAI
+        // (placeholder key). An OpenAI key set by an earlier test would
+        // otherwise leak in here and trigger a real edit attempt.
+        setSettings({ geminiApiKey: 'YOUR_GEMINI_API_KEY', openaiApiKey: 'YOUR_OPENAI_API_KEY' });
         const fresh = freshRequire('../lib/ai');
         axios.post.mockClear();
         expect(await fresh.generateImageEdit(Buffer.from('src'), 'p')).toBeNull();
@@ -1012,7 +1033,7 @@ describe('.aistatus command', () => {
 
             expect(sendFn).toHaveBeenCalledTimes(1);
             const text = sendFn.mock.calls[0][1].text;
-            expect(text).toContain('AI STATUS');
+            expect(text).toContain('AI_STATUS');
             expect(text).toContain('Text');
             expect(text).toContain('Speech');
             expect(text).toContain('Image');

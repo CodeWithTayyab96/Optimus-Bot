@@ -95,18 +95,18 @@ function hasText(sent, substr) {
     // ping: Pong + compact PING box
     {
         const sent = await runWith('ping', { message: {} }, []);
-        check('ping: Pong reply + PING card', hasText(sent, 'Pong') && hasText(sent, '⚡ PING') && hasText(sent, 'Latency:'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ping: Pong reply + PING card', hasText(sent, 'Pong') && hasText(sent, 'PING.SYS') && hasText(sent, 'Latency:'), JSON.stringify(sent.map(s => s.content?.text)));
     }
     // uptime: BOT UPTIME card via extra.reply
     {
         const sent = await runWith('uptime', { message: {} }, []);
-        check('uptime: BOT UPTIME card', hasText(sent, '⏱️ BOT UPTIME') && hasText(sent, 'Uptime:'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('uptime: BOT UPTIME card', hasText(sent, 'BOT_UPTIME.SYS') && hasText(sent, 'Uptime:'), JSON.stringify(sent.map(s => s.content?.text)));
     }
     // groupinfo: GROUP INFO card with image payload + admin/owner mentions
     {
         const { sock, sent } = makeSock();
         await cmds.groupinfo.execute(sock, { key: { id: 'g1' } }, [], { chatId: '123@g.us' });
-        const card = sent.find(s => typeof s.content?.caption === 'string' && s.content.caption.includes('GROUP INFO'));
+        const card = sent.find(s => typeof s.content?.caption === 'string' && s.content.caption.includes('GROUP_INFO'));
         check('groupinfo: GROUP INFO card', !!card, JSON.stringify(sent.map(s => s.content?.caption || s.content?.text)));
         check('groupinfo: image payload preserved', !!card && card.content.image && typeof card.content.image === 'object');
         check('groupinfo: mentions preserved', !!card && JSON.stringify(card.content.mentions).includes('111@s.whatsapp.net') && JSON.stringify(card.content.mentions).includes('222@s.whatsapp.net'));
@@ -116,7 +116,7 @@ function hasText(sent, substr) {
     {
         const { sock, sent } = makeSock();
         await cmds.staff.execute(sock, { key: { id: 's1' } }, [], { chatId: '123@g.us' });
-        const card = sent.find(s => typeof s.content?.caption === 'string' && s.content.caption.includes('GROUP ADMINS'));
+        const card = sent.find(s => typeof s.content?.caption === 'string' && s.content.caption.includes('GROUP_ADMINS'));
         check('staff: GROUP ADMINS card', !!card && card.content.caption.includes('Test Group'), JSON.stringify(sent.map(s => s.content?.caption || s.content?.text)));
         check('staff: image + mentions preserved', !!card && !!card.content.image && JSON.stringify(card.content.mentions).includes('222@s.whatsapp.net'));
     }
@@ -128,8 +128,8 @@ function hasText(sent, substr) {
 
     // --- 3) Invalid-input paths styled ---
     const usageCases = [
-        ['ss', { message: { conversation: '.ss' } }, [], '📸 SCREENSHOT', { userMessage: '.ss' }],
-        ['translate', { message: { conversation: '.translate' } }, [], '🌐 TRANSLATOR', { userMessage: '.translate' }],
+        ['ss', { message: { conversation: '.ss' } }, [], 'SCREENSHOT', { userMessage: '.ss' }],
+        ['translate', { message: { conversation: '.translate' } }, [], 'TRANSLATOR', { userMessage: '.translate' }],
         ['tts', { message: { conversation: '.tts' } }, [], 'Text-to-Speech', { userMessage: '.tts' }],
         ['attp', { message: { conversation: '.attp' } }, [], 'Please provide text'],
         ['simage', { message: {} }, [], 'reply to a sticker'],
@@ -147,7 +147,7 @@ function hasText(sent, substr) {
     // getpp: profile fetch failure path (mock throws) — friendly, no leak
     {
         const sent = await runWith('getpp', { message: {} }, []);
-        check('getpp: friendly profile error', hasText(sent, 'Profile picture not found'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('getpp: friendly profile error', hasText(sent, 'No profile picture available'), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // --- 4) Raw error leak + branding source checks ---
@@ -161,7 +161,7 @@ function hasText(sent, substr) {
     check('github: styled REPO card + settings.botName', src.github.includes('🐙 GITHUB REPO') && src.github.includes('settings.botName'));
     check('news: styled card via messageStyle + lib/news', src.news.includes('style.box(') && src.news.includes('lib/news'));
     check('translate: TRANSLATION card on success', src.translate.includes('🌐 TRANSLATION'));
-    check('tts: audio payload + react preserved', src.tts.includes('audio: { url: filePath }') && src.tts.includes("react: { text: '🔊'"));
+    check('tts: audio payload + react preserved', src.tts.includes('audio: speech.buffer') && src.tts.includes("react: { text: '🔊'"));
     check('uptime/alive use settings.botName fallback', src.uptime.includes('settings.botName') && src.alive.includes('settings.botName'));
 
     // --- 5) Media payloads preserved ---
@@ -172,7 +172,7 @@ function hasText(sent, substr) {
         ['simage', 'image: imageBuffer'], ['attp', 'sticker: webpBuffer'],
         ['viewonce', 'image: buffer'], ['viewonce', 'video: buffer'],
         ['github', 'image: imgBuffer'], ['owner', 'contacts:'],
-        ['stickertelegram', 'sticker: finalBuffer'], ['tts', 'ptt: sendAsVoice'],
+        ['stickertelegram', 'sticker: finalBuffer'], ['tts', 'payload.ptt = true'],
     ];
     for (const [f, needle] of payloadChecks) {
         check(`${f}: payload "${needle}" intact`, src[f].includes(needle), 'missing from source');

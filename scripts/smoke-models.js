@@ -68,8 +68,8 @@ console.log('\n[2] Text model IDs (current)');
 eq('text.primary.model', aiConfig.text.model, 'openai/gpt-oss-120b');
 eq('text.primary.provider', aiConfig.text.provider, 'groq');
 check('text.fallback exists', typeof aiConfig.text.fallback === 'object' && aiConfig.text.fallback !== null);
-eq('text.fallback.provider', aiConfig.text.fallback.provider, 'gemini');
-eq('text.fallback.model', aiConfig.text.fallback.model, 'gemini-2.5-flash');
+eq('text.fallback.provider', aiConfig.text.fallback.provider, 'openai');
+eq('text.fallback.model', aiConfig.text.fallback.model, 'gpt-4o-mini');
 
 // OpenAI-Compatible custom chat provider (optional, configured via settings)
 check('text.custom exists', typeof aiConfig.text.custom === 'object' && aiConfig.text.custom !== null);
@@ -116,7 +116,7 @@ check('fallback #2 has a URL', fb2 && typeof fb2.url === 'string' && fb2.url.inc
 // 5. Provider fallback configuration integrity
 // ---------------------------------------------------------------------------
 console.log('\n[5] Fallback configuration integrity');
-// Text: primary groq -> fallback gemini (distinct providers)
+// Text: primary groq -> fallback openai (distinct providers)
 check('text primary & fallback are distinct providers',
     aiConfig.text.provider !== aiConfig.text.fallback.provider);
 // Image: ordered gemini -> cloudflare -> pollinations, all distinct
