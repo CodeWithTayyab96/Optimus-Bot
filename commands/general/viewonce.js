@@ -128,7 +128,20 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 5. Download the media
+    // 5. A media node without a mediaKey cannot be decrypted. WhatsApp
+    // delivers the sender's own copy of a view-once message (and one that
+    // was already opened) as a stub with no key and no download path, so
+    // there is nothing to download. Say so plainly instead of attempting
+    // a download that cannot work.
+    if (!mediaNode.mediaKey) {
+        await sock.sendMessage(chatId, {
+            text: style.error('Sorry, I cannot recover this one. WhatsApp did not include the download key in this view-once message, so there is nothing for me to download. This happens with view-once messages you sent yourself, and with ones already opened. Reply .vv to a view-once message someone else sent you and it works.'),
+            ...channelInfo,
+        }, { quoted: message });
+        return;
+    }
+
+    // 6. Download the media
     let buffer;
     try {
         buffer = await downloadMedia(mediaNode, mediaType);
@@ -149,7 +162,7 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 6. Send the recovered media
+    // 7. Send the recovered media
     try {
         if (mediaType === 'image') {
             await sock.sendMessage(chatId, {

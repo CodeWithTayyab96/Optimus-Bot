@@ -63,6 +63,34 @@ function makeQuotedImage() {
     };
 }
 
+function makeQuotedKeylessImage() {
+    // Matches the real stub WhatsApp delivers for the sender's own copy of
+    // a view-once message: url present, but no mediaKey and no directPath.
+    return {
+        message: {
+            extendedTextMessage: {
+                contextInfo: {
+                    stanzaId: 'STANZA_KEYLESS',
+                    participant: '5511999999999@s.whatsapp.net',
+                    quotedMessage: {
+                        viewOnceMessageV2: {
+                            message: {
+                                imageMessage: {
+                                    mimetype: 'image/jpeg',
+                                    caption: 'keyless',
+                                    url: 'https://example.com/keyless',
+                                    fileSha256: Buffer.from('sha'),
+                                    fileLength: 1234,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
+}
+
 function makeQuotedViewOnceImage() {
     return {
         message: {
@@ -279,13 +307,13 @@ describe('.vv command', () => {
 
     // Direct quoted image (simplest path — matches known-working bot)
     describe('direct quoted image', () => {
-        test('downloads and sends with viewOnce: true', async () => {
+        test('downloads and sends as a normal message', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             await vv.execute(makeSock(sendFn), makeQuotedImage(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
+            expect(payload.viewOnce).toBeUndefined();
             expect(payload.caption).toBe('test caption');
         });
 
@@ -309,7 +337,7 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
+            expect(payload.viewOnce).toBeUndefined();
             expect(payload.caption).toBe('v2 caption');
         });
     });
@@ -322,19 +350,19 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
+            expect(payload.viewOnce).toBeUndefined();
         });
     });
 
     // Video
     describe('video', () => {
-        test('sends video with viewOnce: true', async () => {
+        test('sends video as a normal message', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             await vv.execute(makeSock(sendFn), makeQuotedVideo(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.video).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
+            expect(payload.viewOnce).toBeUndefined();
             expect(payload.caption).toBe('video caption');
         });
     });
@@ -360,7 +388,7 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
+            expect(payload.viewOnce).toBeUndefined();
             expect(payload.caption).toBe('nested');
         });
 
@@ -370,7 +398,7 @@ describe('.vv command', () => {
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.video).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
+            expect(payload.viewOnce).toBeUndefined();
         });
     });
 
@@ -405,15 +433,29 @@ describe('.vv command', () => {
         });
     });
 
+    // Missing media key (sender's own copy of a view-once message, or one
+    // already opened: WhatsApp delivers a stub with no key to decrypt)
+    describe('missing media key', () => {
+        test('explains it cannot be recovered, without attempting a download', async () => {
+            const { downloadContentFromMessage } = getMocks();
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv.execute(makeSock(sendFn), makeQuotedKeylessImage(), [], extra);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.text).toContain('did not include the download key');
+            expect(downloadContentFromMessage).not.toHaveBeenCalled();
+        });
+    });
+
     // Direct media
     describe('direct media', () => {
-        test('direct image sends as view-once', async () => {
+        test('direct image sends as a normal message', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             await vv.execute(makeSock(sendFn), makeDirectImage(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.image).toBeInstanceOf(Buffer);
-            expect(payload.viewOnce).toBe(true);
+            expect(payload.viewOnce).toBeUndefined();
         });
 
         test('direct audio sends as PTT', async () => {
