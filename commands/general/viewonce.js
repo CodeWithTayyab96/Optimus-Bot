@@ -6,7 +6,14 @@ const { channelInfo } = require('../../lib/messageConfig');
  * .vv — View-Once media re-send (image / video / audio)
  *
  * Uses downloadContentFromMessage as the PRIMARY download method,
- * matching the known-working Baileys pattern from other bots.
+ * matching the known-working Baileys pattern from other bots, including
+ * the upstream reference bot, whose viewonce and vv2 commands this
+ * follows: extract the quoted message from contextInfo on several
+ * message types, unwrap viewOnceMessage / viewOnceMessageV2 /
+ * viewOnceMessageV2Extension wrappers (V2Extension first), and attempt
+ * the download without refusing upfront. A missing mediaKey is only
+ * reported after the download is tried and fails, because that is when
+ * it is known the media cannot be decrypted.
  *
  * Known-working pattern (from another bot):
  *   const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -22,8 +29,8 @@ const { channelInfo } = require('../../lib/messageConfig');
  */
 
 const ENVELOPE_KEYS = [
-    'viewOnceMessageV2',
     'viewOnceMessageV2Extension',
+    'viewOnceMessageV2',
     'viewOnceMessage',
     'ephemeralMessage',
 ];
@@ -70,8 +77,17 @@ async function downloadMedia(mediaNode, type) {
 }
 
 async function viewonceCommand(sock, chatId, message) {
-    // 1. Extract quoted message
-    const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    // 1. Extract quoted message. The reference vv2 checks contextInfo on
+    // several message types, not only extendedTextMessage, so a reply sent
+    // as an image caption or a button response still finds its quoted
+    // message.
+    const ctx =
+        message.message?.extendedTextMessage?.contextInfo ||
+        message.message?.imageMessage?.contextInfo ||
+        message.message?.videoMessage?.contextInfo ||
+        message.message?.buttonsResponseMessage?.contextInfo ||
+        message.message?.listResponseMessage?.contextInfo;
+    const quotedMsg = ctx?.quotedMessage;
 
     // 2. Try direct media (image/video/audio sent with .vv as caption)
     const directImage = message.message?.imageMessage;
@@ -128,29 +144,30 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 5. A media node without a mediaKey cannot be decrypted. WhatsApp
-    // delivers the sender's own copy of a view-once message (and one that
-    // was already opened) as a stub with no key and no download path, so
-    // there is nothing to download. Say so plainly instead of attempting
-    // a download that cannot work.
-    if (!mediaNode.mediaKey) {
-        await sock.sendMessage(chatId, {
-            text: style.error('Sorry, I cannot recover this one. WhatsApp did not include the download key in this view-once message, so there is nothing for me to download. This happens with view-once messages you sent yourself, and with ones already opened. Reply .vv to a view-once message someone else sent you and it works.'),
-            ...channelInfo,
-        }, { quoted: message });
-        return;
-    }
-
-    // 6. Download the media
+    // 5. Download the media. The reference approach is to attempt the
+    // download first and only explain afterwards, never to refuse
+    // upfront. A media node without a mediaKey cannot be decrypted, but
+    // that is only known once the download is tried, so try it.
     let buffer;
     try {
         buffer = await downloadMedia(mediaNode, mediaType);
     } catch (dlErr) {
         console.error(`[.vv] Download failed for ${mediaType}:`, dlErr.message);
-        await sock.sendMessage(chatId, {
-            text: style.error('Failed to download media. The view-once media may have expired or the download URL is no longer valid.'),
-            ...channelInfo,
-        }, { quoted: message });
+        // A media node without a mediaKey cannot be decrypted. WhatsApp
+        // delivers the sender's own copy of a view-once message (and one
+        // already opened) as a stub with no key and no download path, so
+        // say so plainly instead of blaming expiry.
+        if (!mediaNode.mediaKey) {
+            await sock.sendMessage(chatId, {
+                text: style.error('Sorry, I cannot recover this one. WhatsApp did not include the download key in this view-once message, so there is nothing for me to download. This happens with view-once messages you sent yourself, and with ones already opened. Reply .vv to a view-once message someone else sent you and it works.'),
+                ...channelInfo,
+            }, { quoted: message });
+        } else {
+            await sock.sendMessage(chatId, {
+                text: style.error('Failed to download media. The view-once media may have expired or the download URL is no longer valid.'),
+                ...channelInfo,
+            }, { quoted: message });
+        }
         return;
     }
 
@@ -162,7 +179,7 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 7. Send the recovered media
+    // 6. Send the recovered media
     try {
         if (mediaType === 'image') {
             await sock.sendMessage(chatId, {

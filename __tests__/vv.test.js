@@ -258,6 +258,63 @@ function makeTriplyNestedVideo() {
     };
 }
 
+function makeQuotedViewOnceV2ExtensionImage() {
+    return {
+        message: {
+            extendedTextMessage: {
+                contextInfo: {
+                    stanzaId: 'STANZA_V2E',
+                    participant: '5511999999999@s.whatsapp.net',
+                    quotedMessage: {
+                        viewOnceMessageV2Extension: {
+                            message: {
+                                imageMessage: {
+                                    mimetype: 'image/jpeg',
+                                    caption: 'v2e caption',
+                                    mediaKey: Buffer.from('key'),
+                                    directPath: '/v2e',
+                                    url: 'https://example.com/v2e',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
+}
+
+function makeQuotedViaImageContext() {
+    // .vv sent as an image caption, so the quoted message lives on the
+    // imageMessage contextInfo, not extendedTextMessage (the reference
+    // vv2 checks several message types for contextInfo).
+    return {
+        message: {
+            imageMessage: {
+                mimetype: 'image/jpeg',
+                caption: '.vv',
+                contextInfo: {
+                    stanzaId: 'STANZA_IMGCTX',
+                    participant: '5511999999999@s.whatsapp.net',
+                    quotedMessage: {
+                        viewOnceMessageV2: {
+                            message: {
+                                imageMessage: {
+                                    mimetype: 'image/jpeg',
+                                    caption: 'via image ctx',
+                                    mediaKey: Buffer.from('key'),
+                                    directPath: '/imgctx',
+                                    url: 'https://example.com/imgctx',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
+}
+
 function makeNoMedia() {
     return { message: { conversation: '.vv' } };
 }
@@ -354,6 +411,32 @@ describe('.vv command', () => {
         });
     });
 
+    // viewOnceMessageV2Extension envelope (checked first, like the reference vv2)
+    describe('viewOnceMessageV2Extension image', () => {
+        test('unwraps v2extension envelope', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv.execute(makeSock(sendFn), makeQuotedViewOnceV2ExtensionImage(), [], extra);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.image).toBeInstanceOf(Buffer);
+            expect(payload.viewOnce).toBeUndefined();
+            expect(payload.caption).toBe('v2e caption');
+        });
+    });
+
+    // Quoted message found via a non-extendedTextMessage contextInfo
+    describe('quoted message via image contextInfo', () => {
+        test('finds the quoted view-once when .vv is an image caption', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv.execute(makeSock(sendFn), makeQuotedViaImageContext(), [], extra);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.image).toBeInstanceOf(Buffer);
+            expect(payload.viewOnce).toBeUndefined();
+            expect(payload.caption).toBe('via image ctx');
+        });
+    });
+
     // Video
     describe('video', () => {
         test('sends video as a normal message', async () => {
@@ -434,16 +517,21 @@ describe('.vv command', () => {
     });
 
     // Missing media key (sender's own copy of a view-once message, or one
-    // already opened: WhatsApp delivers a stub with no key to decrypt)
+    // already opened: WhatsApp delivers a stub with no key to decrypt).
+    // The reference approach is to attempt the download first and only
+    // explain afterwards, so the download IS attempted here. A real
+    // download without a mediaKey fails (Baileys cannot decrypt), and
+    // the failure is then explained plainly instead of blamed on expiry.
     describe('missing media key', () => {
-        test('explains it cannot be recovered, without attempting a download', async () => {
+        test('attempts the download, then explains it cannot be recovered when it fails', async () => {
             const { downloadContentFromMessage } = getMocks();
+            downloadContentFromMessage.mockRejectedValueOnce(new Error('No valid media URL or directPath present in message'));
             const sendFn = jest.fn().mockResolvedValue({});
             await vv.execute(makeSock(sendFn), makeQuotedKeylessImage(), [], extra);
+            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.text).toContain('did not include the download key');
-            expect(downloadContentFromMessage).not.toHaveBeenCalled();
         });
     });
 
