@@ -1,13 +1,16 @@
 /**
  * Smoke tests for the .vv (View-Once) command.
  *
- * Primary download method: downloadContentFromMessage (known-working Baileys pattern).
+ * Covers: direct download, envelope unwrapping, store lookup,
+ * downloadMediaMessage+reuploadRequest recovery, proactive media cache,
+ * missing-key error path, and branding.
  */
 
 jest.mock('@whiskeysockets/baileys', () => ({
     downloadContentFromMessage: jest.fn().mockResolvedValue({
         [Symbol.asyncIterator]: async function* () { yield Buffer.from('fake-media'); }
     }),
+    downloadMediaMessage: jest.fn().mockResolvedValue(Buffer.from('fake-reup-media')),
     toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-media')),
 }));
 
@@ -28,18 +31,24 @@ jest.mock('../lib/messageConfig', () => ({
 jest.mock('../lib/lightweight_store', () => ({
     messages: {},
     loadMessage: jest.fn().mockResolvedValue(null),
+    loadCachedMedia: jest.fn().mockReturnValue(null),
+    _mediaCache: new Map(),
 }));
 
 function getMocks() {
     const baileys = require('@whiskeysockets/baileys');
     return {
         downloadContentFromMessage: baileys.downloadContentFromMessage,
+        downloadMediaMessage: baileys.downloadMediaMessage,
         toBuffer: baileys.toBuffer,
     };
 }
 
 function makeSock(sendFn) {
-    return { sendMessage: sendFn || jest.fn().mockResolvedValue({}) };
+    return {
+        sendMessage: sendFn || jest.fn().mockResolvedValue({}),
+        updateMediaMessage: jest.fn(),
+    };
 }
 
 function makeChatId() { return '12036312345678901@g.us'; }
@@ -69,8 +78,6 @@ function makeQuotedImage() {
 }
 
 function makeQuotedKeylessImage() {
-    // Matches the real stub WhatsApp delivers for the sender's own copy of
-    // a view-once message: url present, but no mediaKey and no directPath.
     return {
         message: {
             extendedTextMessage: {
@@ -290,9 +297,6 @@ function makeQuotedViewOnceV2ExtensionImage() {
 }
 
 function makeQuotedViaImageContext() {
-    // .vv sent as an image caption, so the quoted message lives on the
-    // imageMessage contextInfo, not extendedTextMessage (the reference
-    // vv2 checks several message types for contextInfo).
     return {
         message: {
             imageMessage: {
@@ -321,9 +325,6 @@ function makeQuotedViaImageContext() {
 }
 
 function makeQuotedStrippedViewOnceImage() {
-    // WhatsApp strips download credentials (url, directPath, mediaKey)
-    // from view-once messages in quotedMessage. This is the exact shape
-    // that produces the "No valid media URL or directPath" failure.
     return {
         message: {
             extendedTextMessage: {
@@ -444,7 +445,7 @@ describe('.vv command', () => {
         });
     });
 
-    // viewOnceMessageV2Extension envelope (checked first, like the reference vv2)
+    // viewOnceMessageV2Extension envelope
     describe('viewOnceMessageV2Extension image', () => {
         test('unwraps v2extension envelope', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
@@ -549,12 +550,7 @@ describe('.vv command', () => {
         });
     });
 
-    // Missing media key (sender's own copy of a view-once message, or one
-    // already opened: WhatsApp delivers a stub with no key to decrypt).
-    // The reference approach is to attempt the download first and only
-    // explain afterwards, so the download IS attempted here. A real
-    // download without a mediaKey fails (Baileys cannot decrypt), and
-    // the failure is then explained plainly instead of blamed on expiry.
+    // Missing media key
     describe('missing media key', () => {
         test('attempts the download, then explains it cannot be recovered when it fails', async () => {
             const { downloadContentFromMessage } = getMocks();
@@ -631,12 +627,76 @@ describe('.vv command', () => {
         });
     });
 
-    // Stripped credentials — store lookup recovery (regression test for
-    // the 2026-11-16 bug: a fresh view-once message whose quotedMessage
-    // had its download credentials stripped by WhatsApp).
-    describe('stripped credentials (store lookup)', () => {
+    // Stripped credentials — downloadMediaMessage + reuploadRequest
+    // (regression test for the 2026-11-16 bug).
+    describe('stripped credentials (reupload recovery)', () => {
+        test('uses downloadMediaMessage+reuploadRequest when quoted node is stripped', async () => {
+            const storeModule = require('../lib/lightweight_store');
+            storeModule.loadMessage.mockResolvedValueOnce(null);
+            storeModule.loadCachedMedia.mockReturnValueOnce(null);
+
+            const { downloadMediaMessage } = getMocks();
+            downloadMediaMessage.mockResolvedValueOnce(Buffer.from('reup-media'));
+
+            const sendFn = jest.fn().mockResolvedValue({});
+            const sock = makeSock(sendFn);
+            await vv.execute(sock, makeQuotedStrippedViewOnceImage(), [], extra);
+
+            expect(downloadMediaMessage).toHaveBeenCalledTimes(1);
+            const [synMsg, bufType, , opts] = downloadMediaMessage.mock.calls[0];
+            expect(synMsg.key.id).toBe('STANZA_STRIPPED');
+            expect(synMsg.key.remoteJid).toBe(makeChatId());
+            expect(bufType).toBe('buffer');
+            expect(opts.reuploadRequest).toBe(sock.updateMediaMessage);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.image).toBeInstanceOf(Buffer);
+        });
+
+        test('serves from proactive media cache when available', async () => {
+            const storeModule = require('../lib/lightweight_store');
+            storeModule.loadMessage.mockResolvedValueOnce(null);
+            storeModule.loadCachedMedia.mockReturnValueOnce({
+                type: 'image',
+                buffer: Buffer.from('cached-bytes'),
+                caption: 'cached caption',
+                timestamp: Date.now(),
+            });
+
+            const { downloadMediaMessage, downloadContentFromMessage } = getMocks();
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
+
+            expect(downloadMediaMessage).not.toHaveBeenCalled();
+            expect(downloadContentFromMessage).not.toHaveBeenCalled();
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.image).toEqual(Buffer.from('cached-bytes'));
+            expect(payload.caption).toBe('cached caption');
+        });
+
+        test('falls back to downloadContentFromMessage when reupload also fails', async () => {
+            const storeModule = require('../lib/lightweight_store');
+            storeModule.loadMessage.mockResolvedValueOnce(null);
+            storeModule.loadCachedMedia.mockReturnValueOnce(null);
+
+            const { downloadMediaMessage, downloadContentFromMessage } = getMocks();
+            downloadMediaMessage.mockRejectedValueOnce(new Error('reupload failed'));
+            downloadContentFromMessage.mockRejectedValueOnce(new Error('No valid media URL or directPath present in message'));
+
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
+
+            expect(downloadMediaMessage).toHaveBeenCalledTimes(1);
+            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.text).toContain('did not include the download key');
+        });
+
         test('recovers media from the store when quotedMessage has no url/directPath', async () => {
             const storeModule = require('../lib/lightweight_store');
+            storeModule.loadCachedMedia.mockReturnValueOnce(null);
             storeModule.loadMessage.mockResolvedValueOnce({
                 key: { id: 'STANZA_STRIPPED', remoteJid: makeChatId() },
                 message: {
@@ -653,6 +713,12 @@ describe('.vv command', () => {
                     },
                 },
             });
+
+            // downloadMediaMessage fails so we fall through to the store
+            // node + downloadContentFromMessage
+            const { downloadMediaMessage } = getMocks();
+            downloadMediaMessage.mockRejectedValueOnce(new Error('reupload failed'));
+
             const sendFn = jest.fn().mockResolvedValue({});
             await vv.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
             expect(storeModule.loadMessage).toHaveBeenCalledWith(makeChatId(), 'STANZA_STRIPPED');
@@ -662,15 +728,31 @@ describe('.vv command', () => {
             expect(payload.caption).toBe('original caption');
         });
 
-        test('falls back to download attempt when the store has no match', async () => {
+        test('store returns original whose media node lacks url — still tries download', async () => {
             const storeModule = require('../lib/lightweight_store');
-            storeModule.loadMessage.mockResolvedValueOnce(null);
-            const { downloadContentFromMessage } = getMocks();
+            storeModule.loadCachedMedia.mockReturnValueOnce(null);
+            storeModule.loadMessage.mockResolvedValueOnce({
+                key: { id: 'STANZA_STRIPPED', remoteJid: makeChatId() },
+                message: {
+                    viewOnceMessageV2: {
+                        message: {
+                            imageMessage: {
+                                mimetype: 'image/jpeg',
+                                caption: 'no-url',
+                                fileSha256: Buffer.from('sha'),
+                                fileLength: 1234,
+                            },
+                        },
+                    },
+                },
+            });
+
+            const { downloadMediaMessage, downloadContentFromMessage } = getMocks();
+            downloadMediaMessage.mockRejectedValueOnce(new Error('reupload failed'));
             downloadContentFromMessage.mockRejectedValueOnce(new Error('No valid media URL or directPath present in message'));
+
             const sendFn = jest.fn().mockResolvedValue({});
             await vv.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
-            expect(storeModule.loadMessage).toHaveBeenCalled();
-            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.text).toContain('did not include the download key');

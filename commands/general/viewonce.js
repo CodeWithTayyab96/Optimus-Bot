@@ -1,33 +1,7 @@
 const style = require('../../lib/messageStyle');
-const { downloadContentFromMessage, toBuffer } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage, downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { channelInfo } = require('../../lib/messageConfig');
 const store = require('../../lib/lightweight_store');
-
-/**
- * .vv — View-Once media re-send (image / video / audio)
- *
- * Uses downloadContentFromMessage as the PRIMARY download method,
- * matching the known-working Baileys pattern from other bots, including
- * the upstream reference bot, whose viewonce and vv2 commands this
- * follows: extract the quoted message from contextInfo on several
- * message types, unwrap viewOnceMessage / viewOnceMessageV2 /
- * viewOnceMessageV2Extension wrappers (V2Extension first), and attempt
- * the download without refusing upfront. A missing mediaKey is only
- * reported after the download is tried and fails, because that is when
- * it is known the media cannot be decrypted.
- *
- * Known-working pattern (from another bot):
- *   const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
- *   const quotedImage = quoted?.imageMessage;
- *   const stream = await downloadContentFromMessage(quotedImage, 'image');
- *   for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
- *
- * This implementation extends the pattern to also handle:
- *   - viewOnceMessage / viewOnceMessageV2 / viewOnceMessageV2Extension wrappers
- *   - ephemeralMessage wrappers
- *   - audio (sent as PTT)
- *   - direct media (image/video/audio with .vv as caption)
- */
 
 const ENVELOPE_KEYS = [
     'viewOnceMessageV2Extension',
@@ -42,12 +16,10 @@ const ENVELOPE_KEYS = [
 function findMedia(content, depth = 0) {
     if (!content || depth > 10) return null;
 
-    // Check for media at this level
     if (content.imageMessage) return { type: 'image', media: content.imageMessage };
     if (content.videoMessage) return { type: 'video', media: content.videoMessage };
     if (content.audioMessage) return { type: 'audio', media: content.audioMessage };
 
-    // Try envelope wrappers
     for (const key of ENVELOPE_KEYS) {
         if (content[key]?.message) {
             const result = findMedia(content[key].message, depth + 1);
@@ -55,7 +27,6 @@ function findMedia(content, depth = 0) {
         }
     }
 
-    // Generic .message unwrapping
     if (content.message && typeof content.message === 'object') {
         const result = findMedia(content.message, depth + 1);
         if (result) return result;
@@ -64,10 +35,6 @@ function findMedia(content, depth = 0) {
     return null;
 }
 
-/**
- * Download media using downloadContentFromMessage (the known-working method).
- * Collects stream chunks into a single Buffer.
- */
 async function downloadMedia(mediaNode, type) {
     const stream = await downloadContentFromMessage(mediaNode, type);
     const chunks = [];
@@ -78,10 +45,6 @@ async function downloadMedia(mediaNode, type) {
 }
 
 async function viewonceCommand(sock, chatId, message) {
-    // 1. Extract quoted message. The reference vv2 checks contextInfo on
-    // several message types, not only extendedTextMessage, so a reply sent
-    // as an image caption or a button response still finds its quoted
-    // message.
     const ctx =
         message.message?.extendedTextMessage?.contextInfo ||
         message.message?.imageMessage?.contextInfo ||
@@ -90,7 +53,6 @@ async function viewonceCommand(sock, chatId, message) {
         message.message?.listResponseMessage?.contextInfo;
     const quotedMsg = ctx?.quotedMessage;
 
-    // 2. Try direct media (image/video/audio sent with .vv as caption)
     const directImage = message.message?.imageMessage;
     const directVideo = message.message?.videoMessage;
     const directAudio = message.message?.audioMessage;
@@ -100,7 +62,6 @@ async function viewonceCommand(sock, chatId, message) {
     let caption = '';
 
     if (quotedMsg) {
-        // 3a. Try direct media on quoted message first (simplest path — matches known-working bot)
         if (quotedMsg.imageMessage) {
             mediaType = 'image';
             mediaNode = quotedMsg.imageMessage;
@@ -114,7 +75,6 @@ async function viewonceCommand(sock, chatId, message) {
             mediaNode = quotedMsg.audioMessage;
             caption = '';
         } else {
-            // 3b. Try unwrapping envelope wrappers
             const found = findMedia(quotedMsg);
             if (found) {
                 mediaType = found.type;
@@ -136,7 +96,6 @@ async function viewonceCommand(sock, chatId, message) {
         caption = '';
     }
 
-    // 4. No media found
     if (!mediaType || !mediaNode) {
         await sock.sendMessage(chatId, {
             text: style.error('Please reply to a view-once image or video.\n\n*Supported:*\n  🖼️ Image → View-Once image\n  🎬 Video → View-Once video\n  🎵 Audio → Voice note'),
@@ -145,47 +104,84 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 5. WhatsApp strips download credentials (url, directPath, mediaKey)
-    // from view-once messages in quotedMessage. When the extracted node
-    // lacks them, look up the ORIGINAL message from the store — it was
-    // captured with full credentials when it first arrived.
-    if (mediaNode && !mediaNode.url && !mediaNode.directPath && ctx?.stanzaId) {
-        const original = await store.loadMessage(chatId, ctx.stanzaId);
-        if (original?.message) {
-            const stored = findMedia(original.message);
-            if (stored && (stored.media.url || stored.media.directPath)) {
-                mediaType = stored.type;
-                mediaNode = stored.media;
-                caption = stored.media.caption || '';
+    // 5. Credentials missing — use the same downloadMediaMessage +
+    // reuploadRequest pattern that sticker.js / trace.js use. This lets
+    // Baileys re-request fresh download credentials from WhatsApp's
+    // server, which is the standard recovery for view-once messages whose
+    // quotedMessage has been stripped of url / directPath / mediaKey.
+    const needsRecovery = !mediaNode.url && !mediaNode.directPath;
+    let buffer;
+
+    // --- DEBUG (temporary) — log exactly what the store lookup sees ---
+    if (needsRecovery && ctx?.stanzaId) {
+        console.log(`[.vv] DEBUG: quoted node stripped (url=${mediaNode.url}, directPath=${mediaNode.directPath}, mediaKey=${mediaNode.mediaKey ? 'present' : 'MISSING'}), stanzaId=${ctx.stanzaId}`);
+        const storedMsg = await store.loadMessage(chatId, ctx.stanzaId);
+        if (storedMsg?.message) {
+            const storedMedia = findMedia(storedMsg.message);
+            console.log(`[.vv] DEBUG: store hit — storedMedia=${storedMedia ? storedMedia.type : 'null'}, url=${storedMedia?.media?.url ? 'present' : 'MISSING'}, mediaKey=${storedMedia?.media?.mediaKey ? 'present' : 'MISSING'}, directPath=${storedMedia?.media?.directPath ? 'present' : 'MISSING'}`);
+            if (storedMedia) {
+                mediaType = storedMedia.type;
+                mediaNode = storedMedia.media;
+                caption = storedMedia.media.caption || '';
             }
+        } else {
+            console.log(`[.vv] DEBUG: store miss — loadMessage(${chatId}, ${ctx.stanzaId}) returned ${storedMsg === null ? 'null' : typeof storedMsg}`);
         }
     }
 
-    // 6. Download the media. The reference approach is to attempt the
-    // download first and only explain afterwards, never to refuse
-    // upfront. A media node without a mediaKey cannot be decrypted, but
-    // that is only known once the download is tried, so try it.
-    let buffer;
-    try {
-        buffer = await downloadMedia(mediaNode, mediaType);
-    } catch (dlErr) {
-        console.error(`[.vv] Download failed for ${mediaType}:`, dlErr.message);
-        // A media node without a mediaKey cannot be decrypted. WhatsApp
-        // delivers the sender's own copy of a view-once message (and one
-        // already opened) as a stub with no key and no download path, so
-        // say so plainly instead of blaming expiry.
-        if (!mediaNode.mediaKey) {
-            await sock.sendMessage(chatId, {
-                text: style.error('Sorry, I cannot recover this one. WhatsApp did not include the download key in this view-once message, so there is nothing for me to download. This happens with view-once messages you sent yourself, and with ones already opened. Reply .vv to a view-once message someone else sent you and it works.'),
-                ...channelInfo,
-            }, { quoted: message });
-        } else {
-            await sock.sendMessage(chatId, {
-                text: style.error('Failed to download media. The view-once media may have expired or the download URL is no longer valid.'),
-                ...channelInfo,
-            }, { quoted: message });
+    // 5a. Check proactive media cache first (media downloaded at arrival).
+    if (needsRecovery && ctx?.stanzaId) {
+        const cached = store.loadCachedMedia(ctx.stanzaId);
+        if (cached) {
+            console.log(`[.vv] DEBUG: media cache hit for ${ctx.stanzaId}, type=${cached.type}, bytes=${cached.buffer.length}`);
+            buffer = cached.buffer;
+            mediaType = cached.type;
+            caption = cached.caption || caption;
         }
-        return;
+    }
+
+    // 5b. If no cache hit, try downloadMediaMessage with reuploadRequest.
+    // Construct a synthetic message object from contextInfo (same pattern
+    // as sticker.js and trace.js) so Baileys can re-request credentials.
+    if (!buffer && needsRecovery && ctx?.stanzaId && quotedMsg) {
+        try {
+            const syntheticMsg = {
+                key: {
+                    remoteJid: chatId,
+                    id: ctx.stanzaId,
+                    participant: ctx.participant,
+                },
+                message: quotedMsg,
+            };
+            console.log(`[.vv] DEBUG: trying downloadMediaMessage with reuploadRequest`);
+            buffer = await downloadMediaMessage(syntheticMsg, 'buffer', {}, {
+                reuploadRequest: sock.updateMediaMessage,
+            });
+            console.log(`[.vv] DEBUG: downloadMediaMessage succeeded, bytes=${buffer?.length}`);
+        } catch (reupErr) {
+            console.log(`[.vv] DEBUG: downloadMediaMessage+reupload failed: ${reupErr.message}`);
+        }
+    }
+
+    // 5c. Try the store's media node with downloadContentFromMessage.
+    if (!buffer) {
+        try {
+            buffer = await downloadMedia(mediaNode, mediaType);
+        } catch (dlErr) {
+            console.error(`[.vv] Download failed for ${mediaType}:`, dlErr.message);
+            if (!mediaNode.mediaKey) {
+                await sock.sendMessage(chatId, {
+                    text: style.error('Sorry, I cannot recover this one. WhatsApp did not include the download key in this view-once message, so there is nothing for me to download. This happens with view-once messages you sent yourself, and with ones already opened. Reply .vv to a view-once message someone else sent you and it works.'),
+                    ...channelInfo,
+                }, { quoted: message });
+            } else {
+                await sock.sendMessage(chatId, {
+                    text: style.error('Failed to download media. The view-once media may have expired or the download URL is no longer valid.'),
+                    ...channelInfo,
+                }, { quoted: message });
+            }
+            return;
+        }
     }
 
     if (!buffer || buffer.length === 0) {
@@ -196,7 +192,6 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 6. Send the recovered media
     try {
         if (mediaType === 'image') {
             await sock.sendMessage(chatId, {
@@ -211,7 +206,6 @@ async function viewonceCommand(sock, chatId, message) {
                 ...channelInfo,
             }, { quoted: message });
         } else if (mediaType === 'audio') {
-            // WhatsApp doesn't support view-once for audio — send as PTT
             await sock.sendMessage(chatId, {
                 audio: buffer,
                 mimetype: mediaNode.mimetype || 'audio/ogg; codecs=opus',

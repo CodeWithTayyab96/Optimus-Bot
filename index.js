@@ -381,7 +381,7 @@ async function startXeonBotInc() {
         // pass through untouched.
         notify.wrap(XeonBotInc)
 
-    store.bind(XeonBotInc.ev)
+    store.bind(XeonBotInc.ev, XeonBotInc)
 
     // Message handling
     XeonBotInc.ev.on('messages.upsert', async chatUpdate => {
