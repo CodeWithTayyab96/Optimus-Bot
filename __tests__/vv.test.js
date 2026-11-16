@@ -25,6 +25,11 @@ jest.mock('../lib/messageConfig', () => ({
     },
 }));
 
+jest.mock('../lib/lightweight_store', () => ({
+    messages: {},
+    loadMessage: jest.fn().mockResolvedValue(null),
+}));
+
 function getMocks() {
     const baileys = require('@whiskeysockets/baileys');
     return {
@@ -315,6 +320,34 @@ function makeQuotedViaImageContext() {
     };
 }
 
+function makeQuotedStrippedViewOnceImage() {
+    // WhatsApp strips download credentials (url, directPath, mediaKey)
+    // from view-once messages in quotedMessage. This is the exact shape
+    // that produces the "No valid media URL or directPath" failure.
+    return {
+        message: {
+            extendedTextMessage: {
+                contextInfo: {
+                    stanzaId: 'STANZA_STRIPPED',
+                    participant: '5511999999999@s.whatsapp.net',
+                    quotedMessage: {
+                        viewOnceMessageV2: {
+                            message: {
+                                imageMessage: {
+                                    mimetype: 'image/jpeg',
+                                    caption: 'stripped',
+                                    fileSha256: Buffer.from('sha'),
+                                    fileLength: 1234,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
+}
+
 function makeNoMedia() {
     return { message: { conversation: '.vv' } };
 }
@@ -595,6 +628,52 @@ describe('.vv command', () => {
             await vv.execute(makeSock(sendFn), makeQuotedVideo(), [], extra);
             const [, payload] = sendFn.mock.calls[0];
             expect(payload.caption).toBe('video caption');
+        });
+    });
+
+    // Stripped credentials — store lookup recovery (regression test for
+    // the 2026-11-16 bug: a fresh view-once message whose quotedMessage
+    // had its download credentials stripped by WhatsApp).
+    describe('stripped credentials (store lookup)', () => {
+        test('recovers media from the store when quotedMessage has no url/directPath', async () => {
+            const storeModule = require('../lib/lightweight_store');
+            storeModule.loadMessage.mockResolvedValueOnce({
+                key: { id: 'STANZA_STRIPPED', remoteJid: makeChatId() },
+                message: {
+                    viewOnceMessageV2: {
+                        message: {
+                            imageMessage: {
+                                mimetype: 'image/jpeg',
+                                caption: 'original caption',
+                                mediaKey: Buffer.from('key'),
+                                directPath: '/original',
+                                url: 'https://example.com/original',
+                            },
+                        },
+                    },
+                },
+            });
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
+            expect(storeModule.loadMessage).toHaveBeenCalledWith(makeChatId(), 'STANZA_STRIPPED');
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.image).toBeInstanceOf(Buffer);
+            expect(payload.caption).toBe('original caption');
+        });
+
+        test('falls back to download attempt when the store has no match', async () => {
+            const storeModule = require('../lib/lightweight_store');
+            storeModule.loadMessage.mockResolvedValueOnce(null);
+            const { downloadContentFromMessage } = getMocks();
+            downloadContentFromMessage.mockRejectedValueOnce(new Error('No valid media URL or directPath present in message'));
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
+            expect(storeModule.loadMessage).toHaveBeenCalled();
+            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.text).toContain('did not include the download key');
         });
     });
 });

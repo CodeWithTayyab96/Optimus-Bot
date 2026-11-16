@@ -28,6 +28,11 @@ jest.mock('../lib/messageConfig', () => ({
     },
 }));
 
+jest.mock('../lib/lightweight_store', () => ({
+    messages: {},
+    loadMessage: jest.fn().mockResolvedValue(null),
+}));
+
 function getMocks() {
     const baileys = require('@whiskeysockets/baileys');
     return {
@@ -172,6 +177,33 @@ function makeQuotedKeylessImage() {
                                     mimetype: 'image/jpeg',
                                     caption: 'keyless',
                                     url: 'https://example.com/keyless',
+                                    fileSha256: Buffer.from('sha'),
+                                    fileLength: 1234,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
+}
+
+function makeQuotedStrippedViewOnceImage() {
+    // WhatsApp strips download credentials from view-once quotedMessages.
+    return {
+        key: { remoteJid: makeChatId(), participant: makeSenderId(), fromMe: false },
+        message: {
+            extendedTextMessage: {
+                contextInfo: {
+                    stanzaId: 'STANZA_VV2_STRIPPED',
+                    participant: makeSenderId(),
+                    quotedMessage: {
+                        viewOnceMessageV2: {
+                            message: {
+                                imageMessage: {
+                                    mimetype: 'image/jpeg',
+                                    caption: 'stripped',
                                     fileSha256: Buffer.from('sha'),
                                     fileLength: 1234,
                                 },
@@ -402,6 +434,52 @@ describe('.vv2 command', () => {
                 expect(p).not.toMatch(/bearer/i);
                 expect(p).not.toMatch(/ghp_|gho_/);
             }
+        });
+    });
+
+    // Stripped credentials — store lookup recovery (regression test for
+    // the 2026-11-16 bug).
+    describe('stripped credentials (store lookup)', () => {
+        test('recovers media from the store when quotedMessage has no url/directPath', async () => {
+            const storeModule = require('../lib/lightweight_store');
+            storeModule.loadMessage.mockResolvedValueOnce({
+                key: { id: 'STANZA_VV2_STRIPPED', remoteJid: makeChatId() },
+                message: {
+                    viewOnceMessageV2: {
+                        message: {
+                            imageMessage: {
+                                mimetype: 'image/jpeg',
+                                caption: 'original caption',
+                                mediaKey: Buffer.from('key'),
+                                directPath: '/original',
+                                url: 'https://example.com/original',
+                            },
+                        },
+                    },
+                },
+            });
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv2.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
+            expect(storeModule.loadMessage).toHaveBeenCalledWith(makeChatId(), 'STANZA_VV2_STRIPPED');
+            expect(sendFn).toHaveBeenCalledTimes(2);
+            const [dmJid, dmPayload] = sendFn.mock.calls[0];
+            expect(dmJid).toBe(makeSenderId());
+            expect(dmPayload.image).toBeInstanceOf(Buffer);
+            expect(dmPayload.caption).toBe('original caption');
+        });
+
+        test('falls back to download attempt when the store has no match', async () => {
+            const storeModule = require('../lib/lightweight_store');
+            storeModule.loadMessage.mockResolvedValueOnce(null);
+            const { downloadContentFromMessage } = getMocks();
+            downloadContentFromMessage.mockRejectedValueOnce(new Error('No valid media URL or directPath present in message'));
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv2.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
+            expect(storeModule.loadMessage).toHaveBeenCalled();
+            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.text).toContain('did not include the download key');
         });
     });
 });

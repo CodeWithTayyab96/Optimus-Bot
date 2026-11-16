@@ -2,6 +2,7 @@ const style = require('../../lib/messageStyle');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { channelInfo } = require('../../lib/messageConfig');
 const { resolveDmJid } = require('../../lib/dmTarget');
+const store = require('../../lib/lightweight_store');
 
 /**
  * .vv2 — View-Once media to your DM (image / video / audio)
@@ -137,8 +138,21 @@ async function vv2Command(sock, chatId, message, senderId) {
             return fail('Unsupported view-once message type.');
         }
 
-        const mediaNode = actualMsg[mtype];
-        const mediaType = mtype === 'imageMessage' ? 'image' : mtype === 'videoMessage' ? 'video' : 'audio';
+        let mediaNode = actualMsg[mtype];
+        let mediaType = mtype === 'imageMessage' ? 'image' : mtype === 'videoMessage' ? 'video' : 'audio';
+
+        // 3b. WhatsApp strips download credentials from view-once
+        // quotedMessages. Look up the original from the store.
+        if (mediaNode && !mediaNode.url && !mediaNode.directPath && ctx?.stanzaId) {
+            const original = await store.loadMessage(chatId, ctx.stanzaId);
+            if (original?.message) {
+                const stored = findMedia(original.message);
+                if (stored && (stored.media.url || stored.media.directPath)) {
+                    mediaNode = stored.media;
+                    mediaType = stored.type;
+                }
+            }
+        }
 
         // 4. Resolve a genuinely private target. Never trust senderId
         // alone; see lib/dmTarget for why.

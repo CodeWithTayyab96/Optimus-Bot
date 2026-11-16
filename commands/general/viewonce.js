@@ -1,6 +1,7 @@
 const style = require('../../lib/messageStyle');
 const { downloadContentFromMessage, toBuffer } = require('@whiskeysockets/baileys');
 const { channelInfo } = require('../../lib/messageConfig');
+const store = require('../../lib/lightweight_store');
 
 /**
  * .vv — View-Once media re-send (image / video / audio)
@@ -144,7 +145,23 @@ async function viewonceCommand(sock, chatId, message) {
         return;
     }
 
-    // 5. Download the media. The reference approach is to attempt the
+    // 5. WhatsApp strips download credentials (url, directPath, mediaKey)
+    // from view-once messages in quotedMessage. When the extracted node
+    // lacks them, look up the ORIGINAL message from the store — it was
+    // captured with full credentials when it first arrived.
+    if (mediaNode && !mediaNode.url && !mediaNode.directPath && ctx?.stanzaId) {
+        const original = await store.loadMessage(chatId, ctx.stanzaId);
+        if (original?.message) {
+            const stored = findMedia(original.message);
+            if (stored && (stored.media.url || stored.media.directPath)) {
+                mediaType = stored.type;
+                mediaNode = stored.media;
+                caption = stored.media.caption || '';
+            }
+        }
+    }
+
+    // 6. Download the media. The reference approach is to attempt the
     // download first and only explain afterwards, never to refuse
     // upfront. A media node without a mediaKey cannot be decrypted, but
     // that is only known once the download is tried, so try it.
