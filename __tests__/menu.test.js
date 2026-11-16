@@ -343,7 +343,7 @@ describe('Category index (.menu)', () => {
     test('index shows a per-category command count', () => {
         const index = help.buildCategoryIndex(OWNER_VIEWER, { prefix: '.' });
         // AI has 4 commands in the mocked set (gpt, gptimage, imagine, stt)
-        expect(index).toMatch(/Ai\s+:: 4 CMD/);
+        expect(index).toMatch(/AI \(4\) — \.ai/);
     });
 
     test('index is far shorter than the full menu dump', () => {

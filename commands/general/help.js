@@ -240,8 +240,8 @@ function visibleCommandCount(viewer = {}) {
 
 /**
  * Compact category index — this is what `.menu` / `.help` now send.
- * Lists every category with its visible command count and the command that
- * opens it, instead of dumping all 179 commands into one huge message.
+ * A plain, simple list: no box frame, no module header. One line per
+ * category with its visible command count and the command that opens it.
  */
 function buildCategoryIndex(viewer = {}, opts = {}) {
     const prefix = String(opts.prefix || settings.prefix || '.').replace(/\\$/, '');
@@ -250,19 +250,19 @@ function buildCategoryIndex(viewer = {}, opts = {}) {
     const total = visibleCommandCount(viewer);
 
     const lines = [
-        `🤖 ${total} COMMAND(S) AVAILABLE TO YOU`,
-        style.quote('PICK A CATEGORY:'),
+        `🤖 ${settings.botName || 'Optimus Bot'}`,
+        `${total} commands`,
         '',
     ];
-    const width = Math.max(...cats.map((c) => categoryLabel(c).length));
-    cats.forEach((cat, i) => {
+    cats.forEach((cat) => {
         const count = byCat.get(cat).length;
         const icon = CATEGORY_ICONS[cat] || '▪';
-        lines.push(`[${String(i + 1).padStart(2, '0')}] ${icon} ${categoryLabel(cat).padEnd(width, ' ')} :: ${String(count).padStart(2, ' ')} CMD · ${prefix}${categoryCommand(cat)}`);
+        const name = cat === 'ai' ? 'AI' : categoryTitle(cat);
+        lines.push(`${icon} ${name} (${count}) — ${prefix}${categoryCommand(cat)}`);
     });
     lines.push('');
-    lines.push(`ℹ️ ${prefix}help <command>  :: DETAILS FOR ONE COMMAND`);
-    return style.card('COMMAND_INDEX.SYS', lines);
+    lines.push(`ℹ️ ${prefix}help <command> for details`);
+    return lines.join('\n');
 }
 
 /**
