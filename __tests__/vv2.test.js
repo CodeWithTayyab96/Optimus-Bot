@@ -392,7 +392,7 @@ describe('.vv2 command', () => {
             expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('did not include the download key');
+            expect(payload.text).toContain('Failed to download media');
         });
     });
 
@@ -501,7 +501,7 @@ describe('.vv2 command', () => {
             expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('did not include the download key');
+            expect(payload.text).toContain('Failed to download media');
         });
 
         test('recovers media from the store when quotedMessage has no url/directPath', async () => {

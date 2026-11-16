@@ -169,17 +169,10 @@ async function viewonceCommand(sock, chatId, message) {
             buffer = await downloadMedia(mediaNode, mediaType);
         } catch (dlErr) {
             console.error(`[.vv] Download failed for ${mediaType}:`, dlErr.message);
-            if (!mediaNode.mediaKey) {
-                await sock.sendMessage(chatId, {
-                    text: style.error('Sorry, I cannot recover this one. WhatsApp did not include the download key in this view-once message, so there is nothing for me to download. This happens with view-once messages you sent yourself, and with ones already opened. Reply .vv to a view-once message someone else sent you and it works.'),
-                    ...channelInfo,
-                }, { quoted: message });
-            } else {
-                await sock.sendMessage(chatId, {
-                    text: style.error('Failed to download media. The view-once media may have expired or the download URL is no longer valid.'),
-                    ...channelInfo,
-                }, { quoted: message });
-            }
+            await sock.sendMessage(chatId, {
+                text: style.error('Failed to download media. The view-once media may have expired or the download URL is no longer valid.'),
+                ...channelInfo,
+            }, { quoted: message });
             return;
         }
     }
