@@ -85,7 +85,7 @@ const allAdmins = [
         const { sock: sockBan, sent: sentBan } = captureSock(allAdmins);
         await banCmd.execute(sockBan, msg(GROUP, ADMIN, { mentionedJid: [TARGET] }), [], extraFor(GROUP, ADMIN));
         const banMsg = sentBan[sentBan.length - 1];
-        check('ban success uses the SUCCESS tag', banMsg && /^\[SUCCESS\] /.test(banMsg.content.text));
+        check('ban success uses the SUCCESS tag', banMsg && /^✅ /.test(banMsg.content.text));
         check('ban keeps mentions', banMsg && Array.isArray(banMsg.content.mentions) && banMsg.content.mentions.includes(TARGET));
 
         // ---------------- Admin: success via quoted message ----------------
@@ -125,14 +125,14 @@ const allAdmins = [
         const { sock: sockKick, sent: sentKick } = captureSock(allAdmins);
         await kickCmd.execute(sockKick, msg(GROUP, ADMIN, { mentionedJid: [TARGET] }), [], extraFor(GROUP, ADMIN));
         const kickMsg = sentKick[sentKick.length - 1];
-        check('kick success uses the SUCCESS tag', kickMsg && /^\[SUCCESS\] /.test(kickMsg.content.text));
+        check('kick success uses the SUCCESS tag', kickMsg && /^✅ /.test(kickMsg.content.text));
         check('kick keeps mentions', kickMsg && Array.isArray(kickMsg.content.mentions) && kickMsg.content.mentions.includes(TARGET));
 
         // ---------------- Owner: mode success + invalid ----------------
         const modeCmd = require('../commands/owner/mode');
         const { sock: sockMode, sent: sentMode } = captureSock(allAdmins);
         await modeCmd.execute(sockMode, msg(GROUP, ADMIN, {}), ['public'], extraFor(GROUP, ADMIN));
-        check('mode success uses the SUCCESS tag', sentMode.length > 0 && /^\[SUCCESS\] /.test(sentMode[sentMode.length - 1].content.text));
+        check('mode success uses the SUCCESS tag', sentMode.length > 0 && /^✅ /.test(sentMode[sentMode.length - 1].content.text));
 
         const { sock: sockModeBad, sent: sentModeBad } = captureSock(allAdmins);
         await modeCmd.execute(sockModeBad, msg(GROUP, ADMIN, {}), ['banana'], extraFor(GROUP, ADMIN));
@@ -145,8 +145,8 @@ const allAdmins = [
         check('update permission error for non-owner', sentUpd.length > 0 && /owner or sudo/.test(sentUpd[sentUpd.length - 1].content.text));
 
         // ---------------- Style sanity ----------------
-        check('error formatting compact', style.error('x') === '[ERROR] x');
-        check('success formatting compact', style.success('x') === '[SUCCESS] x');
+        check('error formatting compact', style.error('x') === '❌ x');
+        check('success formatting compact', style.success('x') === '✅ x');
 
         // ---------------- No command disappeared ----------------
         const commands = loadCommands();

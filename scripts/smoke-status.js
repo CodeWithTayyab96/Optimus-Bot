@@ -160,7 +160,7 @@ async function capture(sock, msg) {
     cmdSock.sent.length = 0;
     await statusCmd.execute(cmdSock, msg, [], extra);
     let out = lastText();
-    check('listing uses the terminal STATUS_CACHE module', out.includes('OPTIMUS · STATUS_CACHE.SYS'), out.slice(0, 80));
+    check('listing uses the terminal STATUS_CACHE module', out.includes('Status Cache'), out.slice(0, 80));
     check('listing shows the contact name', out.includes('Ali Khan'), out.slice(0, 300));
     check('listing shows the phone number', out.includes(ALI_PN), out.slice(0, 300));
     check('listing offers #1 as a fetch handle', /FETCH: \.status #1/.test(out), out.slice(0, 400));
@@ -172,13 +172,13 @@ async function capture(sock, msg) {
     cmdSock.sent.length = 0;
     await statusCmd.execute(cmdSock, msg, ['#1'], extra);
     const body = cmdSock.sent.map((s) => s.content?.text || '').join('\n');
-    check('.status #1 sends the newest contact\'s statuses', body.includes(`[SYSTEM] STATUS FROM ${newest.label.toUpperCase()}`), body.slice(0, 200));
+    check('.status #1 sends the newest contact\'s statuses', body.includes(`ℹ️ STATUS FROM ${newest.label.toUpperCase()}`), body.slice(0, 200));
     check('.status #1 reports a count', new RegExp(`Sent ${newest.count}/${newest.count} status`).test(body), body.slice(-120));
 
     // .status <number> still works, exactly as before
     cmdSock.sent.length = 0;
     await statusCmd.execute(cmdSock, msg, [SARA_PN], extra);
-    check('.status <number> still works', /\[SYSTEM\] STATUS FROM SARA B/.test(cmdSock.sent.map((s) => s.content?.text || '').join('\n')));
+    check('.status <number> still works', /ℹ️ STATUS FROM SARA B/.test(cmdSock.sent.map((s) => s.content?.text || '').join('\n')));
 
     // .status <name> works too
     cmdSock.sent.length = 0;

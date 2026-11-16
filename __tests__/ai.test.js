@@ -1033,7 +1033,7 @@ describe('.aistatus command', () => {
 
             expect(sendFn).toHaveBeenCalledTimes(1);
             const text = sendFn.mock.calls[0][1].text;
-            expect(text).toContain('AI_STATUS');
+            expect(text).toContain('AI Status');
             expect(text).toContain('Text');
             expect(text).toContain('Speech');
             expect(text).toContain('Image');

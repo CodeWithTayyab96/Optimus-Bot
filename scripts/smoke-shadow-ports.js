@@ -517,11 +517,11 @@ function restoreHttp() { axios.get = realGet; axios.post = realPost; }
 
         sent.length = 0;
         await slotCmd.execute(mockSock, msg(G1, MEMBER, '.slot'), [], extraFor(G1, MEMBER));
-        check('.slot: responds with reels', /SLOT_MACHINE\.SYS/.test(lastText()));
+        check('.slot: responds with reels', /Slot Machine/.test(lastText()));
 
         sent.length = 0;
         await diceCmd.execute(mockSock, msg(G1, MEMBER, '.dice'), [], extraFor(G1, MEMBER));
-        check('.dice: default roll responds', /DICE/.test(lastText()));
+        check('.dice: default roll responds', /Dice/.test(lastText()));
         sent.length = 0;
         await diceCmd.execute(mockSock, msg(G1, MEMBER, '.dice 3d6'), ['3d6'], extraFor(G1, MEMBER));
         check('.dice 3d6: shows three rolls', /Rolls:/.test(lastText()));

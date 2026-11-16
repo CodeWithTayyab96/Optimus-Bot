@@ -51,13 +51,13 @@ function failsafe(fn) { try { return fn(); } catch { return null; } }
         const card = style.card('STATUS_CACHE.SYS', [style.tag('system', 'HELLO')]);
         const lines = card.split('\n');
 
-        check('line 1 is the top rail with the module name', /^╔═ OPTIMUS · STATUS_CACHE\.SYS ═*╗$/.test(lines[0]), lines[0]);
-        check('the body sits inside the rail', lines[1].startsWith('║ [SYSTEM] HELLO') && lines[1].endsWith('║'), lines[1]);
-        check('the bottom rail closes the card', /^╚═+╝$/.test(lines[2]), lines[2]);
-        check('no emoji band closes the card', !/🟩|🟥|🟨|🟦|🟪/.test(card), card.slice(-40));
+        check('line 1 is the plain heading with the module name', lines[0] === '📋 Status Cache', lines[0]);
+        check('the body follows a blank separator', lines[1] === '' && lines[2] === 'ℹ️ HELLO', lines[1] + '|' + lines[2]);
+        check('no box-drawing characters in the card', !card.includes('║') && !card.includes('╔') && !card.includes('╝'), card.slice(0, 60));
+        check('no colour band closes the card', !/🟩|🟥|🟨|🟦|🟪/.test(card), card.slice(-40));
 
-        check('divider() never collapses or runs away',
-            failsafe(() => style.divider(1)) === '━'.repeat(8) && failsafe(() => style.divider(999)) === '━'.repeat(24),
+        check('divider() returns empty in plain style',
+            failsafe(() => style.divider(1)) === '' && failsafe(() => style.divider(999)) === '',
             failsafe(() => style.divider(1)));
     }
 
@@ -65,10 +65,10 @@ function failsafe(fn) { try { return fn(); } catch { return null; } }
     {
         const rows = style.fields([['Auto-save', '*ON*'], ['Retention', '24h'], ['Allowlist', 'all contacts']]);
         check('one line per pair', rows.length === 3, `${rows.length}`);
-        check('the = gutter lines up',
-            new Set(rows.map((r) => r.indexOf('='))).size === 1,
+        check('fields use Label: value format',
+            rows.every((r) => /^[A-Z].*: /.test(r)),
             JSON.stringify(rows));
-        check('labels are upper-cased', rows[0].startsWith('  AUTO-SAVE'), rows[0]);
+        check('labels are sentence-cased', rows[0].startsWith('Auto-save:'), rows[0]);
         check('values keep their own formatting', rows[0].includes('*ON*'), rows[0]);
 
         check('empty pairs are dropped', style.fields([['a', ''], ['', 'b'], ['c', 'd']]).length === 1);
@@ -76,7 +76,7 @@ function failsafe(fn) { try { return fn(); } catch { return null; } }
 
         // A long label widens the gutter once, for every line in the block.
         const wide = style.fields([['A very long label indeed', 'x'], ['B', 'y']]);
-        check('a long label widens the gutter once', new Set(wide.map((r) => r.indexOf('='))).size === 1, JSON.stringify(wide));
+        check('each field follows Label: value format', wide.every((r) => /^[A-Z].*: /.test(r)), JSON.stringify(wide));
     }
 
     console.log('\n=== digest shape ===');
@@ -86,12 +86,12 @@ function failsafe(fn) { try { return fn(); } catch { return null; } }
         const many = style.card('NOTICE.SYS', [
             ...style.fields([['Notices', '2 combined to keep this chat quiet']]),
             '',
-            style.quote('[PROCESS] Downloading'),
-            style.quote('[SUCCESS] Saved.'),
+            style.quote('⏳ Downloading'),
+            style.quote('✅ Saved.'),
         ]);
         check('the digest carries every line', many.includes('Downloading') && many.includes('Saved.'), many.slice(0, 120));
         check('the digest uses the shared card',
-            many.split('\n')[0].startsWith('╔═ OPTIMUS · NOTICE.SYS') && many.split('\n')[1].startsWith('║'), many.slice(0, 80));
+            many.split('\n')[0] === '📋 Notice' && many.split('\n')[1] === '', many.slice(0, 80));
     }
 
     // ------------------------------------------------------ antidelete pacing ---
@@ -152,8 +152,8 @@ function failsafe(fn) { try { return fn(); } catch { return null; } }
         check('sends are spaced apart', gaps.every((g) => g >= 30), JSON.stringify(gaps));
 
         const body = replies[replies.length - 1];
-        check('the result card reports the counts', /GROUPS\s*=\s*4/.test(body) && /DELIVERED\s*=\s*4/.test(body), body.slice(0, 120));
-        check('the result card says it was paced', /PACED AT/.test(body), body.slice(0, 200));
+        check('the result card reports the counts', /Groups:\s*4/.test(body) && /Delivered:\s*4/.test(body), body.slice(0, 120));
+        check('the result card says it was paced', /Paced at/i.test(body), body.slice(0, 200));
         check('the shipped default delay is sane', delay >= 500 && delay <= 5000, `${delay}ms`);
     }
 

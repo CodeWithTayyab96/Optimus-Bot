@@ -79,22 +79,22 @@ function hasText(sent, substr) {
     ];
     for (const [cmdName, msg, args, usage] of usageCases) {
         const sent = await runWith(cmdName, msg, args);
-        check(`${cmdName}: invalid input boxed with usage`, hasText(sent, 'INVALID INPUT') && hasText(sent, 'Usage:') && hasText(sent, usage), JSON.stringify(sent.map(s => s.content?.text)));
+        check(`${cmdName}: invalid input boxed with usage`, hasText(sent, 'Invalid input') && hasText(sent, 'Usage:') && hasText(sent, usage), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // twitter + pinterest use extra.reply
     let sent = await runWith('twitter', { message: {} }, []);
-    check('twitter: missing URL boxed invalid input', hasText(sent, 'INVALID INPUT') && hasText(sent, '.twitter <url>'), JSON.stringify(sent.map(s => s.content?.text)));
+    check('twitter: missing URL boxed invalid input', hasText(sent, 'Invalid input') && hasText(sent, '.twitter <url>'), JSON.stringify(sent.map(s => s.content?.text)));
     sent = await runWith('pinterest', { message: {} }, []);
-    check('pinterest: usage card', hasText(sent, 'PINTEREST') && hasText(sent, 'Usage:') && hasText(sent, '.pinterest <Pinterest URL>'), JSON.stringify(sent.map(s => s.content?.text)));
+    check('pinterest: usage card', hasText(sent, 'Pinterest') && hasText(sent, 'Usage:') && hasText(sent, '.pinterest <Pinterest URL>'), JSON.stringify(sent.map(s => s.content?.text)));
     sent = await runWith('pinterest', { message: {} }, ['not-a-pin']);
-    check('pinterest: invalid pin URL styled', hasText(sent, 'INVALID INPUT') && hasText(sent, 'valid Pinterest pin URL'), JSON.stringify(sent.map(s => s.content?.text)));
+    check('pinterest: invalid pin URL styled', hasText(sent, 'Invalid input') && hasText(sent, 'valid Pinterest pin URL'), JSON.stringify(sent.map(s => s.content?.text)));
 
     // image tools
     sent = await runWith('remini', { message: {} }, ['not-a-url'], { userMessage: '.remini not-a-url' });
-    check('remini: invalid URL styled', hasText(sent, 'INVALID INPUT') && hasText(sent, '.remini <image_url>'), JSON.stringify(sent.map(s => s.content?.text)));
+    check('remini: invalid URL styled', hasText(sent, 'Invalid input') && hasText(sent, '.remini <image_url>'), JSON.stringify(sent.map(s => s.content?.text)));
     sent = await runWith('removebg', { message: {} }, ['not-a-url'], {});
-    check('removebg: invalid URL styled', hasText(sent, 'INVALID INPUT') && hasText(sent, '.removebg <image_url>'), JSON.stringify(sent.map(s => s.content?.text)));
+    check('removebg: invalid URL styled', hasText(sent, 'Invalid input') && hasText(sent, '.removebg <image_url>'), JSON.stringify(sent.map(s => s.content?.text)));
     sent = await runWith('img-blur', { message: {} }, []);
     check('img-blur: no-image directive styled', hasText(sent, 'Please reply to an image or send an image with caption .blur'), JSON.stringify(sent.map(s => s.content?.text)));
 
@@ -103,19 +103,19 @@ function hasText(sent, substr) {
         const sentLyrics = [];
         const sock = { sendMessage: async (c, content, o) => { sentLyrics.push(content); } };
         await cmds.lyrics.lyricsCommand(sock, '123@g.us', '', { key: { id: 'lyr1' } });
-        check('lyrics: missing title styled', sentLyrics.some(m => typeof m.text === 'string' && m.text.includes('INVALID INPUT') && m.text.includes('.lyrics <song title>')), JSON.stringify(sentLyrics));
+        check('lyrics: missing title styled', sentLyrics.some(m => typeof m.text === 'string' && m.text.includes('Invalid input') && m.text.includes('.lyrics <song title>')), JSON.stringify(sentLyrics));
     }
 
     // 2) Failure path: no internal error leaked (play.js crashes pre-parse on empty message)
     sent = await runWith('play', { message: {} }, []);
     const playErr = sent.map(s => s.content?.text).find(t => typeof t === 'string' && t.toLowerCase().includes('failed'));
     check('play: failure styled, no stack/internal leak',
-        !!playErr && playErr === '[ERROR] Download failed. Please try again later.' &&
+        !!playErr && playErr === '❌ Download failed. Please try again later.' &&
         !JSON.stringify(sent).includes('TypeError') && !JSON.stringify(sent).includes('at '),
         JSON.stringify(sent.map(s => s.content?.text)));
 
     // 3) processing helper still compact
-    check('style.processing compact', style.processing('Fetching your audio...') === '[PROCESS] Fetching your audio', style.processing('Fetching your audio...'));
+    check('style.processing compact', style.processing('Fetching your audio...') === '⏳ Fetching your audio', style.processing('Fetching your audio...'));
 
     // 4) Media payload keys intact in source
     const src = {};

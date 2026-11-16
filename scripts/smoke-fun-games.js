@@ -97,30 +97,30 @@ async function runWith(cmdName, msg, args, extra) {
     ];
     for (const [cmdName, msg, args, usage, extra] of boxedCases) {
         const sent = await runWith(cmdName, msg, args, extra);
-        check(`${cmdName}: invalid input boxed with usage`, hasText(sent, 'INVALID INPUT') && hasText(sent, 'Usage:') && hasText(sent, usage), JSON.stringify(sent.map(s => s.content?.text)));
+        check(`${cmdName}: invalid input boxed with usage`, hasText(sent, 'Invalid input') && hasText(sent, 'Usage:') && hasText(sent, usage), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // pies: no country + unsupported country (needs quoted msg shape)
     {
         const { sock, sent } = makeSock();
         await cmds.pies.piesCommand(sock, '123@g.us', { key: { id: 'p1' } }, []);
-        check('pies: no country boxed invalid input', hasText(sent, 'INVALID INPUT') && hasText(sent, '.pies <country>'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('pies: no country boxed invalid input', hasText(sent, 'Invalid input') && hasText(sent, '.pies <country>'), JSON.stringify(sent.map(s => s.content?.text)));
         sent.length = 0;
         await cmds.pies.piesCommand(sock, '123@g.us', { key: { id: 'p2' } }, ['mars']);
-        check('pies: unsupported country boxed invalid input', hasText(sent, 'INVALID INPUT') && hasText(sent, 'Unsupported country: mars'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('pies: unsupported country boxed invalid input', hasText(sent, 'Invalid input') && hasText(sent, 'Unsupported country: mars'), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // misc sub-command usage
     {
         const { sock, sent } = makeSock();
         await cmds.misc.miscCommand(sock, '123@g.us', { key: { id: 'm1' } }, ['its-so-stupid']);
-        check('misc its-so-stupid: boxed usage', hasText(sent, 'INVALID INPUT') && hasText(sent, '.misc its-so-stupid <text>'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('misc its-so-stupid: boxed usage', hasText(sent, 'Invalid input') && hasText(sent, '.misc its-so-stupid <text>'), JSON.stringify(sent.map(s => s.content?.text)));
         sent.length = 0;
         await cmds.misc.miscCommand(sock, '123@g.us', { key: { id: 'm2' } }, ['oogway']);
-        check('misc oogway: boxed usage', hasText(sent, 'INVALID INPUT') && hasText(sent, '.misc oogway <quote>'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('misc oogway: boxed usage', hasText(sent, 'Invalid input') && hasText(sent, '.misc oogway <quote>'), JSON.stringify(sent.map(s => s.content?.text)));
         sent.length = 0;
         await cmds.misc.miscCommand(sock, '123@g.us', { key: { id: 'm3' } }, ['bogus']);
-        check('misc default: image-effects usage card', hasText(sent, 'IMAGE_EFFECTS.SYS') && hasText(sent, 'Usage:'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('misc default: image-effects usage card', hasText(sent, 'Image Effects') && hasText(sent, 'Usage:'), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // Compact warnings for simple missing-input cases
@@ -137,13 +137,13 @@ async function runWith(cmdName, msg, args, extra) {
         if (cmdName === 'hangman') sent = await runWith(cmdName, msg, args, { commandName: 'guess', userMessage: '.guess' });
         else if (cmdName === 'trivia') sent = await runWith(cmdName, msg, args, { commandName: 'answer', userMessage: '.answer' });
         else sent = await runWith(cmdName, msg, args);
-        check(`${cmdName}: missing input styled compact`, hasText(sent, '[WARNING]') && hasText(sent, needle), JSON.stringify(sent.map(s => s.content?.text)));
+        check(`${cmdName}: missing input styled compact`, hasText(sent, '⚠️') && hasText(sent, needle), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // ttt .move without a position
     {
         const sent = await runWith('tictactoe', { message: {} }, ['x'], { commandName: 'move', userMessage: '.move x' });
-        check('ttt: .move missing position styled', hasText(sent, '[WARNING]') && hasText(sent, '.move <number>'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ttt: .move missing position styled', hasText(sent, '⚠️') && hasText(sent, '.move <number>'), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // --- 3) No raw provider/API errors leaked into user-visible text ---
@@ -212,22 +212,22 @@ async function runWith(cmdName, msg, args, extra) {
         check('ttt: waiting message sent', hasText(sent, 'Waiting for opponent'), JSON.stringify(sent.map(s => s.content?.text)));
         sent.length = 0;
         await cmds.tictactoe.tictactoeCommand(sock, GROUP, P2, 'smokeroom');
-        const joinMsg = sent.find(s => typeof s.content?.text === 'string' && s.content.text.includes('TIC_TAC_TOE.SYS'));
+        const joinMsg = sent.find(s => typeof s.content?.text === 'string' && s.content.text.includes('Tic Tac Toe'));
         check('ttt: joined game uses TIC-TAC-TOE board card', !!joinMsg, JSON.stringify(sent.map(s => s.content?.text)));
         check('ttt: challenge board mentions both players', !!joinMsg && JSON.stringify(joinMsg.content.mentions).includes(P1) && JSON.stringify(joinMsg.content.mentions).includes(P2), JSON.stringify(joinMsg?.content?.mentions));
         check('ttt: board symbols preserved (❎/⭕)', !!joinMsg && joinMsg.content.text.includes('❎') && joinMsg.content.text.includes('⭕'), 'symbols changed');
 
         sent.length = 0;
         await cmds.tictactoe.handleTicTacToeMove(sock, GROUP, P1, '1');
-        check('ttt: valid move renders board', hasText(sent, 'TIC_TAC_TOE.SYS') && hasText(sent, 'Turn:'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ttt: valid move renders board', hasText(sent, 'Tic Tac Toe') && hasText(sent, 'Turn:'), JSON.stringify(sent.map(s => s.content?.text)));
 
         sent.length = 0;
         await cmds.tictactoe.handleTicTacToeMove(sock, GROUP, P1, '2');
-        check('ttt: wrong-player move styled compact', hasText(sent, '[WARNING] It\'s not your turn.'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ttt: wrong-player move styled compact', hasText(sent, '⚠️ It\'s not your turn.'), JSON.stringify(sent.map(s => s.content?.text)));
 
         sent.length = 0;
         await cmds.tictactoe.handleTicTacToeMove(sock, GROUP, P2, '1');
-        check('ttt: taken position styled compact', hasText(sent, '[WARNING] That position is already taken.'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ttt: taken position styled compact', hasText(sent, '⚠️ That position is already taken.'), JSON.stringify(sent.map(s => s.content?.text)));
 
         sent.length = 0;
         await cmds.tictactoe.handleTicTacToeMove(sock, GROUP, P2, 'surrender');
@@ -248,7 +248,7 @@ async function runWith(cmdName, msg, args, extra) {
         check('hangman: start styled with 🎮 HANGMAN', hasText(sent, '🎮 HANGMAN'), JSON.stringify(sent.map(s => s.content?.text)));
         sent.length = 0;
         await cmds.hangman.guessLetter(sock, '123@g.us', 'z');
-        check('hangman: wrong guess styled compact', hasText(sent, '[WARNING] Wrong guess!') && hasText(sent, 'tries left'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('hangman: wrong guess styled compact', hasText(sent, '⚠️ Wrong guess!') && hasText(sent, 'tries left'), JSON.stringify(sent.map(s => s.content?.text)));
     }
 
     // Trivia: start (mocked API) + answer paths, state untouched
@@ -262,7 +262,7 @@ async function runWith(cmdName, msg, args, extra) {
             check('trivia: start styled with 🎮 TRIVIA + question', hasText(sent, '🎮 TRIVIA') && hasText(sent, 'What is 2+2?'), JSON.stringify(sent.map(s => s.content?.text)));
             sent.length = 0;
             await cmds.trivia.answerTrivia(sock, '123@g.us', '4');
-            check('trivia: correct answer styled', hasText(sent, '[SUCCESS] Correct!'), JSON.stringify(sent.map(s => s.content?.text)));
+            check('trivia: correct answer styled', hasText(sent, '✅ Correct!'), JSON.stringify(sent.map(s => s.content?.text)));
             sent.length = 0;
             await cmds.trivia.answerTrivia(sock, '123@g.us', '4');
             check('trivia: game state cleaned after answer', hasText(sent, 'No trivia game is in progress'), JSON.stringify(sent.map(s => s.content?.text)));

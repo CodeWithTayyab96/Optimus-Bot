@@ -95,19 +95,19 @@ function hasText(sent, substr) {
     // ping: Pong + compact PING box
     {
         const sent = await runWith('ping', { message: {} }, []);
-        check('ping: Pong reply + PING card', hasText(sent, 'Pong') && hasText(sent, 'PING.SYS') && hasText(sent, 'Latency:'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('ping: Pong reply + Ping card', hasText(sent, 'Pong') && hasText(sent, 'Ping') && hasText(sent, 'Latency:'), JSON.stringify(sent.map(s => s.content?.text)));
     }
     // uptime: BOT UPTIME card via extra.reply
     {
         const sent = await runWith('uptime', { message: {} }, []);
-        check('uptime: BOT UPTIME card', hasText(sent, 'BOT_UPTIME.SYS') && hasText(sent, 'Uptime:'), JSON.stringify(sent.map(s => s.content?.text)));
+        check('uptime: Bot Uptime card', hasText(sent, 'Bot Uptime') && hasText(sent, 'Uptime:'), JSON.stringify(sent.map(s => s.content?.text)));
     }
     // groupinfo: GROUP INFO card with image payload + admin/owner mentions
     {
         const { sock, sent } = makeSock();
         await cmds.groupinfo.execute(sock, { key: { id: 'g1' } }, [], { chatId: '123@g.us' });
-        const card = sent.find(s => typeof s.content?.caption === 'string' && s.content.caption.includes('GROUP_INFO'));
-        check('groupinfo: GROUP INFO card', !!card, JSON.stringify(sent.map(s => s.content?.caption || s.content?.text)));
+        const card = sent.find(s => typeof s.content?.caption === 'string' && s.content.caption.includes('Group Info'));
+        check('groupinfo: Group Info card', !!card, JSON.stringify(sent.map(s => s.content?.caption || s.content?.text)));
         check('groupinfo: image payload preserved', !!card && card.content.image && typeof card.content.image === 'object');
         check('groupinfo: mentions preserved', !!card && JSON.stringify(card.content.mentions).includes('111@s.whatsapp.net') && JSON.stringify(card.content.mentions).includes('222@s.whatsapp.net'));
         check('groupinfo: real data shown', !!card && card.content.caption.includes('Members: 3') && card.content.caption.includes('Admins: 2'));
@@ -116,8 +116,8 @@ function hasText(sent, substr) {
     {
         const { sock, sent } = makeSock();
         await cmds.staff.execute(sock, { key: { id: 's1' } }, [], { chatId: '123@g.us' });
-        const card = sent.find(s => typeof s.content?.caption === 'string' && s.content.caption.includes('GROUP_ADMINS'));
-        check('staff: GROUP ADMINS card', !!card && card.content.caption.includes('Test Group'), JSON.stringify(sent.map(s => s.content?.caption || s.content?.text)));
+        const card = sent.find(s => typeof s.content?.caption === 'string' && s.content.caption.includes('Group Admins'));
+        check('staff: Group Admins card', !!card && card.content.caption.includes('Test Group'), JSON.stringify(sent.map(s => s.content?.caption || s.content?.text)));
         check('staff: image + mentions preserved', !!card && !!card.content.image && JSON.stringify(card.content.mentions).includes('222@s.whatsapp.net'));
     }
     // groupstats: no-activity path
@@ -128,8 +128,8 @@ function hasText(sent, substr) {
 
     // --- 3) Invalid-input paths styled ---
     const usageCases = [
-        ['ss', { message: { conversation: '.ss' } }, [], 'SCREENSHOT', { userMessage: '.ss' }],
-        ['translate', { message: { conversation: '.translate' } }, [], 'TRANSLATOR', { userMessage: '.translate' }],
+        ['ss', { message: { conversation: '.ss' } }, [], 'Screenshot', { userMessage: '.ss' }],
+        ['translate', { message: { conversation: '.translate' } }, [], 'Translator', { userMessage: '.translate' }],
         ['tts', { message: { conversation: '.tts' } }, [], 'Text-to-Speech', { userMessage: '.tts' }],
         ['attp', { message: { conversation: '.attp' } }, [], 'Please provide text'],
         ['simage', { message: {} }, [], 'reply to a sticker'],

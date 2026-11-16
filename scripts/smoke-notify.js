@@ -57,11 +57,11 @@ function texts(sent) {
     // ---------------------------------------------------------------- classify
     console.log('\n=== classification ===');
     const progress = [
-        '[PROCESS] Downloading',
-        '[PROCESS] Saving media...',
-        '[PROCESS] Fetching audio for: *Song*',
-        '[PROCESS] Searching the web for "cats"',
-        '[PROCESS] Posting text group status',
+        '⏳ Downloading',
+        '⏳ Saving media',
+        '⏳ Fetching audio for: *Song*',
+        '⏳ Searching the web for "cats"',
+        '⏳ Posting text group status',
         // Untagged progress wording still works: the tag is the fast path, not
         // the only path.
         'Downloading video',
@@ -71,22 +71,22 @@ function texts(sent) {
         check(`progress: ${t}`, notify.classify({ text: t }) === 'progress', notify.classify({ text: t }));
     }
 
-    const completions = ['[SUCCESS] Saved.', '[SUCCESS] Download completed successfully.', '[SUCCESS] Posted to your DM.'];
+    const completions = ['✅ Saved.', '✅ Download completed successfully.', '✅ Posted to your DM.'];
     for (const t of completions) {
         check(`completion: ${t}`, notify.classify({ text: t }) === 'completion', notify.classify({ text: t }));
     }
 
     const essential = [
-        '[ERROR] Failed to download the video. Please try again later.',
-        '[WARNING] INVALID INPUT\n\nUsage:\n .video <name or url>',
-        '[SUCCESS] Sent 3/4 statuses from Ali to your DM.',
-        '[SUCCESS] Cleared 3 cached statuses.',
-        '[SUCCESS] Kicked 1 member.',
-        '[SUCCESS] Promoted 3 members.',
-        '[SUCCESS] Download alerts ENABLED. Only sustained failures are reported.',
-        '[INFO] Status auto-save is OFF. Nothing new will be saved.',
-        'OPTIMUS / STATUS_CACHE.SYS\n━\n[01] AUTO-SAVE :: ENABLED\n\n> CONTACT_ENTRY_01\n  NAME = Ali\n  ITEMS = 2',
-        '[ERROR] ACCESS DENIED Only the bot owner can use this command.',
+        '❌ Failed to download the video. Please try again later.',
+        '📋 Input\n\n⚠️ Invalid input\n\nUsage:\n .video <name or url>',
+        '✅ Sent 3/4 statuses from Ali to your DM.',
+        '✅ Cleared 3 cached statuses.',
+        '✅ Kicked 1 member.',
+        '✅ Promoted 3 members.',
+        '✅ Download alerts ENABLED. Only sustained failures are reported.',
+        'ℹ️ Status auto-save is OFF. Nothing new will be saved.',
+        '📋 Status Cache\n\n1. Auto-save: ENABLED\n\n> CONTACT_ENTRY_01\nName: Ali\nItems: 2',
+        '❌ Access denied. Only the bot owner can use this command.',
         'Here is your answer: 42',
     ];
     for (const t of essential) {
@@ -95,7 +95,7 @@ function texts(sent) {
 
     check('media payload is essential', notify.classify({ video: Buffer.from('x'), caption: 'Saved.' }) === 'essential');
     check('reaction is essential', notify.classify({ react: { text: '⏳', key: {} } }) === 'essential');
-    check('edit is essential', notify.classify({ text: '[SUCCESS] Saved.', edit: { id: 'a' } }) === 'essential');
+    check('edit is essential', notify.classify({ text: '✅ Saved.', edit: { id: 'a' } }) === 'essential');
 
     // -------------------------------------------------------------- coalescing
     console.log('\n=== progress coalescing ===');
@@ -105,15 +105,15 @@ function texts(sent) {
         const sock = makeSock();
         notify.wrap(sock);
 
-        await sock.sendMessage('a@s.whatsapp.net', { text: '[PROCESS] Downloading' });
-        await sock.sendMessage('a@s.whatsapp.net', { text: '[PROCESS] Downloading part 2' });
+        await sock.sendMessage('a@s.whatsapp.net', { text: '⏳ Downloading' });
+        await sock.sendMessage('a@s.whatsapp.net', { text: '⏳ Downloading part 2' });
         check('second progress line within the window is dropped', sock.sent.length === 1, `${sock.sent.length} sent`);
 
-        await sock.sendMessage('b@s.whatsapp.net', { text: '[PROCESS] Downloading' });
+        await sock.sendMessage('b@s.whatsapp.net', { text: '⏳ Downloading' });
         check('another chat is unaffected', sock.sent.length === 2, `${sock.sent.length} sent`);
 
         // Same text again, later chat — dedupe is per chat.
-        await sock.sendMessage('a@s.whatsapp.net', { text: '[PROCESS] Downloading' });
+        await sock.sendMessage('a@s.whatsapp.net', { text: '⏳ Downloading' });
         check('duplicate progress text is dropped', sock.sent.length === 2, `${sock.sent.length} sent`);
     }
 
@@ -125,11 +125,11 @@ function texts(sent) {
         const sock = makeSock();
         notify.wrap(sock);
 
-        await sock.sendMessage('c@s.whatsapp.net', { text: '[SUCCESS] Saved.' });
+        await sock.sendMessage('c@s.whatsapp.net', { text: '✅ Saved.' });
         check('completion without a deliverable is sent', sock.sent.length === 1, `${sock.sent.length} sent`);
 
         await sock.sendMessage('c@s.whatsapp.net', { video: Buffer.from('v'), caption: 'clip' });
-        await sock.sendMessage('c@s.whatsapp.net', { text: '[SUCCESS] Download completed successfully.' });
+        await sock.sendMessage('c@s.whatsapp.net', { text: '✅ Download completed successfully.' });
         check('completion right after media is suppressed', sock.sent.length === 2, `${sock.sent.length} sent`);
 
         // Counts are an outcome the user cannot infer from the media alone.
@@ -150,13 +150,13 @@ function texts(sent) {
         notify.wrap(sock);
 
         const jid = 'd@g.us';
-        for (let i = 0; i < 8; i++) await sock.sendMessage(jid, { text: `[PROCESS] Downloading part ${i}` });
+        for (let i = 0; i < 8; i++) await sock.sendMessage(jid, { text: `⏳ Downloading part ${i}` });
         await new Promise((r) => setTimeout(r, 40));
 
         const sent = texts(sock.sent);
         const all = sent.join('\n');
         check('burst of 8 collapses to fewer sends', sent.length < 8, `${sent.length} sent`);
-        const digests = sent.filter((t) => t.includes('NOTICE.SYS'));
+        const digests = sent.filter((t) => t.includes('📋 Notice'));
         check('overflow arrives as one digest', digests.length === 1, `${digests.length} digests`);
         check('digest keeps the deferred lines', digests[0].includes('Downloading part 3') && digests[0].includes('Downloading part 6'), digests[0]);
         check('no notice is lost', [0, 1, 2, 3, 4, 5, 6, 7].every((i) => all.includes(`Downloading part ${i}`)), all.slice(0, 300));
@@ -171,12 +171,12 @@ function texts(sent) {
         const sock = makeSock();
         notify.wrap(sock);
 
-        await sock.sendMessage('e@s.whatsapp.net', { text: '[PROCESS] Downloading' });
+        await sock.sendMessage('e@s.whatsapp.net', { text: '⏳ Downloading' });
         await sock.sendMessage('e@s.whatsapp.net', { image: Buffer.from('i'), caption: 'pic' });
         await sock.sendMessage('e@s.whatsapp.net', { react: { text: '⏳', key: {} } });
         await sock.sendMessage('e@s.whatsapp.net', { delete: { id: 'x' } });
-        await sock.sendMessage('status@broadcast', { text: '[SUCCESS] Saved.' });
-        await sock.sendMessage('120363@s.newsletter', { text: '[PROCESS] Downloading' });
+        await sock.sendMessage('status@broadcast', { text: '✅ Saved.' });
+        await sock.sendMessage('120363@s.newsletter', { text: '⏳ Downloading' });
         check('media, react, delete, status and newsletter all sent', sock.sent.length === 6, `${sock.sent.length} sent`);
     }
 
@@ -195,8 +195,8 @@ function texts(sent) {
         const result = await sock.sendMessage('f@s.whatsapp.net', { text: 'hello' });
         check('wrapper returns the underlying result', result?.key?.id === 'msg-1', JSON.stringify(result));
 
-        const suppressed = await sock.sendMessage('f@s.whatsapp.net', { text: '[PROCESS] Downloading' });
-        await sock.sendMessage('f@s.whatsapp.net', { text: '[PROCESS] Downloading again' });
+        const suppressed = await sock.sendMessage('f@s.whatsapp.net', { text: '⏳ Downloading' });
+        await sock.sendMessage('f@s.whatsapp.net', { text: '⏳ Downloading again' });
         check('suppressed send returns a key-shaped object', !!suppressed?.key?.id, JSON.stringify(suppressed));
 
         notify.unwrap(sock);
@@ -210,7 +210,7 @@ function texts(sent) {
         notify.configure({ enabled: false }, { persist: false });
         const sock = makeSock();
         notify.wrap(sock);
-        for (let i = 0; i < 5; i++) await sock.sendMessage('g@s.whatsapp.net', { text: '[PROCESS] Downloading' });
+        for (let i = 0; i < 5; i++) await sock.sendMessage('g@s.whatsapp.net', { text: '⏳ Downloading' });
         check('disabled governor sends everything', sock.sent.length === 5, `${sock.sent.length} sent`);
         notify.configure({ enabled: true }, { persist: false });
     }
@@ -223,20 +223,20 @@ function texts(sent) {
         const sock = makeSock();
         notify.wrap(sock);
 
-        const handle = await notify.progress(sock, 'h@s.whatsapp.net', '[PROCESS] Downloading', { minEditMs: 0 });
+        const handle = await notify.progress(sock, 'h@s.whatsapp.net', '⏳ Downloading', { minEditMs: 0 });
         check('progress sends exactly one message', sock.sent.length === 1, `${sock.sent.length} sent`);
         check('progress key captured', !!handle.key);
         check('typing presence raised', sock.presence.some((p) => p.type === 'composing'));
 
-        await handle.update('[PROCESS] Converting');
-        await handle.done('[SUCCESS] Ready.');
+        await handle.update('⏳ Converting');
+        await handle.done('✅ Ready.');
         const edits = sock.sent.filter((s) => s.content.edit);
         check('updates are edits, not new messages', edits.length === 2 && sock.sent.length === 3, `${edits.length} edits / ${sock.sent.length} total`);
         check('edit targets the original key', edits[0].content.edit.id === handle.key.id);
 
         // A suppressed progress handle must be a no-op, not a crash.
-        await sock.sendMessage('h@s.whatsapp.net', { text: '[PROCESS] Downloading' });
-        const quiet = await notify.progress(sock, 'h@s.whatsapp.net', '[PROCESS] Downloading', { minEditMs: 0 });
+        await sock.sendMessage('h@s.whatsapp.net', { text: '⏳ Downloading' });
+        const quiet = await notify.progress(sock, 'h@s.whatsapp.net', '⏳ Downloading', { minEditMs: 0 });
         check('suppressed handle reports itself', quiet.suppressed === true);
         check('suppressed handle update is a no-op', (await quiet.update('x')) === false);
     }
@@ -248,8 +248,8 @@ function texts(sent) {
         notify.configure({ progressCoalesceMs: 60000, maxPerChat: 99 }, { persist: false });
         const sock = makeSock();
         notify.wrap(sock);
-        await sock.sendMessage('i@s.whatsapp.net', { text: '[PROCESS] Downloading' });
-        await sock.sendMessage('i@s.whatsapp.net', { text: '[PROCESS] Fetching' });
+        await sock.sendMessage('i@s.whatsapp.net', { text: '⏳ Downloading' });
+        await sock.sendMessage('i@s.whatsapp.net', { text: '⏳ Fetching' });
         const st = notify.stats();
         check('stats count sent and suppressed', st.sent === 1 && st.suppressed === 1, JSON.stringify(st));
     }

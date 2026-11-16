@@ -177,7 +177,7 @@ function runTimes(state, results, n, { start = 1_000_000_000, step = 20 * 60 * 1
         check('both sources reported DOWN together', out.broke.length === 2, `${out.broke.length}`);
         check('exactly one message for two sources', sent.length === 1, `${sent.length}`);
         check('message names both sources', sent[0].includes(YT) && sent[0].includes(IG), sent[0].slice(0, 120));
-        check('message states the streak', /STREAK\s*=\s*3 CONSECUTIVE FAILURES/.test(sent[0]), sent[0].slice(0, 200));
+        check('message states the streak', /Streak:\s*3 CONSECUTIVE FAILURES/.test(sent[0]), sent[0].slice(0, 200));
         check('bot-check failure gets an explanation', /challenging this host/i.test(sent[0]), sent[0].slice(-200));
 
         // A run where one dies and one recovers is still ONE message. Crafted
@@ -192,7 +192,7 @@ function runTimes(state, results, n, { start = 1_000_000_000, step = 20 * 60 * 1
         const mixed = await dlHealth.checkResults([bad(YT), ok(IG)], { alert: true });
         check('simultaneous down + recovered is one message', sent.length === 1, `${sent.length}`);
         check('both changes are in that message', mixed.broke.length === 1 && mixed.fixed.length === 1, JSON.stringify({ broke: mixed.broke.length, fixed: mixed.fixed.length }));
-        check('combined title is used', sent[0].includes('OPTIMUS · SOURCE_SYNC.SYS'), sent[0].split('\n')[0]);
+        check('combined title is used', sent[0].includes('Source Sync'), sent[0].split('\n')[0]);
     }
 
     // --------------------------------------------------------------- switch ---

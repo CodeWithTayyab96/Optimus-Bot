@@ -60,17 +60,17 @@ function hasText(sent, substr) {
 (async () => {
     // 1) Missing-input / usage styled replies
     const usageCases = [
-        ['ai', { message: {} }, [], 'INVALID INPUT'],
+        ['ai', { message: {} }, [], 'Invalid input'],
         ['ai', { message: {} }, [], '.gpt <question> | .gemini <question>'],
-        ['reply', { message: {} }, [], 'INVALID INPUT'],
-        ['rewrite', { message: {} }, [], 'INVALID INPUT'],
+        ['reply', { message: {} }, [], 'Invalid input'],
+        ['rewrite', { message: {} }, [], 'Invalid input'],
         ['summarize', { message: {} }, [], 'Reply to any message with .summarize'],
-        ['imagine', { message: { conversation: '.imagine' } }, [], 'INVALID INPUT'],
-        ['magicstudio', { message: {} }, [], 'INVALID INPUT'],
-        ['gptimage', { message: {} }, [], 'OPTIMUS · AI_IMAGE.SYS'],
-        ['stt', { message: {} }, [], 'INVALID INPUT'],
+        ['imagine', { message: { conversation: '.imagine' } }, [], 'Invalid input'],
+        ['magicstudio', { message: {} }, [], 'Invalid input'],
+        ['gptimage', { message: {} }, [], 'AI Image'],
+        ['stt', { message: {} }, [], 'Invalid input'],
         ['voicesummary', { message: {} }, [], 'Reply to a voice note or audio with .voicesummary'],
-        ['study', { message: {} }, [], 'OPTIMUS · AI_STUDY.SYS'],
+        ['study', { message: {} }, [], 'AI Study'],
     ];
     for (const [cmdName, msg, args, substr] of usageCases) {
         const sent = await runWith(cmdName, msg, args);
@@ -93,7 +93,7 @@ function hasText(sent, substr) {
     check('imagine: style.processing used', src.imagine.includes("style.processing('Creating your image...')"));
     // A trailing ellipsis is stripped: the "[PROCESS]" tag already says the
     // operation is ongoing, so "Downloading..." would double it up.
-    check('processing output compact', style.processing('Creating your image...') === '[PROCESS] Creating your image');
+    check('processing output compact', style.processing('Creating your image...') === '⏳ Creating your image');
     check('processing keeps a single ellipsis-free line', !style.processing('Working on it...').includes('...'));
 
     // 4) Payloads + quoted replies + channelInfo preserved
