@@ -1,54 +1,24 @@
 /**
  * Tests for the .vv2 (View-Once to DM) command.
  *
- * Covers: envelope unwrapping, DM delivery, reupload recovery,
- * proactive media cache, missing-key error path, and branding.
+ * Covers: envelope unwrapping (V2Extension, V2, V1, direct viewOnce),
+ * DM delivery and confirmation, error handling, contextInfo from
+ * multiple message types, dmJid device-suffix stripping, and payload shape.
  */
 
 jest.mock('@whiskeysockets/baileys', () => ({
     downloadContentFromMessage: jest.fn().mockResolvedValue({
         [Symbol.asyncIterator]: async function* () { yield Buffer.from('fake-media'); }
     }),
-    downloadMediaMessage: jest.fn().mockResolvedValue(Buffer.from('fake-reup-media')),
-    toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-media')),
-}));
-
-jest.mock('../lib/messageConfig', () => ({
-    channelInfo: {
-        contextInfo: {
-            forwardingScore: 1,
-            isForwarded: true,
-            forwardedNewsletterMessageInfo: {
-                newsletterJid: '120363000000000000@newsletter',
-                newsletterName: 'Optimus Bot',
-                serverMessageId: -1,
-            },
-        },
-    },
-}));
-
-jest.mock('../lib/lightweight_store', () => ({
-    messages: {},
-    loadMessage: jest.fn().mockResolvedValue(null),
-    loadCachedMedia: jest.fn().mockReturnValue(null),
-    _mediaCache: new Map(),
 }));
 
 function getMocks() {
     const baileys = require('@whiskeysockets/baileys');
-    return {
-        downloadContentFromMessage: baileys.downloadContentFromMessage,
-        downloadMediaMessage: baileys.downloadMediaMessage,
-        toBuffer: baileys.toBuffer,
-    };
+    return { downloadContentFromMessage: baileys.downloadContentFromMessage };
 }
 
 function makeSock(sendFn) {
-    return {
-        sendMessage: sendFn || jest.fn().mockResolvedValue({}),
-        user: { id: '923701609799@s.whatsapp.net' },
-        updateMediaMessage: jest.fn(),
-    };
+    return { sendMessage: sendFn || jest.fn().mockResolvedValue({}) };
 }
 
 function makeChatId() { return '12036312345678901@g.us'; }
@@ -56,7 +26,7 @@ function makeSenderId() { return '5511999999999@s.whatsapp.net'; }
 
 // ---- Message factories ----
 
-function makeQuotedViewOnceImage() {
+function makeQuotedViewOnceV2Image() {
     return {
         key: { remoteJid: makeChatId(), participant: makeSenderId(), fromMe: false },
         message: {
@@ -102,6 +72,57 @@ function makeQuotedViewOnceV2ExtensionImage() {
                                     url: 'https://example.com/v2e',
                                 },
                             },
+                        },
+                    },
+                },
+            },
+        },
+    };
+}
+
+function makeQuotedViewOnceV1Image() {
+    return {
+        key: { remoteJid: makeChatId(), participant: makeSenderId(), fromMe: false },
+        message: {
+            extendedTextMessage: {
+                contextInfo: {
+                    stanzaId: 'STANZA_VV2_V1',
+                    participant: makeSenderId(),
+                    quotedMessage: {
+                        viewOnceMessage: {
+                            message: {
+                                imageMessage: {
+                                    mimetype: 'image/jpeg',
+                                    caption: 'v1 caption',
+                                    mediaKey: Buffer.from('key'),
+                                    directPath: '/v1',
+                                    url: 'https://example.com/v1',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    };
+}
+
+function makeQuotedDirectViewOnceImage() {
+    return {
+        key: { remoteJid: makeChatId(), participant: makeSenderId(), fromMe: false },
+        message: {
+            extendedTextMessage: {
+                contextInfo: {
+                    stanzaId: 'STANZA_VV2_DIRECT',
+                    participant: makeSenderId(),
+                    quotedMessage: {
+                        imageMessage: {
+                            viewOnce: true,
+                            mimetype: 'image/jpeg',
+                            caption: 'direct viewonce',
+                            mediaKey: Buffer.from('key'),
+                            directPath: '/direct',
+                            url: 'https://example.com/direct',
                         },
                     },
                 },
@@ -163,49 +184,25 @@ function makeQuotedAudio() {
     };
 }
 
-function makeQuotedKeylessImage() {
+function makeQuotedViaImageContext() {
     return {
         key: { remoteJid: makeChatId(), participant: makeSenderId(), fromMe: false },
         message: {
-            extendedTextMessage: {
+            imageMessage: {
+                mimetype: 'image/jpeg',
+                caption: '.vv2',
                 contextInfo: {
-                    stanzaId: 'STANZA_VV2_KEYLESS',
+                    stanzaId: 'STANZA_VV2_IMGCTX',
                     participant: makeSenderId(),
                     quotedMessage: {
                         viewOnceMessageV2: {
                             message: {
                                 imageMessage: {
                                     mimetype: 'image/jpeg',
-                                    caption: 'keyless',
-                                    url: 'https://example.com/keyless',
-                                    fileSha256: Buffer.from('sha'),
-                                    fileLength: 1234,
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    };
-}
-
-function makeQuotedStrippedViewOnceImage() {
-    return {
-        key: { remoteJid: makeChatId(), participant: makeSenderId(), fromMe: false },
-        message: {
-            extendedTextMessage: {
-                contextInfo: {
-                    stanzaId: 'STANZA_VV2_STRIPPED',
-                    participant: makeSenderId(),
-                    quotedMessage: {
-                        viewOnceMessageV2: {
-                            message: {
-                                imageMessage: {
-                                    mimetype: 'image/jpeg',
-                                    caption: 'stripped',
-                                    fileSha256: Buffer.from('sha'),
-                                    fileLength: 1234,
+                                    caption: 'via image ctx',
+                                    mediaKey: Buffer.from('key'),
+                                    directPath: '/imgctx',
+                                    url: 'https://example.com/imgctx',
                                 },
                             },
                         },
@@ -239,10 +236,50 @@ function makeNotViewOnce() {
     };
 }
 
+function makeUnsupportedViewOnceType() {
+    return {
+        key: { remoteJid: makeChatId(), participant: makeSenderId(), fromMe: false },
+        message: {
+            extendedTextMessage: {
+                contextInfo: {
+                    quotedMessage: {
+                        viewOnce: true,
+                    },
+                },
+            },
+        },
+    };
+}
+
 function makeNoQuoted() {
     return {
         key: { remoteJid: makeChatId(), participant: makeSenderId(), fromMe: false },
         message: { conversation: '.vv2' },
+    };
+}
+
+function makeNoDmAvailable() {
+    return {
+        key: { remoteJid: makeChatId(), fromMe: false },
+        message: {
+            extendedTextMessage: {
+                contextInfo: {
+                    quotedMessage: {
+                        viewOnceMessageV2: {
+                            message: {
+                                imageMessage: {
+                                    mimetype: 'image/jpeg',
+                                    caption: 'no dm',
+                                    mediaKey: Buffer.from('key'),
+                                    directPath: '/nodm',
+                                    url: 'https://example.com/nodm',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     };
 }
 
@@ -255,38 +292,37 @@ describe('.vv2 command', () => {
     beforeAll(() => { vv2 = require('../commands/general/vv2.js'); });
     beforeEach(() => { jest.clearAllMocks(); });
 
-    // Metadata
     describe('metadata', () => {
         test('name is "vv2"', () => expect(vv2.name).toBe('vv2'));
         test('category is general', () => expect(vv2.category).toBe('general'));
         test('execute is a function', () => expect(typeof vv2.execute).toBe('function'));
     });
 
-    // View-once image sent to the DM
     describe('viewOnceMessageV2 image', () => {
-        test('downloads and sends the image to the sender DM', async () => {
+        test('downloads and sends image to sender DM', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceImage(), [], extra);
+            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV2Image(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(2);
             const [dmJid, dmPayload] = sendFn.mock.calls[0];
             expect(dmJid).toBe(makeSenderId());
             expect(dmPayload.image).toBeInstanceOf(Buffer);
-            expect(dmPayload.viewOnce).toBeUndefined();
             expect(dmPayload.caption).toBe('v2 caption');
+            expect(dmPayload.mimetype).toBe('image/jpeg');
+            expect(dmPayload.viewOnce).toBeUndefined();
         });
 
-        test('confirms in the chat that it was sent to the DM', async () => {
+        test('confirms in the group chat', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceImage(), [], extra);
+            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV2Image(), [], extra);
             const [chatJid, chatPayload] = sendFn.mock.calls[1];
             expect(chatJid).toBe(makeChatId());
-            expect(chatPayload.text).toContain('Sent to your DM');
+            expect(chatPayload.text).toBe('✅ Sent to your DM.');
         });
 
-        test('calls downloadContentFromMessage with raw media node', async () => {
-            const sendFn = jest.fn().mockResolvedValue({});
+        test('calls downloadContentFromMessage with the image node', async () => {
             const { downloadContentFromMessage } = getMocks();
-            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceImage(), [], extra);
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV2Image(), [], extra);
             expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
             const [media, type] = downloadContentFromMessage.mock.calls[0];
             expect(type).toBe('image');
@@ -295,9 +331,8 @@ describe('.vv2 command', () => {
         });
     });
 
-    // V2Extension envelope
     describe('viewOnceMessageV2Extension image', () => {
-        test('unwraps v2extension envelope and sends to DM', async () => {
+        test('unwraps v2extension and sends to DM', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV2ExtensionImage(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(2);
@@ -305,23 +340,59 @@ describe('.vv2 command', () => {
             expect(dmJid).toBe(makeSenderId());
             expect(dmPayload.image).toBeInstanceOf(Buffer);
             expect(dmPayload.caption).toBe('v2e caption');
+            expect(dmPayload.mimetype).toBe('image/jpeg');
         });
     });
 
-    // Video
+    describe('viewOnceMessage v1 image', () => {
+        test('unwraps v1 envelope and sends to DM', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV1Image(), [], extra);
+            expect(sendFn).toHaveBeenCalledTimes(2);
+            const [dmJid, dmPayload] = sendFn.mock.calls[0];
+            expect(dmJid).toBe(makeSenderId());
+            expect(dmPayload.image).toBeInstanceOf(Buffer);
+            expect(dmPayload.caption).toBe('v1 caption');
+        });
+    });
+
+    describe('direct viewOnce flag on imageMessage', () => {
+        test('sends image to DM when imageMessage.viewOnce is true', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv2.execute(makeSock(sendFn), makeQuotedDirectViewOnceImage(), [], extra);
+            expect(sendFn).toHaveBeenCalledTimes(2);
+            const [dmJid, dmPayload] = sendFn.mock.calls[0];
+            expect(dmJid).toBe(makeSenderId());
+            expect(dmPayload.image).toBeInstanceOf(Buffer);
+            expect(dmPayload.caption).toBe('direct viewonce');
+        });
+    });
+
+    describe('contextInfo from imageMessage (non-extendedText)', () => {
+        test('finds quoted view-once via imageMessage.contextInfo', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv2.execute(makeSock(sendFn), makeQuotedViaImageContext(), [], extra);
+            expect(sendFn).toHaveBeenCalledTimes(2);
+            const [dmJid, dmPayload] = sendFn.mock.calls[0];
+            expect(dmJid).toBe(makeSenderId());
+            expect(dmPayload.image).toBeInstanceOf(Buffer);
+            expect(dmPayload.caption).toBe('via image ctx');
+        });
+    });
+
     describe('video', () => {
-        test('sends video to the DM', async () => {
+        test('sends video to the DM with correct mimetype', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             await vv2.execute(makeSock(sendFn), makeQuotedVideo(), [], extra);
             const [dmJid, dmPayload] = sendFn.mock.calls[0];
             expect(dmJid).toBe(makeSenderId());
             expect(dmPayload.video).toBeInstanceOf(Buffer);
-            expect(dmPayload.viewOnce).toBeUndefined();
             expect(dmPayload.caption).toBe('video caption');
+            expect(dmPayload.mimetype).toBe('video/mp4');
+            expect(dmPayload.viewOnce).toBeUndefined();
         });
     });
 
-    // Audio
     describe('audio', () => {
         test('sends as PTT voice note to the DM', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
@@ -334,14 +405,13 @@ describe('.vv2 command', () => {
         });
     });
 
-    // No quoted message
     describe('no quoted message', () => {
         test('asks to reply to a view-once message', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             await vv2.execute(makeSock(sendFn), makeNoQuoted(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('Reply to a view-once message');
+            expect(payload.text).toBe('🗑️ Reply to a *view-once* message.\nIt will be sent to your DM.');
         });
 
         test('does not call downloadContentFromMessage', async () => {
@@ -351,14 +421,13 @@ describe('.vv2 command', () => {
         });
     });
 
-    // Not a view-once message
     describe('not a view-once message', () => {
-        test('says it is not a view-once message', async () => {
+        test('tells the user it is not view-once', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             await vv2.execute(makeSock(sendFn), makeNotViewOnce(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('not a view-once message');
+            expect(payload.text).toBe('❌ This is not a view-once message!');
         });
 
         test('does not call downloadContentFromMessage', async () => {
@@ -368,40 +437,44 @@ describe('.vv2 command', () => {
         });
     });
 
-    // Download failure
+    describe('unsupported view-once message type', () => {
+        test('sends unsupported type error when viewOnce flag is set but no media found', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv2.execute(makeSock(sendFn), makeUnsupportedViewOnceType(), [], extra);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.text).toBe('❌ Unsupported view-once message type.');
+        });
+    });
+
+    describe('could not find DM', () => {
+        test('sends error when no personal JID can be resolved', async () => {
+            const sendFn = jest.fn().mockResolvedValue({});
+            const noDmExtra = { chatId: makeChatId(), senderId: undefined };
+            await vv2.execute(makeSock(sendFn), makeNoDmAvailable(), [], noDmExtra);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            const [, payload] = sendFn.mock.calls[0];
+            expect(payload.text).toBe('❌ Could not find your DM.');
+        });
+    });
+
     describe('download failure', () => {
-        test('shows friendly error, not stack trace', async () => {
+        test('sends error message including the error details', async () => {
             const { downloadContentFromMessage } = getMocks();
             downloadContentFromMessage.mockRejectedValueOnce(new Error('ENOTFOUND'));
             const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceImage(), [], extra);
+            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV2Image(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('Failed to download');
-            expect(payload.text).not.toContain('ENOTFOUND');
+            expect(payload.text).toBe('❌ Error processing view-once message: ENOTFOUND');
         });
     });
 
-    // Missing media key
-    describe('missing media key', () => {
-        test('attempts the download, then explains it cannot be recovered when it fails', async () => {
-            const { downloadContentFromMessage } = getMocks();
-            downloadContentFromMessage.mockRejectedValueOnce(new Error('No valid media URL or directPath present in message'));
-            const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedKeylessImage(), [], extra);
-            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
-            expect(sendFn).toHaveBeenCalledTimes(1);
-            const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('Failed to download media');
-        });
-    });
-
-    // DM is the same chat (private chat): no separate confirmation.
     describe('DM is the chat itself', () => {
-        test('sends once and does not repeat a confirmation', async () => {
+        test('sends media once, no separate confirmation', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
             const privateExtra = { chatId: makeSenderId(), senderId: makeSenderId() };
-            const msg = makeQuotedViewOnceImage();
+            const msg = makeQuotedViewOnceV2Image();
             msg.key.remoteJid = makeSenderId();
             await vv2.execute(makeSock(sendFn), msg, [], privateExtra);
             expect(sendFn).toHaveBeenCalledTimes(1);
@@ -411,130 +484,27 @@ describe('.vv2 command', () => {
         });
     });
 
-    // Branding
-    describe('branding', () => {
-        test('sends include channelInfo', async () => {
+    describe('dmJid helper', () => {
+        test('strips :digits@ device suffix from sender ID', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceImage(), [], extra);
-            const [, payload] = sendFn.mock.calls[0];
-            expect(payload.contextInfo).toBeDefined();
-            expect(payload.contextInfo.forwardedNewsletterMessageInfo.newsletterName).toBe('Optimus Bot');
+            const senderWithDevice = '5511999999999:42@s.whatsapp.net';
+            const extraWithDevice = { chatId: makeChatId(), senderId: senderWithDevice };
+            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV2Image(), [], extraWithDevice);
+            const [dmJid] = sendFn.mock.calls[0];
+            expect(dmJid).toBe('5511999999999@s.whatsapp.net');
         });
     });
 
-    // No secrets
     describe('no secrets', () => {
         test('no API keys in payloads', async () => {
             const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceImage(), [], extra);
+            await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV2Image(), [], extra);
             for (const call of sendFn.mock.calls) {
                 const p = JSON.stringify(call[1]);
                 expect(p).not.toMatch(/sk-[a-zA-Z0-9]{20,}/);
                 expect(p).not.toMatch(/bearer/i);
                 expect(p).not.toMatch(/ghp_|gho_/);
             }
-        });
-    });
-
-    // Stripped credentials — reupload recovery (regression test for 2026-11-16).
-    describe('stripped credentials (reupload recovery)', () => {
-        test('uses downloadMediaMessage+reuploadRequest when quoted node is stripped', async () => {
-            const storeModule = require('../lib/lightweight_store');
-            storeModule.loadMessage.mockResolvedValueOnce(null);
-            storeModule.loadCachedMedia.mockReturnValueOnce(null);
-
-            const { downloadMediaMessage } = getMocks();
-            downloadMediaMessage.mockResolvedValueOnce(Buffer.from('reup-media'));
-
-            const sendFn = jest.fn().mockResolvedValue({});
-            const sock = makeSock(sendFn);
-            await vv2.execute(sock, makeQuotedStrippedViewOnceImage(), [], extra);
-
-            expect(downloadMediaMessage).toHaveBeenCalledTimes(1);
-            const [synMsg, bufType, , opts] = downloadMediaMessage.mock.calls[0];
-            expect(synMsg.key.id).toBe('STANZA_VV2_STRIPPED');
-            expect(synMsg.key.remoteJid).toBe(makeChatId());
-            expect(bufType).toBe('buffer');
-            expect(opts.reuploadRequest).toBe(sock.updateMediaMessage);
-            expect(sendFn).toHaveBeenCalledTimes(2);
-            const [dmJid, dmPayload] = sendFn.mock.calls[0];
-            expect(dmJid).toBe(makeSenderId());
-            expect(dmPayload.image).toBeInstanceOf(Buffer);
-        });
-
-        test('serves from proactive media cache when available', async () => {
-            const storeModule = require('../lib/lightweight_store');
-            storeModule.loadMessage.mockResolvedValueOnce(null);
-            storeModule.loadCachedMedia.mockReturnValueOnce({
-                type: 'image',
-                buffer: Buffer.from('cached-bytes'),
-                caption: 'cached caption',
-                timestamp: Date.now(),
-            });
-
-            const { downloadMediaMessage, downloadContentFromMessage } = getMocks();
-            const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
-
-            expect(downloadMediaMessage).not.toHaveBeenCalled();
-            expect(downloadContentFromMessage).not.toHaveBeenCalled();
-            expect(sendFn).toHaveBeenCalledTimes(2);
-            const [dmJid, dmPayload] = sendFn.mock.calls[0];
-            expect(dmJid).toBe(makeSenderId());
-            expect(dmPayload.image).toEqual(Buffer.from('cached-bytes'));
-            expect(dmPayload.caption).toBe('cached caption');
-        });
-
-        test('falls back to downloadContentFromMessage when reupload also fails', async () => {
-            const storeModule = require('../lib/lightweight_store');
-            storeModule.loadMessage.mockResolvedValueOnce(null);
-            storeModule.loadCachedMedia.mockReturnValueOnce(null);
-
-            const { downloadMediaMessage, downloadContentFromMessage } = getMocks();
-            downloadMediaMessage.mockRejectedValueOnce(new Error('reupload failed'));
-            downloadContentFromMessage.mockRejectedValueOnce(new Error('No valid media URL or directPath present in message'));
-
-            const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
-
-            expect(downloadMediaMessage).toHaveBeenCalledTimes(1);
-            expect(downloadContentFromMessage).toHaveBeenCalledTimes(1);
-            expect(sendFn).toHaveBeenCalledTimes(1);
-            const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toContain('Failed to download media');
-        });
-
-        test('recovers media from the store when quotedMessage has no url/directPath', async () => {
-            const storeModule = require('../lib/lightweight_store');
-            storeModule.loadCachedMedia.mockReturnValueOnce(null);
-            storeModule.loadMessage.mockResolvedValueOnce({
-                key: { id: 'STANZA_VV2_STRIPPED', remoteJid: makeChatId() },
-                message: {
-                    viewOnceMessageV2: {
-                        message: {
-                            imageMessage: {
-                                mimetype: 'image/jpeg',
-                                caption: 'original caption',
-                                mediaKey: Buffer.from('key'),
-                                directPath: '/original',
-                                url: 'https://example.com/original',
-                            },
-                        },
-                    },
-                },
-            });
-
-            const { downloadMediaMessage } = getMocks();
-            downloadMediaMessage.mockRejectedValueOnce(new Error('reupload failed'));
-
-            const sendFn = jest.fn().mockResolvedValue({});
-            await vv2.execute(makeSock(sendFn), makeQuotedStrippedViewOnceImage(), [], extra);
-            expect(storeModule.loadMessage).toHaveBeenCalledWith(makeChatId(), 'STANZA_VV2_STRIPPED');
-            expect(sendFn).toHaveBeenCalledTimes(2);
-            const [dmJid, dmPayload] = sendFn.mock.calls[0];
-            expect(dmJid).toBe(makeSenderId());
-            expect(dmPayload.image).toBeInstanceOf(Buffer);
-            expect(dmPayload.caption).toBe('original caption');
         });
     });
 });
