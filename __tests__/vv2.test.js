@@ -298,6 +298,29 @@ describe('.vv2 command', () => {
         test('execute is a function', () => expect(typeof vv2.execute).toBe('function'));
     });
 
+    describe('stripped media key recovery', () => {
+        function stripped() {
+            const m = makeQuotedViewOnceV2Image();
+            const inner = m.message.extendedTextMessage.contextInfo.quotedMessage.viewOnceMessageV2.message.imageMessage;
+            delete inner.url; delete inner.directPath; delete inner.mediaKey;
+            return m;
+        }
+        test('uses the proactive media cache when the quoted media has no url/key', async () => {
+            const store = require('../lib/lightweight_store');
+            const spy = jest.spyOn(store, 'loadCachedMedia').mockReturnValue({ buffer: Buffer.from('cached'), type: 'image', caption: 'from cache' });
+            const { downloadContentFromMessage } = getMocks();
+            downloadContentFromMessage.mockClear();
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv2.execute(makeSock(sendFn), stripped(), [], { chatId: makeChatId(), senderId: makeSenderId() });
+            const [dest, payload] = sendFn.mock.calls[0];
+            expect(dest).toBe(makeSenderId());
+            expect(payload.image.toString()).toBe('cached');
+            expect(payload.caption).toBe('from cache');
+            expect(downloadContentFromMessage).not.toHaveBeenCalled();
+            spy.mockRestore();
+        });
+    });
+
     describe('viewOnceMessageV2 image', () => {
         test('downloads and sends image to sender DM', async () => {
             const sendFn = jest.fn().mockResolvedValue({});

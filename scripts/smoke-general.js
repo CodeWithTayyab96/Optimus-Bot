@@ -136,7 +136,7 @@ function hasText(sent, substr) {
         ['sticker-alt', { message: {} }, [], 'reply to an image or video'],
         ['take', { message: {} }, [], 'Reply to a sticker'],
         ['emojimix', { message: { conversation: '.emojimix' } }, [], 'Example: .emojimix'],
-        ['viewonce', { message: {} }, [], 'view-once image or video'],
+        ['viewonce', { message: {} }, [], 'view-once image, video or voice note'],
         ['stickertelegram', { message: { conversation: '.tg' } }, [], 'Telegram sticker URL'],
         ['url', { message: {} }, [], 'send or reply to a media'],
     ];

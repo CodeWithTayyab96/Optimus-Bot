@@ -168,7 +168,7 @@ describe('.vv command', () => {
             await vv.execute(makeSock(sendFn), makeQuotedImageNoViewOnce(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toBe('❌ Please reply to a view-once image or video.');
+            expect(payload.text).toBe('❌ Please reply to a view-once image, video or voice note.');
         });
 
         test('does not call downloadContentFromMessage', async () => {
@@ -184,7 +184,7 @@ describe('.vv command', () => {
             await vv.execute(makeSock(sendFn), makeNoMedia(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toBe('❌ Please reply to a view-once image or video.');
+            expect(payload.text).toBe('❌ Please reply to a view-once image, video or voice note.');
         });
 
         test('does not call downloadContentFromMessage', async () => {
@@ -206,13 +206,30 @@ describe('.vv command', () => {
     });
 
     describe('download failure', () => {
-        test('error propagates to the caller (no try/catch in the command)', async () => {
+        test('replies with a friendly error instead of throwing', async () => {
             const { downloadContentFromMessage } = getMocks();
             downloadContentFromMessage.mockRejectedValueOnce(new Error('ENOTFOUND'));
-            await expect(
-                vv.execute(makeSock(jest.fn().mockResolvedValue({})), makeQuotedViewOnceImage(), [], extra)
-            ).rejects.toThrow('ENOTFOUND');
+            const sendFn = jest.fn().mockResolvedValue({});
+            await vv.execute(makeSock(sendFn), makeQuotedViewOnceImage(), [], extra);
+            expect(sendFn).toHaveBeenCalledTimes(1);
+            expect(sendFn.mock.calls[0][1].text).toMatch(/Could not download/);
         });
+    });
+
+    describe('wrapped view-once (viewOnceMessageV2 / V2Extension / legacy)', () => {
+        for (const wrapper of ['viewOnceMessageV2', 'viewOnceMessageV2Extension', 'viewOnceMessage']) {
+            test(`recovers media inside ${wrapper}`, async () => {
+                const msg = makeQuotedViewOnceImage('wrapped');
+                const inner = msg.message.extendedTextMessage.contextInfo.quotedMessage.imageMessage;
+                delete inner.viewOnce;
+                msg.message.extendedTextMessage.contextInfo.quotedMessage = { [wrapper]: { message: { imageMessage: inner } } };
+                const sendFn = jest.fn().mockResolvedValue({});
+                await vv.execute(makeSock(sendFn), msg, [], extra);
+                const [, payload] = sendFn.mock.calls[0];
+                expect(payload.image).toBeInstanceOf(Buffer);
+                expect(payload.caption).toBe('wrapped');
+            });
+        }
     });
 
     describe('no secrets', () => {

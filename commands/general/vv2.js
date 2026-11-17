@@ -1,4 +1,22 @@
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage, downloadMediaMessage } = require('@whiskeysockets/baileys');
+const store = require('../../lib/lightweight_store');
+
+const ENVELOPES = ['viewOnceMessageV2', 'viewOnceMessageV2Extension', 'viewOnceMessage', 'ephemeralMessage'];
+
+// Find the media node inside a (possibly wrapped) stored message.
+function findMedia(content, depth = 0) {
+  if (!content || depth > 10) return null;
+  for (const [key, type] of [['imageMessage', 'image'], ['videoMessage', 'video'], ['audioMessage', 'audio']]) {
+    if (content[key]) return { mtype: key, type, media: content[key] };
+  }
+  for (const k of ENVELOPES) {
+    if (content[k]?.message) {
+      const r = findMedia(content[k].message, depth + 1);
+      if (r) return r;
+    }
+  }
+  return null;
+}
 
 function dmJid(message, senderId) {
   let jid = senderId || message.key.participant || message.key.remoteJid || '';
@@ -69,16 +87,47 @@ async function vv2Command(sock, chatId, message, senderId) {
       return fail('❌ Could not find your DM.');
     }
 
-    const downloadType =
+    let media = actualMsg[mtype];
+    let downloadType =
       mtype === 'imageMessage' ? 'image' : mtype === 'videoMessage' ? 'video' : 'audio';
+    let buffer;
 
-    const mediaStream = await downloadContentFromMessage(actualMsg[mtype], downloadType);
-    let buffer = Buffer.from([]);
-    for await (const chunk of mediaStream) {
-      buffer = Buffer.concat([buffer, chunk]);
+    // WhatsApp often strips url/mediaKey from quoted view-once media: recover it
+    // from the proactive cache / message store before trying to download.
+    if (!media.url && !media.directPath && ctx.stanzaId) {
+      const cached = store.loadCachedMedia && store.loadCachedMedia(ctx.stanzaId);
+      if (cached?.buffer) {
+        buffer = cached.buffer;
+        media = { ...media, caption: cached.caption || media.caption };
+      } else {
+        const original = store.loadMessage && await store.loadMessage(chatId, ctx.stanzaId);
+        const stored = original?.message && findMedia(original.message);
+        if (stored) {
+          media = stored.media;
+          mtype = stored.mtype;
+          downloadType = stored.type;
+          actualMsg = { [mtype]: media };
+        }
+      }
     }
 
-    const caption = actualMsg[mtype]?.caption || '';
+    if (!buffer) {
+      try {
+        const mediaStream = await downloadContentFromMessage(media, downloadType);
+        const chunks = [];
+        for await (const chunk of mediaStream) chunks.push(chunk);
+        buffer = Buffer.concat(chunks);
+      } catch (e) {
+        // Last resort: ask WhatsApp to re-upload the media.
+        if (typeof downloadMediaMessage !== 'function') throw e;
+        buffer = await downloadMediaMessage(
+          { key: { remoteJid: chatId, id: ctx.stanzaId, participant: ctx.participant }, message: quotedMsg },
+          'buffer', {}, { reuploadRequest: sock.updateMediaMessage }
+        );
+      }
+    }
+
+    const caption = media.caption || '';
     const payload = /video/.test(mtype)
       ? { video: buffer, caption, mimetype: 'video/mp4' }
       : /image/.test(mtype)
