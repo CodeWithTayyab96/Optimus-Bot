@@ -71,8 +71,9 @@ async function viewonceCommand(sock, chatId, message) {
             : { audio: buffer, ptt: true, mimetype: 'audio/ogg; codecs=opus' };
         await sock.sendMessage(chatId, payload, { quoted: message });
     } catch (error) {
-        console.error('[vv]', error?.message || error);
-        await sock.sendMessage(chatId, { text: '❌ Could not download that media (it may have expired, or WhatsApp did not include its key).' }, { quoted: message });
+        const diag = store.diagnose ? store.diagnose(chatId, ctx?.stanzaId) : '';
+        console.error('[vv]', error?.message || error, '|', diag);
+        await sock.sendMessage(chatId, { text: '❌ Could not download that media.\n\n🔎 ' + diag }, { quoted: message });
     }
 }
 

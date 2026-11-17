@@ -140,8 +140,10 @@ async function vv2Command(sock, chatId, message, senderId) {
       await sock.sendMessage(chatId, { text: '✅ Sent to your DM.' }, { quoted: message });
     }
   } catch (error) {
-    console.error('[vv2]', error?.message || error);
-    await fail('❌ Error processing view-once message: ' + (error.message || 'Unknown error'));
+    const ci = Object.values(message.message || {}).map(v => v?.contextInfo).find(Boolean);
+    const diag = store.diagnose ? store.diagnose(chatId, ci?.stanzaId) : '';
+    console.error('[vv2]', error?.message || error, '|', diag);
+    await fail('❌ Error processing view-once message: ' + (error.message || 'Unknown error') + '\n\n🔎 ' + diag);
   }
 }
 

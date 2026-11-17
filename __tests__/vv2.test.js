@@ -489,7 +489,8 @@ describe('.vv2 command', () => {
             await vv2.execute(makeSock(sendFn), makeQuotedViewOnceV2Image(), [], extra);
             expect(sendFn).toHaveBeenCalledTimes(1);
             const [, payload] = sendFn.mock.calls[0];
-            expect(payload.text).toBe('❌ Error processing view-once message: ENOTFOUND');
+            expect(payload.text).toMatch(/^❌ Error processing view-once message: ENOTFOUND/);
+            expect(payload.text).toMatch(/🔎 arrival:/);
         });
     });
 
